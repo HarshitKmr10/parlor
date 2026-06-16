@@ -1,0 +1,59 @@
+{{/*
+Shared non-secret ConfigMap consumed via envFrom by every service AND by the
+warm-pool bot pods (the dispatcher mounts the ConfigMap named
+MEETING_JOINER_CONFIGMAP onto each bot pod). The name therefore MUST match the
+value we wire into the backend env. See _helpers.tpl / configMapName.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "verdant.configMapName" . }}
+  labels:
+    {{- include "verdant.labels" . | nindent 4 }}
+data:
+  # ── Service basics ──
+  LOG_LEVEL: {{ .Values.logLevel | quote }}
+  HOST: "0.0.0.0"
+
+  # ── Runtime mode (backend product API) ──
+  RUNTIME_MODE: {{ .Values.runtimeMode | quote }}
+  MEETING_BOT_MODE: {{ .Values.meetingBotMode | quote }}
+  MEETING_JOINER_DB_DRIVER: "pg"
+  MEETING_JOINER_SCHEMA: "public"
+  MEETING_JOINER_USE_WARM_POOL: {{ eq .Values.runtimeMode "k8s" | quote }}
+
+  # ── Backend service wiring ──
+  AI_SERVICE_URL: "http://{{ include "verdant.componentName" (dict "ctx" . "component" "ai-service") }}:{{ .Values.aiService.service.port }}"
+  ALLOWED_ORIGINS: {{ join "," .Values.backend.allowedOrigins | quote }}
+  ALLOWED_HOSTS: {{ .Values.backend.allowedHosts | quote }}
+  CALENDAR_OAUTH_REDIRECT_BASE: {{ .Values.backend.calendarOauthRedirectBase | quote }}
+
+  # ── STT / LLM provider selection (backend + bot worker) ──
+  LLM_PROVIDER: {{ .Values.sttProvider | quote }}
+  TRANSCRIPTION_LANGUAGE: {{ .Values.botWorker.transcriptionLanguage | quote }}
+
+  # ── AI service ──
+  AI_MODE: {{ .Values.aiMode | quote }}
+  AI_PROVIDER_ORDER: {{ .Values.aiProviderOrder | quote }}
+  AI_SERVICE_PORT: {{ .Values.aiService.service.port | quote }}
+
+  # ── Bot worker / warm pool ──
+  PORT: {{ .Values.botWorker.service.port | quote }}
+  NODE_ENV: "production"
+  BOT_NAME: {{ .Values.botWorker.botName | quote }}
+  MAX_MEETING_DURATION_MINUTES: {{ .Values.botWorker.maxMeetingDurationMinutes | quote }}
+  AUTO_LEAVE_TIMEOUT_MINUTES: {{ .Values.botWorker.autoLeaveTimeoutMinutes | quote }}
+  MEETING_JOINER_ENABLED_PLATFORMS: {{ .Values.botWorker.enabledPlatforms | quote }}
+  GOOGLEMEET_TRANSCRIPT_SOURCE: {{ .Values.botWorker.googlemeetTranscriptSource | quote }}
+  MSTEAMS_TRANSCRIPT_SOURCE: {{ .Values.botWorker.msteamsTranscriptSource | quote }}
+  MEETING_JOINER_STORAGE_REQUIRED: {{ .Values.botWorker.storageRequired | quote }}
+
+  # ── Warm-pool dispatcher (k8s runtime). The dispatcher reads these to know
+  #    which namespace/SA/images/ConfigMap/Secret to use for bot pods. ──
+  MEETING_NAMESPACE: {{ default .Release.Namespace .Values.botWorker.warmPool.namespace | quote }}
+  MEETING_SERVICE_ACCOUNT_NAME: {{ include "verdant.serviceAccountName" . | quote }}
+  MEETING_WORKER_IMAGE: {{ include "verdant.image" (dict "ctx" . "image" .Values.botWorker.image) | quote }}
+  MEETING_JOINER_CONFIGMAP: {{ include "verdant.configMapName" . | quote }}
+  MEETING_JOINER_SECRET: {{ include "verdant.secretName" . | quote }}
+  WARM_POOL_SIZE: {{ .Values.botWorker.warmPool.size | quote }}
+  WARM_POOL_MAX: {{ .Values.botWorker.warmPool.max | quote }}

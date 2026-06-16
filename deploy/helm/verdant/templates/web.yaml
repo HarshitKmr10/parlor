@@ -1,0 +1,84 @@
+{{- if .Values.web.enabled }}
+{{- $component := "web" }}
+{{- $backendSvc := include "verdant.componentName" (dict "ctx" . "component" "backend") }}
+{{- $apiInternal := .Values.web.apiInternalUrl | default (printf "http://%s:%v" $backendSvc .Values.backend.service.port) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "verdant.componentName" (dict "ctx" . "component" $component) }}
+  labels:
+    {{- include "verdant.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 8 }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "verdant.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: web
+          image: {{ include "verdant.image" (dict "ctx" . "image" .Values.web.image) }}
+          imagePullPolicy: {{ include "verdant.pullPolicy" (dict "ctx" . "image" .Values.web.image) }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.web.service.port }}
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: {{ .Values.web.service.port | quote }}
+            - name: HOSTNAME
+              value: "0.0.0.0"
+            # Browser → backend (public). Baked into the client bundle at build
+            # time; provided here for SSR/runtime fallback.
+            - name: NEXT_PUBLIC_API_URL
+              value: {{ .Values.web.publicApiUrl | quote }}
+            # SSR / route handlers → backend over in-cluster DNS.
+            - name: API_INTERNAL_URL
+              value: {{ $apiInternal | quote }}
+            {{- with .Values.web.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            {{- toYaml .Values.web.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.web.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+      {{- with .Values.web.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.web.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.web.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "verdant.componentName" (dict "ctx" . "component" $component) }}
+  labels:
+    {{- include "verdant.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+spec:
+  type: {{ .Values.web.service.type }}
+  selector:
+    {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.web.service.port }}
+      targetPort: http
+{{- end }}

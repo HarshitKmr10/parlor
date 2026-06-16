@@ -1,0 +1,25 @@
+{{- if .Values.dbInit.enabled }}
+{{/*
+Bundles the bootstrap SQL into a ConfigMap the db-init Job applies in order.
+Sourced verbatim from backend/db/*.sql (copied into the chart under files/db).
+All three scripts are idempotent; re-applying on an existing DB is safe.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "verdant.fullname" . }}-dbinit
+  labels:
+    {{- include "verdant.labels" . | nindent 4 }}
+  annotations:
+    # Run as a hook (weight before the Job) so it exists when the Job mounts it.
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+data:
+  00_bootstrap.sql: |
+{{ .Files.Get "files/db/bootstrap.sql" | indent 4 }}
+  01_product_auth.sql: |
+{{ .Files.Get "files/db/0002_product_auth.sql" | indent 4 }}
+  02_calendar_integrations.sql: |
+{{ .Files.Get "files/db/0003_calendar_integrations.sql" | indent 4 }}
+{{- end }}

@@ -1,0 +1,424 @@
+# =============================================================================
+# Verdant — default values
+# =============================================================================
+# These defaults aim for a "safe-but-blank" production-shaped install:
+#   - no in-cluster Postgres (point at a managed DB)
+#   - secrets sourced from .Values or an existingSecret (NEVER baked here)
+#   - sane resource requests/limits and probes for every component
+#
+# For a one-command local cluster (k3s/kind) use values-dev.yaml, which flips
+# postgres on, AI to mock mode, and the runtime to standalone bots.
+# For production copy values-prod.yaml.example and fill it in.
+# =============================================================================
+
+# ── Global settings shared by every component ────────────────────────────────
+global:
+  # Registry prefix prepended to every image repository (leave "" to use fully
+  # qualified repositories per component, or to pull from Docker Hub library).
+  imageRegistry: ""
+  # Default image tag for all components. Empty => falls back to Chart.appVersion.
+  imageTag: ""
+  # Default imagePullPolicy. Use IfNotPresent in prod, Always for :latest in dev.
+  imagePullPolicy: IfNotPresent
+  # Secrets for pulling from private registries (list of {name: <secretName>}).
+  imagePullSecrets: []
+
+# Override the generated chart/release name if you need a specific prefix.
+nameOverride: ""
+fullnameOverride: ""
+
+# Extra labels applied to every rendered object.
+commonLabels: {}
+
+# =============================================================================
+# Secrets
+# =============================================================================
+# NO REAL SECRETS LIVE IN THIS CHART. Provide them one of two ways:
+#
+#   1. existingSecret: reference a Secret you created out-of-band, e.g.
+#        kubectl create secret generic verdant-secrets \
+#          --from-literal=JWT_SECRET=... --from-literal=ANTHROPIC_API_KEY=...
+#      Set secrets.existingSecret to its name and leave secrets.data empty.
+#
+#   2. secrets.data: let the chart render a Secret from these values. Only use
+#      this with `helm install -f` files kept out of version control, or with
+#      --set on the CLI. The keys below mirror the app env contract.
+secrets:
+  # Name of a pre-existing Secret to consume via envFrom. When set, the chart
+  # does NOT render its own Secret and ignores secrets.data.
+  existingSecret: ""
+  # Key/value pairs rendered into a chart-managed Secret (Opaque, stringData).
+  # Anything left empty is simply omitted. Keep this empty in committed values
+  # files; pass real values via a private -f file or --set.
+  data:
+    # ── Core ──
+    JWT_SECRET: ""                      # REQUIRED in prod; product auth signing key
+    CALENDAR_TOKEN_KEY: ""              # Fernet key (url-safe base64, 32 bytes) for calendar OAuth tokens at rest
+    # ── AI providers (ai-service) ──
+    ANTHROPIC_API_KEY: ""
+    OPENAI_API_KEY: ""
+    # ── STT / cloud providers (backend + bot worker) ──
+    AWS_ACCESS_KEY_ID: ""
+    AWS_SECRET_ACCESS_KEY: ""
+    AZURE_OPENAI_API_KEY: ""
+    AZURE_OPENAI_ENDPOINT: ""
+    AZURE_SPEECH_KEY: ""
+    AZURE_SPEECH_REGION: ""
+    AZURE_SPEECH_ENDPOINT: ""
+    AZURE_STORAGE_CONNECTION_STRING: ""
+    # ── Calendar OAuth ──
+    GOOGLE_CLIENT_ID: ""
+    GOOGLE_CLIENT_SECRET: ""
+    MS_CLIENT_ID: ""
+    MS_CLIENT_SECRET: ""
+    # ── Meeting platforms ──
+    ZOOM_APP_CLIENT_ID: ""
+    ZOOM_APP_CLIENT_SECRET: ""
+    # ── Database (only used when postgres.enabled=false) ──
+    # If you point at an external DB, set externalDatabaseUrl below; it is
+    # injected as DATABASE_URL automatically. You may instead place a fully
+    # custom DSN here directly.
+    DATABASE_URL: ""
+
+# =============================================================================
+# Runtime behavior toggles (mirrors the app env contract)
+# =============================================================================
+# RUNTIME_MODE: "standalone" disables the K8s warm-pool / sidecar machinery —
+#   bots run as in-cluster Deployment replicas / subprocesses. Use for small
+#   self-hosted clusters. "k8s" enables the warm-pool dispatcher that creates
+#   bot pods on demand (needs the RBAC in rbac.yaml).
+runtimeMode: standalone
+
+# STT / ASR provider selection (LLM_PROVIDER for backend + bot worker):
+#   aws_transcribe | azure_speech | azure_openai | openai | local_whisper
+sttProvider: local_whisper
+
+# ai-service mode: mock (no keys, deterministic stubs) | live (calls providers).
+aiMode: live
+
+# Provider routing order for ai-service (comma-separated).
+aiProviderOrder: "anthropic,openai"
+
+# Bot dispatch mode in standalone runtime: subprocess | disabled.
+meetingBotMode: subprocess
+
+# Log level applied to all services.
+logLevel: INFO
+
+# =============================================================================
+# Backend (FastAPI product API, :8000)
+# =============================================================================
+backend:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: ""                        # overrides global.imageRegistry when set
+    repository: ghcr.io/your-org/verdant-meeting-api
+    tag: ""                             # overrides global.imageTag when set
+    pullPolicy: ""                      # overrides global.imagePullPolicy when set
+  service:
+    type: ClusterIP
+    port: 8000
+  # CORS origins the API accepts (comma-joined into ALLOWED_ORIGINS).
+  allowedOrigins:
+    - "https://verdant.example.com"
+  # Trusted hosts (ALLOWED_HOSTS). "*" is fine behind a trusted ingress.
+  allowedHosts: "*"
+  # Public base URL the OAuth providers redirect back to (calendar connect).
+  calendarOauthRedirectBase: "https://api.verdant.example.com"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  # Liveness/readiness probes hit the app's /health and /ready endpoints.
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  # Extra free-form env (list of {name,value} or {name,valueFrom}).
+  extraEnv: []
+  # Optional horizontal autoscaling for the backend.
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 75
+    targetMemoryUtilizationPercentage: 80
+
+# =============================================================================
+# AI service (FastAPI, :8100) — summaries / embeddings / chat (RAG over pgvector)
+# =============================================================================
+aiService:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: ""
+    repository: ghcr.io/your-org/verdant-ai-service
+    tag: ""
+    pullPolicy: ""
+  service:
+    type: ClusterIP
+    port: 8100
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnv: []
+
+# =============================================================================
+# Web (Next.js dashboard, :3000)
+# =============================================================================
+web:
+  enabled: true
+  replicaCount: 1
+  image:
+    registry: ""
+    repository: ghcr.io/your-org/verdant-web
+    tag: ""
+    pullPolicy: ""
+  service:
+    type: ClusterIP
+    port: 3000
+  # Browser → backend. MUST be the publicly reachable API URL (baked into the
+  # client bundle at build time; this env is the SSR/runtime fallback).
+  publicApiUrl: "https://api.verdant.example.com"
+  # SSR / route handlers → backend over in-cluster DNS. Empty => derived from
+  # the backend Service name automatically.
+  apiInternalUrl: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  livenessProbe:
+    httpGet:
+      path: /login
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /login
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnv: []
+
+# =============================================================================
+# Bot worker (Chromium meeting bot / warm-pool runtime, :3001 health)
+# =============================================================================
+# In RUNTIME_MODE=standalone this is the always-on pool of bot runtimes; scale
+# it with replicaCount (warm-pool size). In RUNTIME_MODE=k8s the backend's
+# dispatcher creates bot pods on demand and this Deployment can be scaled to 0.
+botWorker:
+  enabled: true
+  # Warm-pool size (number of ready bot replicas).
+  replicaCount: 1
+  image:
+    registry: ""
+    repository: ghcr.io/your-org/verdant-meeting-worker
+    tag: ""
+    pullPolicy: ""
+  service:
+    # Exposes the internal /health endpoint; not public.
+    type: ClusterIP
+    port: 3001
+  # Bot identity / behavior knobs (rendered into the shared ConfigMap).
+  botName: "AI Notetaker"
+  maxMeetingDurationMinutes: "480"
+  autoLeaveTimeoutMinutes: "3"
+  transcriptionLanguage: "en-US"
+  # Platform tuning (only the platforms you actually join matter).
+  enabledPlatforms: "googlemeet,zoom,msteams"
+  googlemeetTranscriptSource: "audio_asr"
+  msteamsTranscriptSource: "teams_captions"
+  # Whether recording upload to object storage is required to boot.
+  storageRequired: "false"
+  # Long-lived browser sessions: drain gracefully on rollout.
+  terminationGracePeriodSeconds: 60
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+  # The browser needs Xvfb + pulseaudio; liveness checks those processes.
+  livenessProbe:
+    exec:
+      command: ["sh", "-c", "pgrep -f Xvfb && pgrep -f pulseaudio"]
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  # /tmp scratch space for the browser + recordings.
+  tmpSizeLimit: 2Gi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  extraEnv: []
+  # ── Warm-pool dispatcher knobs (only relevant when runtimeMode=k8s) ──
+  warmPool:
+    # Namespace the dispatcher creates bot pods in (defaults to release ns).
+    namespace: ""
+    size: "5"
+    max: "50"
+
+# =============================================================================
+# Postgres (optional in-cluster pgvector for dev / small self-host)
+# =============================================================================
+# For production, set enabled=false and point at a managed DB via
+# externalDatabaseUrl (or the DATABASE_URL secret key).
+postgres:
+  enabled: false
+  image:
+    registry: ""
+    repository: pgvector/pgvector
+    tag: pg16
+    pullPolicy: IfNotPresent
+  auth:
+    username: meeting
+    password: meeting          # dev default; OVERRIDE for any shared cluster
+    database: meeting
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""           # "" => cluster default StorageClass
+    accessModes:
+      - ReadWriteOnce
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# External database DSN, used when postgres.enabled=false. Leave empty to
+# instead supply DATABASE_URL via secrets.data / existingSecret.
+externalDatabaseUrl: ""
+
+# =============================================================================
+# Database bootstrap Job
+# =============================================================================
+# Applies db/bootstrap.sql + 0002_product_auth.sql + 0003_calendar_integrations
+# against the target database as a Helm post-install/upgrade hook. The SQL is
+# idempotent. Disable if you manage migrations yourself.
+dbInit:
+  enabled: true
+  image:
+    registry: ""
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  # The SQL is provided via a ConfigMap the Job mounts. Keep this in sync with
+  # backend/db/*.sql — see templates/configmap-dbinit.yaml.
+  backoffLimit: 3
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# =============================================================================
+# ServiceAccount + RBAC
+# =============================================================================
+# The warm-pool dispatcher (runtimeMode=k8s) creates/manages bot pods and reads
+# the shared ConfigMap/Secret via the Kubernetes API, so the backend's
+# ServiceAccount needs namespaced pod + configmap/secret read permissions.
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+rbac:
+  # Create the Role + RoleBinding granting the warm-pool dispatcher pod perms.
+  # Auto-enabled effectively only matters when runtimeMode=k8s, but creating
+  # the (namespaced, least-privilege) Role is harmless otherwise.
+  create: true
+
+# =============================================================================
+# Ingress
+# =============================================================================
+# Routes: web at "/" and backend API at "/api" (+ websocket) on the same host,
+# or split hosts. Adjust to your controller.
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+    # nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+  # Single host with path-based routing (web at /, API at /api).
+  host: verdant.example.com
+  # Optional dedicated API host. When set, API routes use this host instead of
+  # the /api path on the web host.
+  apiHost: ""
+  tls:
+    enabled: false
+    secretName: verdant-tls

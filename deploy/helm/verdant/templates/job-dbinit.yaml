@@ -1,0 +1,67 @@
+{{- if .Values.dbInit.enabled }}
+{{/*
+Database bootstrap Job. Runs as a Helm post-install/post-upgrade hook so the
+schema is applied before (or alongside) the app pods. Reads DATABASE_URL from
+the same Secret the apps use, and applies the ordered SQL from the dbinit
+ConfigMap with psql. Idempotent — safe to re-run on every upgrade.
+*/}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "verdant.fullname" . }}-dbinit
+  labels:
+    {{- include "verdant.componentLabels" (dict "ctx" . "component" "db-init") | nindent 4 }}
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.dbInit.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "verdant.selectorLabels" (dict "ctx" . "component" "db-init") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "verdant.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: dbinit
+          image: {{ include "verdant.image" (dict "ctx" . "image" .Values.dbInit.image) }}
+          imagePullPolicy: {{ include "verdant.pullPolicy" (dict "ctx" . "image" .Values.dbInit.image) }}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              echo "Waiting for database to accept connections..."
+              until psql "$DATABASE_URL" -c 'SELECT 1' >/dev/null 2>&1; do
+                echo "  ...not ready yet, retrying in 3s"
+                sleep 3
+              done
+              echo "Applying schema (idempotent)..."
+              for f in /sql/00_bootstrap.sql /sql/01_product_auth.sql /sql/02_calendar_integrations.sql; do
+                echo "  -> $f"
+                psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
+              done
+              echo "Schema applied."
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "verdant.secretName" . }}
+                  key: DATABASE_URL
+          volumeMounts:
+            - name: sql
+              mountPath: /sql
+          resources:
+            {{- toYaml .Values.dbInit.resources | nindent 12 }}
+      volumes:
+        - name: sql
+          configMap:
+            name: {{ include "verdant.fullname" . }}-dbinit
+{{- end }}

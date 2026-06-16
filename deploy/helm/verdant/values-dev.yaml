@@ -1,0 +1,87 @@
+# =============================================================================
+# values-dev.yaml — local cluster (k3s / kind / minikube / Docker Desktop)
+# =============================================================================
+# One-command, fully in-cluster install with NO external dependencies and NO
+# real API keys:
+#   - in-cluster pgvector Postgres (auto-bootstrapped by the db-init Job)
+#   - ai-service in mock mode (deterministic stubs, no keys needed)
+#   - standalone runtime (no warm-pool; bots run as Deployment replicas)
+#   - local_whisper STT (no cloud STT creds)
+#   - ingress disabled (use kubectl port-forward, see NOTES)
+#
+#   helm install verdant ./deploy/helm/verdant -f deploy/helm/verdant/values-dev.yaml
+#
+# Override the image repos/tags below to point at your locally built/pushed
+# images (e.g. images loaded into kind via `kind load docker-image`).
+# =============================================================================
+
+global:
+  imageTag: "dev"
+  imagePullPolicy: IfNotPresent
+
+runtimeMode: standalone
+meetingBotMode: subprocess
+sttProvider: local_whisper
+aiMode: mock
+logLevel: DEBUG
+
+# In-cluster Postgres for dev.
+postgres:
+  enabled: true
+  auth:
+    username: meeting
+    password: meeting
+    database: meeting
+  persistence:
+    enabled: true
+    size: 5Gi
+
+# Dev secret values. These are throwaway local-only values — never use beyond
+# a local cluster. The chart renders a Secret from them (no existingSecret).
+secrets:
+  existingSecret: ""
+  data:
+    JWT_SECRET: "dev-insecure-change-me"
+
+backend:
+  replicaCount: 1
+  image:
+    repository: verdant-meeting-api
+  allowedOrigins:
+    - "http://localhost:3000"
+  allowedHosts: "*"
+  calendarOauthRedirectBase: "http://localhost:8000"
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: "500m", memory: 512Mi }
+
+aiService:
+  replicaCount: 1
+  image:
+    repository: verdant-ai-service
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: "500m", memory: 512Mi }
+
+web:
+  replicaCount: 1
+  image:
+    repository: verdant-web
+  publicApiUrl: "http://localhost:8000"
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits:   { cpu: "500m", memory: 512Mi }
+
+botWorker:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: verdant-meeting-worker
+  enabledPlatforms: "googlemeet"
+  storageRequired: "false"
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: "1", memory: 2Gi }
+
+ingress:
+  enabled: false
