@@ -1,0 +1,152 @@
+# =============================================================================
+# Verdant meeting-assistant — full dev stack
+# =============================================================================
+#   cp .env.example .env && make up        # build + start everything
+#   make smoke                             # run the end-to-end smoke test
+#   make down                              # stop and remove
+#
+# Topology (single shared pgvector Postgres):
+#
+#   web (Next :3000) ──browser──> backend (FastAPI :8000) ──> ai-service (:8100)
+#                                      │                            │
+#                                      └────────► postgres (pgvector) ◄────────┘
+#
+# Inter-service URLs use Docker DNS (service names). Host ports (left of ':')
+# are configurable in .env to dodge locally-occupied ports.
+# =============================================================================
+
+services:
+  # ── Shared Postgres + pgvector ─────────────────────────────────────────────
+  # ONE database, used by both backend (product/auth/meetings) and ai-service
+  # (meeting_embeddings, created by the ai-service on startup). Backend schema
+  # is applied from db/*.sql on first init, in order.
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: verdant-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-meeting}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meeting}
+      POSTGRES_DB: ${POSTGRES_DB:-meeting}
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - verdant_pgdata:/var/lib/postgresql/data
+      # Applied alphabetically on FIRST init of an empty data dir, in order.
+      - ./backend/db/bootstrap.sql:/docker-entrypoint-initdb.d/00_bootstrap.sql:ro
+      - ./backend/db/0002_product_auth.sql:/docker-entrypoint-initdb.d/01_product_auth.sql:ro
+      - ./backend/db/0003_calendar_integrations.sql:/docker-entrypoint-initdb.d/02_calendar_integrations.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meeting} -d ${POSTGRES_DB:-meeting}"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+    networks:
+      - verdant
+
+  # ── AI service (summaries / embeddings / chat) ─────────────────────────────
+  # Boots in mock mode with no keys. Creates the meeting_embeddings pgvector
+  # table on startup against the shared DB.
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: verdant-ai-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AI_MODE: ${AI_MODE:-mock}
+      AI_PROVIDER_ORDER: ${AI_PROVIDER_ORDER:-anthropic,openai}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AI_SERVICE_PORT: "8100"
+      # Same shared DB, via service-name DNS + internal port.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meeting}:${POSTGRES_PASSWORD:-meeting}@postgres:5432/${POSTGRES_DB:-meeting}
+    ports:
+      - "${AI_PORT:-8101}:8100"
+    healthcheck:
+      # Python stdlib only (image has no curl); 200 => healthy.
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8100/health').status==200 else 1)\""]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    networks:
+      - verdant
+
+  # ── Backend product API (standalone mode) ──────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: verdant-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meeting}:${POSTGRES_PASSWORD:-meeting}@postgres:5432/${POSTGRES_DB:-meeting}
+      RUNTIME_MODE: standalone
+      MEETING_JOINER_DB_DRIVER: pg
+      MEETING_JOINER_SCHEMA: public
+      MEETING_JOINER_USE_WARM_POOL: "false"
+      HOST: 0.0.0.0
+      PORT: "8000"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Product layer
+      JWT_SECRET: ${JWT_SECRET:-dev-insecure-change-me}
+      # Reach the ai-service over Docker DNS, internal port.
+      AI_SERVICE_URL: http://ai-service:8100
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3001}
+      ALLOWED_HOSTS: "*"
+      # Minimal bot config so the secret validator's hard requirements collapse
+      # to just DATABASE_URL — API boots with no platform/STT/storage creds.
+      MEETING_JOINER_ENABLED_PLATFORMS: googlemeet
+      GOOGLEMEET_TRANSCRIPT_SOURCE: gmeet_captions
+      MEETING_JOINER_STORAGE_REQUIRED: "false"
+    ports:
+      - "${API_PORT:-8001}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    networks:
+      - verdant
+
+  # ── Web (Next.js standalone) ───────────────────────────────────────────────
+  web:
+    build:
+      context: ./web
+      dockerfile: Dockerfile
+      args:
+        # Baked into the client bundle at build time (browser -> backend).
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8001}
+    container_name: verdant-web
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8001}
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    ports:
+      - "${WEB_PORT:-3001}:3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/login',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+    networks:
+      - verdant
+
+volumes:
+  verdant_pgdata:
+
+networks:
+  verdant:
+    driver: bridge

@@ -1,0 +1,18 @@
+node_modules
+.next
+.git
+# Single-package build: the workspace file makes pnpm 10 demand a `packages`
+# field. Native post-install builds it gates (sharp/unrs-resolver) aren't needed
+# for the standalone Next server.
+pnpm-workspace.yaml
+.DS_Store
+*.log
+npm-debug.log*
+.pnpm-debug.log*
+.env
+.env.*
+!.env.example
+coverage
+out
+build
+*.tsbuildinfo
