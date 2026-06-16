@@ -258,13 +258,15 @@ def _run_capture(
         mode = client.authenticate()
         console.print(f"[bold]Authenticated:[/] {mode}")
         if meeting_url is None:
+            # Botless desktop-capture: create a server-side meeting WITHOUT
+            # dispatching a bot. The backend assigns the synthetic desktop://
+            # URL; segments are streamed to /meetings/{id}/transcript.
+            created = client.create_botless_meeting(title=title)
+            meeting_id = created.get("id")
+            used_url = created.get("meetingUrl") or used_url
             console.print(
-                "[yellow]No --meeting-url given; the product API rejects "
-                "synthetic desktop:// URLs. Falling back to --local for this "
-                "run.[/] Pass a real meeting URL to create a backend meeting."
+                f"[bold]Botless meeting created:[/] {meeting_id} ({used_url})"
             )
-            client.close()
-            client = None
         else:
             created = client.create_meeting(
                 meeting_url=used_url, title=title, scheduled_at=None
@@ -316,11 +318,12 @@ def _run_capture(
             console.print("[green]Segments streamed to backend.[/]")
         else:
             console.print(
-                "[yellow]No public transcript-ingest endpoint was available[/] "
-                "(set --ingest-path if your backend mounts one)."
+                "[yellow]Transcript-ingest endpoint was unavailable[/] "
+                "(older backend?); the local transcript is kept and /summarize "
+                "will still run."
             )
         try:
-            client.stop_meeting(meeting_id)
+            client.complete_meeting(meeting_id)
             console.print("[green]Meeting finalized (status -> completed).[/]")
             if summarize:
                 console.print("Triggering /summarize ...")
