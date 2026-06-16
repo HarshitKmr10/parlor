@@ -1,0 +1,162 @@
+# =============================================================================
+# Verdant bot-runtime image (standalone backend/ layout).
+# =============================================================================
+# One image that serves the FastAPI product API AND can actually spawn the
+# real Playwright/Node meeting bot locally (LocalBotRunner subprocess path),
+# so the standalone stack no longer degrades to `bot_runtime_unavailable`.
+#
+# vs backend/Dockerfile.dev (lightweight, API-only):
+#   - that image has Python only — no Node, no Chromium, no display/audio, so
+#     LocalBotRunner's _runtime_check() returns bot_runtime_unavailable_no_*.
+#   - THIS image adds: Node 18 + pnpm + node_modules, Playwright Chromium +
+#     its system deps, Xvfb + pulseaudio + ffmpeg, and a local Whisper cache
+#     so keyless STT (LLM_PROVIDER=local_whisper) works with no cloud keys.
+#
+# The entrypoint starts Xvfb (:99) + pulseaudio, then execs uvicorn. The SAME
+# container serves the API and spawns bots that open Chromium on DISPLAY=:99.
+#
+# It is intentionally large/slow to build (browser + browser deps + node_modules
+# + python deps). Use Dockerfile.dev for fast API-only iteration.
+#
+# NOTE on the standalone layout: there is NO monorepo `core/` or
+# `meeting-joiner/` path here. The app lives at /app/src/... (not
+# /app/meeting-joiner/src/...). The compose override sets
+# NODE_BOT_ENTRYPOINT=/app/src/bot/bot_scripts/sidecar_launcher.js so
+# LocalBotRunner resolves the bot tree in this layout.
+# =============================================================================
+
+# Debian-based python image (glibc) so Playwright's Chromium + system deps and
+# the @xenova/transformers (onnxruntime) prebuilt binaries work out of the box.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+
+# ── System packages ─────────────────────────────────────────────────────────
+# build deps for asyncpg/argon2 wheels (mirrors Dockerfile.dev) PLUS the
+# display/audio/media stack the bot needs (mirrors meeting_worker.Dockerfile):
+#   - xvfb + xauth + xdpyinfo  → virtual display :99 for headful Chromium
+#   - pulseaudio + utils       → virtual audio sink for capture
+#   - ffmpeg                   → audio decode for local whisper STT
+#   - curl/gnupg/ca-certs      → nodesource + healthcheck
+# Playwright's own browser OS deps are installed later via
+# `playwright install --with-deps chromium`, so we keep this list lean.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      gcc g++ libpq-dev postgresql-client \
+      curl gnupg ca-certificates \
+      xvfb xauth x11-utils \
+      pulseaudio pulseaudio-utils \
+      ffmpeg \
+ && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+ && apt-get install -y --no-install-recommends nodejs \
+ && rm -rf /var/lib/apt/lists/* \
+ && node --version && ffmpeg -version | head -1
+
+# pnpm (matches the project's package manager / pnpm-lock.yaml).
+RUN npm install -g pnpm@9
+
+# ── Python API deps (identical to Dockerfile.dev) ────────────────────────────
+COPY requirements-dev.txt ./
+RUN pip install -r requirements-dev.txt
+
+# faster-whisper powers the *Python* local_whisper STT path
+# (src/services/transcribe_service.py). It is keyless and downloads a small
+# CTranslate2 model on first use into HF_HOME (persisted via volume / baked
+# below). Kept out of requirements-dev.txt so the lightweight API image stays
+# small; this is the bot-runtime image where STT actually runs.
+RUN pip install --no-cache-dir "faster-whisper>=1.0,<2.0"
+
+# ── Node deps (pnpm install against the project lockfile) ────────────────────
+# Copy manifests first for layer caching, then install. node_modules includes
+# playwright + playwright-extra + @xenova/transformers (local whisper in JS).
+COPY package.json pnpm-lock.yaml ./
+# Browsers live in a shared, world-readable path so the bot resolves Chromium
+# regardless of HOME (LocalBotRunner._chromium_present also probes ~/.cache,
+# but PLAYWRIGHT_BROWSERS_PATH is the canonical location).
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
+# pnpm postinstall scripts (playwright) are not run with --ignore-scripts; we
+# install the browser explicitly below for determinism.
+RUN pnpm install --frozen-lockfile --prod=false \
+ || pnpm install --no-frozen-lockfile --prod=false
+
+# ── Playwright Chromium + OS deps ────────────────────────────────────────────
+# CRITICAL: the bot drives `require('playwright-extra')`, which loads a
+# DIFFERENT playwright-core than the top-level `playwright` dep (playwright-extra
+# pulls its own playwright-core, often a newer minor that expects a newer
+# Chromium build revision). Running the top-level `npx playwright install`
+# downloads the WRONG revision and the bot fails at launch with
+# "Executable doesn't exist at .../chromium-<rev>/chrome-linux/chrome".
+#
+# So we install browsers using the EXACT playwright-core that playwright-extra
+# resolves — guaranteeing the downloaded chromium revision matches what the bot
+# launches at runtime. We additionally run the top-level `install --with-deps`
+# once purely to pull the OS apt packages Chromium needs (libnss3, libgbm1,
+# fonts, etc.); the binary it fetches is harmless (a few hundred MB) but the one
+# the runtime uses is the playwright-extra-core one.
+RUN PWX_CORE_CLI="$(node -e "const p=require.resolve('playwright-core/package.json',{paths:[require.resolve('playwright-extra')]}); console.log(require('path').join(require('path').dirname(p),'cli.js'))")" \
+ && echo "playwright-extra core CLI: $PWX_CORE_CLI" \
+ # OS deps (apt) via top-level playwright — these are shared across revisions.
+ && npx playwright install-deps chromium \
+ # The actual runtime browser: install chromium with the resolved core so the
+ # build revision matches what playwright-extra launches.
+ && node "$PWX_CORE_CLI" install chromium \
+ && chmod -R a+rX /opt/ms-playwright \
+ && echo "Playwright chromium installed at $PLAYWRIGHT_BROWSERS_PATH" \
+ && ls /opt/ms-playwright \
+ # Pin a STABLE symlink to the chromium the runtime core resolves, so the Python
+ # runtime gate (LocalBotRunner._chromium_present, which reads CHROMIUM_PATH)
+ # finds a real binary. Resolve it via the runtime core's executablePath().
+ && CHROME_BIN="$(node -e "const core=require(require.resolve('playwright-core',{paths:[require.resolve('playwright-extra')]})); console.log(core.chromium.executablePath())")" \
+ && echo "runtime chromium executablePath: $CHROME_BIN" \
+ && test -x "$CHROME_BIN" \
+ && ln -sf "$CHROME_BIN" /usr/local/bin/chromium \
+ && echo "linked chromium -> $CHROME_BIN"
+
+# Point both the Python runtime gate and any consumer at the stable symlink.
+ENV CHROMIUM_PATH=/usr/local/bin/chromium \
+    PLAYWRIGHT_CHROMIUM_PATH=/usr/local/bin/chromium
+
+# ── Local Whisper model cache (keyless STT, no per-run download) ──────────────
+# STT cache notes:
+#   - Py  (faster-whisper): honors HF_HOME / TRANSFORMERS_CACHE → /opt/hf-cache.
+#   - JS  (@xenova/transformers v2): does NOT read those env vars; it caches in
+#     its own package dir (node_modules/.../@xenova/transformers/.cache). The
+#     pre-bake below loads the model so those files are baked there and the
+#     first real transcription is offline (no ~40MB download). HF_HOME/
+#     TRANSFORMERS_CACHE are still set for the Python path and for forward
+#     compat. If the build host has no network the bake is non-fatal and the
+#     model downloads on first run instead. Either way STT is keyless.
+ENV HF_HOME=/opt/hf-cache \
+    TRANSFORMERS_CACHE=/opt/hf-cache \
+    WHISPER_MODEL=tiny.en
+RUN mkdir -p /opt/hf-cache \
+ && node -e "import('@xenova/transformers').then(async (t)=>{await t.pipeline('automatic-speech-recognition','Xenova/whisper-tiny.en');console.log('baked whisper-tiny.en into '+process.env.HF_HOME);}).catch((e)=>{console.log('whisper pre-bake skipped (will download on first run): '+e.message);})" \
+ && chmod -R a+rX /opt/hf-cache || true
+
+# ── Application source ───────────────────────────────────────────────────────
+# Mounted as a volume in compose for live reload, but copied so the image is
+# runnable standalone.
+COPY . /app
+
+# ── Entrypoint: start Xvfb + pulseaudio, then exec the API ───────────────────
+# Reuses the start-up logic of src/bot/start-bot-runtime.sh (Xvfb :99 + pulse +
+# virtual sink) but, instead of idling, EXECs uvicorn so the API and the bots
+# it spawns share this container + virtual display.
+COPY docker/botruntime-entrypoint.sh /usr/local/bin/botruntime-entrypoint.sh
+RUN chmod +x /usr/local/bin/botruntime-entrypoint.sh
+
+ENV PYTHONPATH=/app \
+    DISPLAY=:99 \
+    RUNNING_IN_DOCKER=true \
+    HOME=/root \
+    XDG_RUNTIME_DIR=/tmp/runtime-root
+
+EXPOSE 8000
+
+ENTRYPOINT ["/usr/local/bin/botruntime-entrypoint.sh"]
+CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
