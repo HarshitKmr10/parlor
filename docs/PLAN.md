@@ -58,11 +58,11 @@ A focused AI meeting assistant that, per meeting:
   diarization, recording+playback, AI summary/actions/chapters, chat-with-meeting w/ citations,
   follow-up email, core integrations (Slack/Notion/HubSpot/Gmail/Outlook), shareable links+clips,
   search, consent/retention controls, free tier + per-seat pricing.
-- **Our differentiator bets (pick the wedge):**
-  - **B2 — Proactive agent that *acts*** (auto recap email + CRM/ticket write). _The defining 2026 shift._
-  - **B5 — Rich live meeting view** with in-meeting cited Q&A (underserved by indies).
-  - **B7 — MCP server** exposing the meeting knowledge base to ChatGPT/Claude (cheap, enterprise-expected).
-  - _(Optional B1 botless capture later — we already have bots, so this is lower priority for us.)_
+- **Our differentiator wedge (LOCKED):**
+  - **B5 — Rich live meeting view** with real-time active-speaker + in-meeting cited Q&A. _Signature surface._
+  - **B7 — MCP server** exposing the meeting knowledge base to ChatGPT/Claude.
+  - **B1 — Botless desktop capture** (Granola-style system-audio) as a second capture mode alongside our bots.
+  - _(Proactive agent deferred to a later phase — not in the initial wedge.)_
 
 ---
 
@@ -78,18 +78,18 @@ Full spec + tokens in [`docs/DESIGN-SYSTEM.md`](./DESIGN-SYSTEM.md). Headlines:
 
 ---
 
-## 4. Key architecture decisions (forks to confirm — see §7)
+## 4. Key architecture decisions (LOCKED 2026-06-16)
 
-1. **Bots: keep self-built vs adopt Recall.ai.** _Recommendation: KEEP self-built._ We already have working
-   Zoom/Meet/Teams capture — this is the expensive part everyone else buys. Keep it as our cost/IP moat;
-   revisit Recall.ai only if maintenance burden bites.
-2. **Frontend: carve out a clean dedicated app vs reskin the whole console.** _Recommendation: CARVE OUT._
-   Extract the `meetings` domain + shared primitives into a focused product; drop the unrelated AIops modules
-   (knowledge base, voice agents, training, ticketing). Reskinning 200+ components across modules we won't ship
-   is wasted effort. Reuse the auth, API client, WebSocket store, transcript & audio components.
-3. **AI layer:** add an `ai-service` (summaries/actions/chapters/chat). LLM via Claude (Opus/Sonnet) with
-   model routing; embeddings + pgvector for RAG (Postgres already in stack → no new datastore).
-4. **Auth/tenancy:** introduce real workspaces/users, API keys, and `org_id` enforcement before any public exposure.
+1. **Bots: KEEP self-built.** We already have working Zoom/Meet/Teams capture — the expensive part everyone
+   else buys. Keep it as our cost/IP moat; revisit Recall.ai only if maintenance burden bites.
+2. **Frontend: BUILD FROM SCRATCH.** A brand-new Next.js app with its **own UI, app shell, auth, and API
+   client** — reusing **nothing** from the aiops frontend (which has been removed from this repo). The
+   meeting-joiner **backend** (bots + transcription) is kept and gets a clean product API/BFF on top.
+3. **AI layer: MULTI-PROVIDER ROUTING.** An `ai-service` (summaries/actions/chapters/chat) behind a provider
+   abstraction routing across **Claude + OpenAI** by task/cost. Embeddings + **pgvector** for RAG (Postgres
+   already in stack → no new datastore).
+4. **Auth/tenancy: NEW, OWNED.** Real workspaces/users/sessions, API keys, and strict `org_id`/workspace
+   enforcement on every endpoint — built fresh for this product, not inherited.
 
 ---
 
@@ -131,9 +131,19 @@ Backend changes reviewed by `python-reviewer`; frontend by `react-reviewer` + `t
 
 ---
 
-## 7. Open decisions before build starts
-1. Confirm **keep self-built bots** (vs Recall.ai).
-2. Confirm **carve out a dedicated frontend** (vs reskin whole console).
-3. Confirm the **differentiator wedge** = proactive agent + live view + MCP.
-4. **Product name / brand** (design spec uses "Verdant" as a placeholder).
-5. **LLM provider** for the AI layer (recommend Claude).
+## 7. Decisions resolved
+1. ✅ Keep self-built bots.
+2. ✅ Frontend built **from scratch** — own UI/app/auth/API, no aiops reuse (copied `frontend/` removed).
+3. ✅ Wedge = **live meeting view + MCP server + botless desktop capture** (proactive agent deferred).
+4. ✅ LLM = **multi-provider routing** (Claude + OpenAI).
+5. ⏳ **Product name / brand** still open — design spec uses "Verdant" as a placeholder.
+
+## 8. Repo layout (target)
+```
+Meeting SaaS/
+├── backend/      # kept: meeting-joiner bots + transcription (Python/FastAPI + Node)
+├── web/          # NEW from-scratch Next.js app (own UI/auth/API client) — replaces removed frontend/
+├── ai-service/   # NEW summaries/actions/chapters/chat + multi-provider routing + pgvector RAG
+├── mcp/          # NEW MCP server exposing the meeting knowledge base
+└── docs/         # PLAN.md, DESIGN-SYSTEM.md
+```

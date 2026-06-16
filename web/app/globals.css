@@ -1,0 +1,209 @@
+@import "tailwindcss";
+
+/* ============================================================
+   VERDANT design system — sage-on-white, brass, YC-grade.
+   Tailwind v4: @theme tokens generate utilities (bg-sage-600,
+   text-ink, rounded-lg, …). OKLCH is source of truth; hex is
+   the sRGB fallback baked into the values below.
+   ============================================================ */
+@theme {
+  /* Surfaces — the page is never pure #FFF; layers warm as they recede */
+  --color-surface-0: #fcfbf7;
+  --color-surface-1: #f7f5ee;
+  --color-surface-2: #f1ede2;
+  --color-surface-3: #e9e3d4;
+  --color-surface-cream: #f4f0e4;
+
+  /* Sage / olive — primary brand scale (hue ~128) */
+  --color-sage-50: #eef1e6;
+  --color-sage-100: #dfe5d0;
+  --color-sage-200: #c7d1b0;
+  --color-sage-300: #aab98c;
+  --color-sage-400: #8a9c6a;
+  --color-sage-500: #6e8050;
+  --color-sage-600: #5c6b4a; /* PRIMARY BRAND */
+  --color-sage-700: #47543a;
+  --color-sage-800: #353f2d;
+  --color-sage-900: #262d22;
+
+  /* Olive ink — text family (never pure black) */
+  --color-ink: #2a2e22;
+  --color-ink-soft: #4a4f40;
+  --color-ink-muted: #6e7263;
+  --color-ink-faint: #9a9c8e;
+
+  /* Gold / brass — accent (hue ~78); warm, never neon */
+  --color-gold-50: #faf3e2;
+  --color-gold-100: #f3e6c6;
+  --color-gold-200: #e8d29c;
+  --color-gold-300: #d9b86f;
+  --color-gold-400: #c9a04f;
+  --color-gold-500: #b8893b; /* ACCENT */
+  --color-gold-600: #9c7130;
+  --color-gold-700: #7c5926; /* use for gold TEXT (AA) */
+  --color-gold-800: #5e431e;
+
+  /* Semantic — tuned into the sage/brass world */
+  --color-success: #5e7d3e;
+  --color-success-bg: #eaf0dc;
+  --color-warning: #b8893b;
+  --color-warning-bg: #faf1dc;
+  --color-error: #b14a38;
+  --color-error-bg: #f8e6e0;
+  --color-info: #4a6b73;
+  --color-info-bg: #e4ecec;
+
+  /* Borders */
+  --color-border-subtle: #e6e1d4;
+  --color-border-default: #d8d2c2;
+  --color-border-strong: #bdb6a2;
+
+  /* Fonts (wired via next/font in layout.tsx) */
+  --font-display: var(--font-fraunces), "Times New Roman", serif;
+  --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Radii — soft, NOT pill (the YC tell) */
+  --radius-xs: 4px;
+  --radius-sm: 7px;
+  --radius-md: 11px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --radius-2xl: 30px;
+
+  /* Fluid type scale */
+  --text-xs: clamp(0.75rem, 0.73rem + 0.1vw, 0.8125rem);
+  --text-sm: clamp(0.875rem, 0.85rem + 0.12vw, 0.9375rem);
+  --text-base: clamp(1rem, 0.96rem + 0.2vw, 1.125rem);
+  --text-lg: clamp(1.1875rem, 1.12rem + 0.34vw, 1.375rem);
+  --text-xl: clamp(1.5rem, 1.35rem + 0.75vw, 2rem);
+  --text-2xl: clamp(2rem, 1.7rem + 1.5vw, 3rem);
+  --text-3xl: clamp(2.75rem, 2.1rem + 3.25vw, 4.5rem);
+  --text-hero: clamp(3.25rem, 2rem + 6.25vw, 7rem);
+
+  /* Easings */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Semantic aliases, shadows, washes — used via var() */
+:root {
+  --color-brand: var(--color-sage-600);
+  --color-brand-hover: var(--color-sage-700);
+  --color-accent: var(--color-gold-500);
+  --border-gold: #d9b86f66; /* brass hairline @ 40% */
+
+  /* Warm-tinted (olive-hue), multi-layer, low-spread shadows */
+  --shadow-xs: 0 1px 2px oklch(35% 0.02 120 / 0.05);
+  --shadow-sm: 0 1px 2px oklch(35% 0.02 120 / 0.05), 0 2px 4px oklch(35% 0.02 120 / 0.04);
+  --shadow-md: 0 2px 4px oklch(35% 0.02 120 / 0.05), 0 6px 12px oklch(35% 0.02 120 / 0.06),
+    0 12px 24px oklch(35% 0.02 120 / 0.05);
+  --shadow-lg: 0 4px 8px oklch(35% 0.02 120 / 0.05), 0 12px 24px oklch(35% 0.02 120 / 0.07),
+    0 24px 48px oklch(35% 0.02 120 / 0.07);
+  --shadow-xl: 0 8px 16px oklch(35% 0.02 120 / 0.06), 0 24px 48px oklch(35% 0.02 120 / 0.09),
+    0 48px 96px oklch(30% 0.02 120 / 0.08);
+  --glow-gold: 0 0 0 1px var(--color-gold-300), 0 0 24px oklch(66% 0.11 78 / 0.25);
+  --ring: 0 0 0 3px oklch(66% 0.11 78 / 0.35);
+
+  --wash-hero: radial-gradient(
+    120% 100% at 50% -20%,
+    var(--color-sage-50) 0%,
+    var(--color-surface-cream) 38%,
+    var(--color-surface-0) 72%
+  );
+  --wash-gold: radial-gradient(
+    60% 60% at 70% 30%,
+    oklch(66% 0.11 78 / 0.1) 0%,
+    transparent 70%
+  );
+  --divider-gold: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-gold-300) 18%,
+    var(--color-gold-400) 50%,
+    var(--color-gold-300) 82%,
+    transparent
+  );
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--color-surface-0);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.6;
+    letter-spacing: -0.005em;
+  }
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    color: var(--color-ink);
+    font-weight: 580;
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+  }
+  ::selection {
+    background: var(--color-gold-200);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: none;
+    box-shadow: var(--ring);
+    border-radius: var(--radius-sm);
+  }
+}
+
+@layer utilities {
+  .wash-hero { background: var(--wash-hero); }
+  .wash-gold { background: var(--wash-gold); }
+  .glow-gold { box-shadow: var(--glow-gold); }
+  .shadow-soft-sm { box-shadow: var(--shadow-sm); }
+  .shadow-soft-md { box-shadow: var(--shadow-md); }
+  .shadow-soft-lg { box-shadow: var(--shadow-lg); }
+  .shadow-soft-xl { box-shadow: var(--shadow-xl); }
+
+  /* The "jewelry" gold hairline divider */
+  .divider-gold {
+    height: 1px;
+    border: 0;
+    background: var(--divider-gold);
+  }
+
+  /* Uppercase eyebrow label */
+  .eyebrow {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-gold-700);
+    font-weight: 600;
+  }
+
+  /* Subtle film grain — kills banding in washes, adds tooth */
+  .grain::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .grain::after { display: none; }
+}
