@@ -21,6 +21,26 @@ runbook in `../runbooks/`. None of that applies in the standalone case.
 - Docker 24+ (for the standalone image) OR Node 20 + Python 3.11 (for from-source).
 - Outbound HTTPS to the meeting platforms you'll join (Microsoft, Google, Zoom).
 - An AWS or Azure account if you use the audio-ASR path; Teams captions mode needs only Postgres.
+- **No cloud account is required for transcription** if you use local whisper (see below) — only Postgres.
+
+### Keyless transcription with local whisper
+
+Set `LLM_PROVIDER=local_whisper` to run whisper in-process with **no cloud
+keys**. It uses `@xenova/transformers` (Node, pure JS/ONNX) and runs on any
+Linux/Mac. The model (`WHISPER_MODEL=tiny.en` by default, ~40MB) downloads
+once on first use and then runs fully offline — so a standalone deploy can
+transcribe audio-ASR meetings with only a database, no AWS/Azure/OpenAI
+account.
+
+Notes:
+
+- First run downloads the model; pre-bake it into the image or persist
+  `TRANSFORMERS_CACHE` / `HF_HOME` to avoid re-downloading on each pod.
+- `tiny` is fast and CPU-only but lower accuracy than the cloud providers;
+  use `WHISPER_MODEL=base` for better quality at higher latency.
+- `STT_FALLBACK_LOCAL=true` (default) means a misconfigured cloud provider
+  with no credentials automatically falls back to local whisper instead of
+  failing. Set it to `false` in production to require real cloud creds.
 
 ## 2. Configure
 

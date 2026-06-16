@@ -9,7 +9,26 @@ require('dotenv').config();
  * - AWS Transcribe
  * - AWS HealthScribe (Used as alternative to AWS Transcribe)
  * - Amazon Bedrock Nova Sonic
- * 
+ * - Local Whisper (Transformers.js — keyless, offline, no cloud)
+ *
+ * Local Whisper Configuration (no cloud account / API key required):
+ * - Provider: 'local_whisper'
+ * - Runs whisper in-process via @xenova/transformers (pure JS/ONNX). The
+ *   model is downloaded once on first use and cached on disk, then runs
+ *   fully offline. Cross-platform (Linux/macOS), no native build.
+ * - WHISPER_MODEL: 'tiny.en' (default), 'tiny', or 'base'. Maps to the
+ *   Xenova/whisper-<model> repos on the Hugging Face hub.
+ * - Model cache location is controlled by the standard Transformers.js /
+ *   Hugging Face env vars TRANSFORMERS_CACHE or HF_HOME, so a Docker
+ *   image can pre-bake or persist the ~40MB tiny model.
+ *
+ * Automatic keyless fallback:
+ * - When a cloud provider is selected but its required credentials are
+ *   absent (e.g. aws_transcribe with no AWS_ACCESS_KEY_ID), the processor
+ *   logs a warning and falls back to 'local_whisper' so a box with no
+ *   keys still transcribes. Gated behind STT_FALLBACK_LOCAL (default
+ *   true); set STT_FALLBACK_LOCAL=false in prod to disable and fail fast.
+ *
  * AWS HealthScribe Configuration (when used as AWS Transcribe alternative):
  * - Provider: 'healthscribe'
  * - Supported Language: US English (en-US) only
@@ -135,6 +154,144 @@ function checkFfmpegAvailability() {
   return { availablePaths, errors };
 }
 
+// ─── Local Whisper (Transformers.js) support ──────────────────────────────
+// Maps the user-facing WHISPER_MODEL value to a Hugging Face hub repo that
+// Transformers.js can pull. Only small, CPU-friendly models are allowed so
+// the keyless path stays usable on any dev box. The pipeline + a fully
+// loaded model are cached at module scope so the ~40MB download and ONNX
+// init happen once per process, not per chunk.
+const WHISPER_MODEL_REPOS = {
+  'tiny.en': 'Xenova/whisper-tiny.en',
+  tiny: 'Xenova/whisper-tiny',
+  base: 'Xenova/whisper-base',
+};
+const DEFAULT_WHISPER_MODEL = 'tiny.en';
+
+/** @type {Promise<any>|null} cached transcription pipeline promise */
+let localWhisperPipelinePromise = null;
+
+/**
+ * Resolve the configured local whisper model id, validating it against the
+ * allow-list. Falls back to the default for unknown values.
+ * @returns {string}
+ */
+function resolveWhisperModel() {
+  const requested = (process.env.WHISPER_MODEL || DEFAULT_WHISPER_MODEL).trim();
+  if (!WHISPER_MODEL_REPOS[requested]) {
+    console.warn(
+      `⚠️ Unknown WHISPER_MODEL "${requested}". Allowed: ${Object.keys(WHISPER_MODEL_REPOS).join(', ')}. Using "${DEFAULT_WHISPER_MODEL}".`
+    );
+    return DEFAULT_WHISPER_MODEL;
+  }
+  return requested;
+}
+
+/**
+ * Lazily build and cache the Transformers.js automatic-speech-recognition
+ * pipeline. The first call downloads the model (cached on disk per
+ * TRANSFORMERS_CACHE / HF_HOME); subsequent calls reuse the loaded model.
+ * @returns {Promise<any>}
+ */
+async function getLocalWhisperPipeline() {
+  if (localWhisperPipelinePromise) {
+    return localWhisperPipelinePromise;
+  }
+
+  const model = resolveWhisperModel();
+  const repo = WHISPER_MODEL_REPOS[model];
+
+  localWhisperPipelinePromise = (async () => {
+    let transformers;
+    try {
+      // Dynamic import: @xenova/transformers is ESM-only, and this keeps it
+      // an optional dependency for deployments that never use local_whisper.
+      transformers = await import('@xenova/transformers');
+    } catch (error) {
+      throw new Error(
+        '@xenova/transformers is required for the local_whisper provider but is not installed. ' +
+          'Run: npm install @xenova/transformers. ' +
+          `Original error: ${error.message}`
+      );
+    }
+
+    console.log(`🧠 Loading local Whisper model "${model}" (${repo}) — first run downloads ~40MB...`);
+    const pipe = await transformers.pipeline('automatic-speech-recognition', repo);
+    console.log(`✅ Local Whisper model "${model}" ready (offline, keyless)`);
+    return pipe;
+  })();
+
+  // Reset the cache on failure so a later call can retry the download.
+  localWhisperPipelinePromise.catch(() => {
+    localWhisperPipelinePromise = null;
+  });
+
+  return localWhisperPipelinePromise;
+}
+
+/**
+ * Decode a WAV file to the mono Float32 PCM @16kHz that Transformers.js
+ * whisper expects, using the project's existing ffmpeg dependency so no
+ * extra audio-decoding library is needed.
+ * @param {string} audioPath
+ * @returns {Promise<Float32Array>}
+ */
+function decodeWavToFloat32(audioPath) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    ffmpeg(audioPath)
+      .setFfmpegPath('ffmpeg')
+      .format('f32le') // 32-bit float PCM
+      .audioFrequency(16000)
+      .audioChannels(1)
+      .on('error', (error) => {
+        reject(new Error(`FFmpeg decode for local whisper failed: ${error.message}`));
+      })
+      .pipe()
+      .on('data', (chunk) => chunks.push(chunk))
+      .on('end', () => {
+        const buffer = Buffer.concat(chunks);
+        // Wrap the underlying bytes as a Float32Array (little-endian host).
+        const float32 = new Float32Array(
+          buffer.buffer,
+          buffer.byteOffset,
+          Math.floor(buffer.byteLength / 4)
+        );
+        resolve(float32);
+      })
+      .on('error', (error) => reject(error));
+  });
+}
+
+/**
+ * Returns true when the credentials a cloud provider needs are present.
+ * Used by the keyless-fallback logic in the constructor. Providers not
+ * listed here (e.g. local_whisper) are always considered "available".
+ * @param {string} provider
+ * @returns {boolean}
+ */
+function cloudProviderHasCredentials(provider) {
+  switch (provider) {
+    case 'openai':
+      return Boolean(process.env.OPENAI_API_KEY);
+    case 'azure_openai':
+      return Boolean(process.env.AZURE_OPENAI_API_KEY && process.env.AZURE_OPENAI_ENDPOINT);
+    case 'azure_speech':
+      return Boolean(
+        process.env.AZURE_SPEECH_KEY || process.env.AZURE_SPEECH_ENDPOINT || process.env.AZURE_SPEECH_CONTAINER_ENDPOINT
+      );
+    case 'aws_transcribe':
+    case 'aws_transcribe_medical':
+    case 'healthscribe':
+    case 'bedrock':
+      // These rely on either explicit keys or the SDK default credential
+      // chain (env, profile, IMDS). We can only cheaply detect the explicit
+      // env-var case; treat presence of an access key id as "has creds".
+      return Boolean(process.env.AWS_ACCESS_KEY_ID || process.env.AWS_PROFILE);
+    default:
+      return true;
+  }
+}
+
 class MultiProviderTranscriber {
   constructor() {
     this.provider = process.env.LLM_PROVIDER || 'openai';
@@ -206,11 +363,24 @@ class MultiProviderTranscriber {
     }
     
     // Validate provider
-    const validProviders = ['openai', 'azure_openai', 'azure_speech', 'aws_transcribe', 'aws_transcribe_medical', 'bedrock', 'healthscribe'];
+    const validProviders = ['openai', 'azure_openai', 'azure_speech', 'aws_transcribe', 'aws_transcribe_medical', 'bedrock', 'healthscribe', 'local_whisper'];
     if (!validProviders.includes(this.provider)) {
       throw new Error(`Invalid LLM_PROVIDER: ${this.provider}. Must be one of: ${validProviders.join(', ')}`);
     }
-    
+
+    // Automatic keyless fallback: if a cloud provider was selected but its
+    // required credentials are missing, fall back to local whisper instead
+    // of throwing, so a box with no keys still transcribes. Gated behind
+    // STT_FALLBACK_LOCAL (default true) so prod can disable and fail fast.
+    const fallbackEnabled = process.env.STT_FALLBACK_LOCAL !== 'false';
+    if (this.provider !== 'local_whisper' && fallbackEnabled && !cloudProviderHasCredentials(this.provider)) {
+      console.warn(
+        `⚠️ LLM_PROVIDER="${this.provider}" has no detectable credentials — falling back to keyless local_whisper. ` +
+          `Set STT_FALLBACK_LOCAL=false to disable this fallback and require cloud credentials.`
+      );
+      this.provider = 'local_whisper';
+    }
+
     this.initializeClients();
   }
 
@@ -403,7 +573,16 @@ class MultiProviderTranscriber {
         
         this.s3Client = new S3Client(healthScribeAwsConfig);
         break;
-        
+
+      case 'local_whisper':
+        // No client / API key needed. The model is lazy-loaded on first use
+        // (see getLocalWhisperPipeline) so startup isn't blocked by the
+        // first-run download. Record the resolved model for logging/output.
+        this.localWhisperModel = resolveWhisperModel();
+        console.log(`🧠 Local Whisper provider selected (model: ${this.localWhisperModel}) — keyless, offline transcription`);
+        console.log('   Model will download on first chunk; cache via TRANSFORMERS_CACHE / HF_HOME.');
+        break;
+
       default:
         throw new Error(`Unsupported LLM provider: ${this.provider}`);
     }
@@ -625,6 +804,10 @@ class MultiProviderTranscriber {
           transcriptionResult = await this.transcribeWithHealthScribe(chunkPath, startTimeOffset);
           break;
 
+        case 'local_whisper':
+          transcriptionResult = await this.transcribeWithLocalWhisper(chunkPath, startTimeOffset);
+          break;
+
         default:
           throw new Error(`Unsupported provider: ${this.provider}`);
       }
@@ -701,6 +884,77 @@ class MultiProviderTranscriber {
     }
 
     return transcription;
+  }
+
+  /**
+   * Transcribe a chunk locally with whisper via @xenova/transformers.
+   * Keyless and offline: no cloud, no API key. Produces the same shape as
+   * the other providers ({ text, segments: [{ start, end, text }] }) so
+   * downstream code is unchanged.
+   * @param {string} audioPath
+   * @param {number} startTimeOffset
+   * @returns {Promise<{text: string, segments: Array<{start: number, end: number, text: string}>}>}
+   */
+  async transcribeWithLocalWhisper(audioPath, startTimeOffset = 0) {
+    const transcriber = await getLocalWhisperPipeline();
+
+    // Decode to mono Float32 PCM @16kHz (whisper's expected input) using the
+    // project's existing ffmpeg dependency.
+    const audio = await decodeWavToFloat32(audioPath);
+
+    const model = this.localWhisperModel || resolveWhisperModel();
+    // English-only models (`*.en`) reject the language/task options. For
+    // multilingual models, whisper wants a lowercase short code ("en"), not
+    // a locale like "en-US", so normalize TRANSCRIPTION_LANGUAGE here.
+    const isEnglishOnly = model.endsWith('.en');
+    const decodeOptions = {
+      return_timestamps: true,
+      chunk_length_s: 30,
+      stride_length_s: 5,
+    };
+    if (!isEnglishOnly && this.language) {
+      decodeOptions.language = this.language.split('-')[0].toLowerCase();
+      decodeOptions.task = 'transcribe';
+    }
+
+    const output = await transcriber(audio, decodeOptions);
+
+    const fullText = (output.text || '').trim();
+
+    // Map Transformers.js timestamp chunks to the segment shape used by the
+    // other providers. End timestamps can be null on the trailing chunk;
+    // fall back to the start in that case.
+    const rawChunks = Array.isArray(output.chunks) ? output.chunks : [];
+    const segments = rawChunks
+      .map((c) => {
+        const ts = Array.isArray(c.timestamp) ? c.timestamp : [0, 0];
+        const start = (typeof ts[0] === 'number' ? ts[0] : 0) + startTimeOffset;
+        const end = (typeof ts[1] === 'number' ? ts[1] : ts[0] || 0) + startTimeOffset;
+        return {
+          start,
+          end,
+          text: (c.text || '').trim(),
+          speaker: 'Unknown',
+        };
+      })
+      .filter((seg) => seg.text.length > 0);
+
+    // If timestamps were unavailable, still return one segment for the text.
+    if (segments.length === 0 && fullText.length > 0) {
+      segments.push({
+        start: startTimeOffset,
+        end: startTimeOffset,
+        text: fullText,
+        speaker: 'Unknown',
+      });
+    }
+
+    return {
+      text: fullText,
+      segments,
+      provider: 'local_whisper',
+      model: this.localWhisperModel || resolveWhisperModel(),
+    };
   }
 
   async transcribeWithAzureSpeech(audioPath, startTimeOffset = 0) {

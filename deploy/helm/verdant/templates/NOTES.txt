@@ -1,0 +1,66 @@
+============================================================================
+ Verdant meeting-assistant — release {{ .Release.Name }} (ns: {{ .Release.Namespace }})
+============================================================================
+
+Runtime mode : {{ .Values.runtimeMode }}
+AI mode      : {{ .Values.aiMode }}   STT provider: {{ .Values.sttProvider }}
+Postgres     : {{ if .Values.postgres.enabled }}in-cluster (pgvector){{ else }}external{{ end }}
+
+Components deployed:
+{{- if .Values.backend.enabled }}
+  - backend     : {{ include "verdant.componentName" (dict "ctx" . "component" "backend") }}:{{ .Values.backend.service.port }}
+{{- end }}
+{{- if .Values.aiService.enabled }}
+  - ai-service  : {{ include "verdant.componentName" (dict "ctx" . "component" "ai-service") }}:{{ .Values.aiService.service.port }}
+{{- end }}
+{{- if .Values.web.enabled }}
+  - web         : {{ include "verdant.componentName" (dict "ctx" . "component" "web") }}:{{ .Values.web.service.port }}
+{{- end }}
+{{- if .Values.botWorker.enabled }}
+  - bot-worker  : {{ include "verdant.componentName" (dict "ctx" . "component" "bot-worker") }} (replicas: {{ .Values.botWorker.replicaCount }})
+{{- end }}
+{{- if .Values.postgres.enabled }}
+  - postgres    : {{ include "verdant.fullname" . }}-postgres:{{ .Values.postgres.service.port }}
+{{- end }}
+
+----------------------------------------------------------------------------
+Access the dashboard
+----------------------------------------------------------------------------
+{{- if .Values.ingress.enabled }}
+  Web : http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ .Values.ingress.host }}/
+  API : http{{ if .Values.ingress.tls.enabled }}s{{ end }}://{{ if .Values.ingress.apiHost }}{{ .Values.ingress.apiHost }}/{{ else }}{{ .Values.ingress.host }}/api{{ end }}
+{{- else }}
+  Ingress is disabled. Port-forward to reach the services locally:
+
+    kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "verdant.componentName" (dict "ctx" . "component" "web") }} 3000:{{ .Values.web.service.port }}
+    kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "verdant.componentName" (dict "ctx" . "component" "backend") }} 8000:{{ .Values.backend.service.port }}
+
+  Then open http://localhost:3000 and sign up.
+{{- end }}
+
+----------------------------------------------------------------------------
+Verify health
+----------------------------------------------------------------------------
+  kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "verdant.componentName" (dict "ctx" . "component" "backend") }} -- sh -c 'wget -qO- localhost:{{ .Values.backend.service.port }}/ready'
+
+{{- if not .Values.secrets.existingSecret }}
+{{- if and (not .Values.postgres.enabled) (not .Values.externalDatabaseUrl) (not .Values.secrets.data.DATABASE_URL) }}
+
+WARNING: No database configured. Set one of:
+  - postgres.enabled=true (in-cluster), or
+  - externalDatabaseUrl=postgresql://..., or
+  - secrets.data.DATABASE_URL / secrets.existingSecret with a DATABASE_URL key.
+{{- end }}
+{{- if and (eq .Values.aiMode "live") (not .Values.secrets.data.ANTHROPIC_API_KEY) (not .Values.secrets.data.OPENAI_API_KEY) }}
+
+WARNING: aiMode=live but no ANTHROPIC_API_KEY/OPENAI_API_KEY provided. The
+ai-service will fail provider calls. Set keys or use aiMode=mock.
+{{- end }}
+{{- if eq .Values.secrets.data.JWT_SECRET "" }}
+
+WARNING: JWT_SECRET is empty. The backend falls back to an insecure default —
+set secrets.data.JWT_SECRET (or use an existingSecret) for any shared cluster.
+{{- end }}
+{{- end }}
+============================================================================

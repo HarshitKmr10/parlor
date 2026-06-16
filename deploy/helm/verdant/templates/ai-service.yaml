@@ -1,0 +1,76 @@
+{{- if .Values.aiService.enabled }}
+{{- $component := "ai-service" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "verdant.componentName" (dict "ctx" . "component" $component) }}
+  labels:
+    {{- include "verdant.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+spec:
+  replicas: {{ .Values.aiService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- if not .Values.secrets.existingSecret }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "verdant.podSecurityContext" . | nindent 8 }}
+      containers:
+        - name: ai-service
+          image: {{ include "verdant.image" (dict "ctx" . "image" .Values.aiService.image) }}
+          imagePullPolicy: {{ include "verdant.pullPolicy" (dict "ctx" . "image" .Values.aiService.image) }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.aiService.service.port }}
+          env:
+            {{- with .Values.aiService.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          envFrom:
+            {{- include "verdant.envFrom" . | nindent 12 }}
+          livenessProbe:
+            {{- toYaml .Values.aiService.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.aiService.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.aiService.resources | nindent 12 }}
+      {{- with .Values.aiService.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aiService.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.aiService.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "verdant.componentName" (dict "ctx" . "component" $component) }}
+  labels:
+    {{- include "verdant.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+spec:
+  type: {{ .Values.aiService.service.type }}
+  selector:
+    {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.aiService.service.port }}
+      targetPort: http
+{{- end }}

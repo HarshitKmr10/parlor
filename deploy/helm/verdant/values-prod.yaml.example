@@ -1,0 +1,123 @@
+# =============================================================================
+# values-prod.yaml.example — production template
+# =============================================================================
+# Copy to values-prod.yaml (KEEP IT OUT OF VERSION CONTROL — it can hold the
+# DB DSN), fill in the placeholders, and install:
+#
+#   cp deploy/helm/verdant/values-prod.yaml.example values-prod.yaml
+#   # edit values-prod.yaml
+#   helm install verdant ./deploy/helm/verdant -f values-prod.yaml
+#
+# RECOMMENDED: do NOT put secrets in this file at all. Instead create a Secret
+# out-of-band and reference it via secrets.existingSecret:
+#
+#   kubectl -n verdant create secret generic verdant-secrets \
+#     --from-literal=JWT_SECRET="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')" \
+#     --from-literal=DATABASE_URL="postgresql://user:pass@db-host:5432/verdant" \
+#     --from-literal=ANTHROPIC_API_KEY="sk-ant-..." \
+#     --from-literal=CALENDAR_TOKEN_KEY="$(python -c 'from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())')"
+#
+#   # then set:  secrets.existingSecret: verdant-secrets
+# =============================================================================
+
+global:
+  imageRegistry: "ghcr.io/your-org"
+  imageTag: "1.0.0"
+  imagePullPolicy: IfNotPresent
+  imagePullSecrets:
+    - name: registry-creds      # docker-registry secret, if your registry is private
+
+# ── External managed Postgres (with pgvector). NOT the in-cluster one. ──
+postgres:
+  enabled: false
+externalDatabaseUrl: ""          # OR supply via the existingSecret DATABASE_URL key
+
+# ── Secrets: reference an out-of-band Secret (preferred). ──
+secrets:
+  existingSecret: "verdant-secrets"
+  # If you instead want the chart to render the Secret, clear existingSecret
+  # and fill data below (and keep this file out of git):
+  data: {}
+
+# ── Production runtime: real LLMs, cloud STT, k8s warm-pool bot dispatch. ──
+runtimeMode: k8s
+meetingBotMode: subprocess
+aiMode: live
+aiProviderOrder: "anthropic,openai"
+sttProvider: aws_transcribe
+logLevel: INFO
+
+backend:
+  replicaCount: 2
+  image:
+    repository: verdant-meeting-api    # joined with global.imageRegistry
+  allowedOrigins:
+    - "https://verdant.example.com"
+  allowedHosts: "verdant.example.com,api.verdant.example.com"
+  calendarOauthRedirectBase: "https://api.verdant.example.com"
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: "1", memory: 1Gi }
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+aiService:
+  replicaCount: 2
+  image:
+    repository: verdant-ai-service
+  resources:
+    requests: { cpu: 250m, memory: 512Mi }
+    limits:   { cpu: "1", memory: 2Gi }
+
+web:
+  replicaCount: 2
+  image:
+    repository: verdant-web
+  publicApiUrl: "https://api.verdant.example.com"
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits:   { cpu: "500m", memory: 512Mi }
+
+# ── Warm-pool bot runtime. In k8s mode the backend dispatcher creates bot pods
+#    on demand (needs the RBAC this chart provisions). The Deployment below is
+#    the steady-state warm pool size. ──
+botWorker:
+  enabled: true
+  replicaCount: 3                # warm-pool size
+  image:
+    repository: verdant-meeting-worker
+  enabledPlatforms: "googlemeet,zoom,msteams"
+  storageRequired: "true"
+  resources:
+    requests: { cpu: "1", memory: 2Gi }
+    limits:   { cpu: "3", memory: 5Gi }
+  warmPool:
+    size: "5"
+    max: "50"
+
+# ── ServiceAccount + RBAC for warm-pool pod dispatch (required for k8s mode). ──
+serviceAccount:
+  create: true
+rbac:
+  create: true
+
+# ── DB migrations applied automatically against the external DB on install. ──
+dbInit:
+  enabled: true
+
+# ── Ingress + TLS (cert-manager example). ──
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "25m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"   # websockets (/live)
+  host: verdant.example.com
+  apiHost: api.verdant.example.com
+  tls:
+    enabled: true
+    secretName: verdant-tls

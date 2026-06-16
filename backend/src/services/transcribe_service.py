@@ -8,6 +8,17 @@ Supports multiple transcription providers:
 - AWS Transcribe
 - AWS HealthScribe
 - Amazon Bedrock Nova Sonic
+- Local Whisper (faster-whisper — keyless, offline, no cloud)
+
+Local Whisper (LLM_PROVIDER=local_whisper):
+- Runs whisper locally via the optional `faster-whisper` package. No cloud
+  account or API key required. The model (default "tiny") downloads on
+  first use and is cached on disk, then runs fully offline.
+- WHISPER_MODEL selects the model size ("tiny" default, also "tiny.en",
+  "base", etc.). Cache dir honors HF_HOME / TRANSFORMERS_CACHE.
+- faster-whisper is an OPTIONAL dependency so the image only installs it
+  when needed. If the library/model is missing we return a clear error
+  result instead of crashing the service.
 """
 
 import asyncio
@@ -30,6 +41,7 @@ class TranscriptionProvider(Enum):
     AWS_TRANSCRIBE = "aws_transcribe"
     AWS_HEALTHSCRIBE = "healthscribe"
     BEDROCK_NOVA = "bedrock_nova"
+    LOCAL_WHISPER = "local_whisper"
 
 
 class TranscriptionResult:
@@ -79,7 +91,9 @@ class TranscribeService:
         """Determine which provider to use based on environment variables"""
         provider = os.environ.get('LLM_PROVIDER', 'openai').lower()
 
-        if provider == 'healthscribe':
+        if provider == 'local_whisper':
+            return TranscriptionProvider.LOCAL_WHISPER
+        elif provider == 'healthscribe':
             return TranscriptionProvider.AWS_HEALTHSCRIBE
         elif provider == 'aws_transcribe':
             return TranscriptionProvider.AWS_TRANSCRIBE
@@ -104,6 +118,8 @@ class TranscribeService:
             self._init_aws_healthscribe()
         elif self.provider == TranscriptionProvider.BEDROCK_NOVA:
             self._init_bedrock_nova()
+        elif self.provider == TranscriptionProvider.LOCAL_WHISPER:
+            self._init_local_whisper()
 
     def _init_openai(self):
         """Initialize OpenAI provider"""
@@ -202,6 +218,44 @@ class TranscribeService:
             logger.error(f"Failed to initialize Bedrock client: {e}")
             raise
 
+    def _init_local_whisper(self):
+        """Initialize local Whisper (faster-whisper).
+
+        Optional dependency: the model is lazy-loaded on first transcription
+        so startup is not blocked by the first-run download. We only record
+        the configured model size here. Missing library/model is surfaced as
+        a clear error at transcription time, not a crash on init.
+        """
+        self.whisper_model_size = os.environ.get('WHISPER_MODEL', 'tiny')
+        self._whisper_model = None  # lazy-loaded faster-whisper WhisperModel
+        logger.info(
+            "Local Whisper provider selected (model: %s) — keyless, offline. "
+            "faster-whisper loads on first chunk.",
+            self.whisper_model_size,
+        )
+
+    def _get_whisper_model(self):
+        """Lazily load and cache the faster-whisper model."""
+        if self._whisper_model is not None:
+            return self._whisper_model
+        try:
+            from faster_whisper import WhisperModel
+        except ImportError as e:
+            raise RuntimeError(
+                "faster-whisper is required for the local_whisper provider but is "
+                "not installed. Install it with: pip install faster-whisper"
+            ) from e
+
+        compute_type = os.environ.get('WHISPER_COMPUTE_TYPE', 'int8')
+        logger.info(
+            "Loading faster-whisper model '%s' (compute_type=%s) — first run downloads the model...",
+            self.whisper_model_size,
+            compute_type,
+        )
+        self._whisper_model = WhisperModel(self.whisper_model_size, device="cpu", compute_type=compute_type)
+        logger.info("Local Whisper model '%s' ready (offline, keyless)", self.whisper_model_size)
+        return self._whisper_model
+
     async def transcribe_audio(self,
                                audio_data: bytes,
                                speaker_id: Optional[str] = None,
@@ -218,6 +272,8 @@ class TranscribeService:
                 return await self._transcribe_healthscribe(audio_data, speaker_id, speaker_name)
             elif self.provider == TranscriptionProvider.BEDROCK_NOVA:
                 return await self._transcribe_bedrock_nova(audio_data, speaker_id, speaker_name)
+            elif self.provider == TranscriptionProvider.LOCAL_WHISPER:
+                return await self._transcribe_local_whisper(audio_data, speaker_id, speaker_name)
             else:
                 logger.error(f"Unsupported provider: {self.provider}")
                 return None
@@ -548,6 +604,67 @@ class TranscribeService:
                 speaker_name=speaker_name,
                 provider="bedrock_nova"
             )
+
+    async def _transcribe_local_whisper(self, audio_data: bytes, speaker_id: str, speaker_name: str) -> TranscriptionResult:
+        """Transcribe locally with faster-whisper (keyless, offline).
+
+        Produces the same { text, segments: [{ start, end, text, speaker }] }
+        shape as the other providers. Library/model failures return a clear
+        error result rather than crashing the caller.
+        """
+        with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+            temp_file.write(audio_data)
+            temp_file.flush()
+            temp_path = temp_file.name
+
+        try:
+            model = self._get_whisper_model()
+            language = os.environ.get('TRANSCRIPTION_LANGUAGE')
+            # Normalize locale (e.g. en-US) to a short code faster-whisper accepts.
+            if language:
+                language = language.split('-')[0].lower()
+
+            # faster-whisper is synchronous; run it off the event loop.
+            def _run():
+                segments_iter, _info = model.transcribe(temp_path, language=language)
+                return list(segments_iter)
+
+            raw_segments = await asyncio.to_thread(_run)
+
+            speaker = speaker_name or (f"Speaker_{speaker_id}" if speaker_id else "Unknown")
+            segments = [
+                {
+                    "start": float(seg.start),
+                    "end": float(seg.end),
+                    "text": seg.text.strip(),
+                    "speaker": speaker,
+                }
+                for seg in raw_segments
+                if seg.text and seg.text.strip()
+            ]
+            full_text = ' '.join(s["text"] for s in segments).strip()
+
+            return TranscriptionResult(
+                text=full_text,
+                segments=segments,
+                speaker_id=speaker_id,
+                speaker_name=speaker_name,
+                provider="local_whisper",
+            )
+        except Exception as e:
+            logger.error(f"Local Whisper error: {e}")
+            return TranscriptionResult(
+                text="[Local Whisper error: ensure faster-whisper is installed]",
+                segments=[],
+                speaker_id=speaker_id,
+                speaker_name=speaker_name,
+                provider="local_whisper",
+            )
+        finally:
+            try:
+                os.unlink(temp_path)
+            except OSError:
+                pass
 
     def _format_aws_segments(self, transcript_data: dict, speaker_name: str, speaker_id: str) -> List[Dict[str, Any]]:
         """Format AWS Transcribe segments to match transcribeProcessor format"""

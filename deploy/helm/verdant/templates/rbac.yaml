@@ -1,0 +1,46 @@
+{{- if and .Values.rbac.create .Values.serviceAccount.create }}
+{{/*
+Least-privilege, namespaced Role for the warm-pool dispatcher. The backend
+(runtimeMode=k8s) lists/creates/deletes/patches bot pods and reads the shared
+ConfigMap + Secret to mount them onto bot pods (see warm_pool_manager.py).
+Scoped to a single namespace — no ClusterRole needed.
+*/}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "verdant.fullname" . }}-bot-dispatch
+  labels:
+    {{- include "verdant.labels" . | nindent 4 }}
+rules:
+  # Manage bot runtime pods on demand.
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch", "create", "delete", "patch", "update"]
+  # Read pod logs / status for health + transcript diagnostics.
+  - apiGroups: [""]
+    resources: ["pods/log", "pods/status"]
+    verbs: ["get", "list"]
+  # Mount the shared config/secret onto bot pods (envFrom resolution).
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["get", "list"]
+  # Optional: events for surfacing pod scheduling failures.
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "verdant.fullname" . }}-bot-dispatch
+  labels:
+    {{- include "verdant.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "verdant.fullname" . }}-bot-dispatch
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "verdant.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

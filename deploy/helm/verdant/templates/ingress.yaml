@@ -1,0 +1,72 @@
+{{- if .Values.ingress.enabled }}
+{{- $webSvc := include "verdant.componentName" (dict "ctx" . "component" "web") }}
+{{- $apiSvc := include "verdant.componentName" (dict "ctx" . "component" "backend") }}
+{{- $webPort := .Values.web.service.port }}
+{{- $apiPort := .Values.backend.service.port }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "verdant.fullname" . }}
+  labels:
+    {{- include "verdant.labels" . | nindent 4 }}
+  {{- with .Values.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  {{- if .Values.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host | quote }}
+        {{- if .Values.ingress.apiHost }}
+        - {{ .Values.ingress.apiHost | quote }}
+        {{- end }}
+      secretName: {{ .Values.ingress.tls.secretName }}
+  {{- end }}
+  rules:
+    {{- if .Values.ingress.apiHost }}
+    # Split-host routing: dedicated API host + web host.
+    - host: {{ .Values.ingress.apiHost | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $apiSvc }}
+                port:
+                  number: {{ $apiPort }}
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $webSvc }}
+                port:
+                  number: {{ $webPort }}
+    {{- else }}
+    # Single-host path routing: API under /api, web at /.
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $apiSvc }}
+                port:
+                  number: {{ $apiPort }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ $webSvc }}
+                port:
+                  number: {{ $webPort }}
+    {{- end }}
+{{- end }}

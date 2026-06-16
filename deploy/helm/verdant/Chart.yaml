@@ -1,0 +1,37 @@
+apiVersion: v2
+name: verdant
+description: >-
+  Verdant meeting-assistant — a fully self-hostable AI meeting stack
+  (FastAPI backend, AI summarization/RAG service, Next.js web, Chromium
+  bot worker / warm pool, and an optional in-cluster pgvector Postgres).
+type: application
+
+# Chart version — bump on every chart change (SemVer).
+version: 0.1.0
+
+# appVersion tracks the application release the chart was last validated
+# against. Image tags default to this value (see values.yaml `global.imageTag`).
+appVersion: "1.0.0"
+
+keywords:
+  - meetings
+  - transcription
+  - ai
+  - fastapi
+  - nextjs
+  - self-hosted
+
+home: https://github.com/your-org/verdant
+sources:
+  - https://github.com/your-org/verdant
+
+maintainers:
+  - name: Verdant
+    email: ops@example.com
+
+# This chart bundles its own optional Postgres (postgres.enabled). For
+# production you typically point at an external managed DB instead, so we
+# deliberately avoid a hard subchart dependency on bitnami/postgresql to keep
+# the chart dependency-free and `helm install`-able offline.
+annotations:
+  category: Productivity
