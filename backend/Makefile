@@ -26,6 +26,7 @@ dev-logs:
 dev-psql:
 	$(COMPOSE) exec db psql -U meeting -d meeting
 
-# Re-apply the auth/product migration (idempotent) against the running DB.
+# Re-apply the auth/product + calendar/integrations migrations (idempotent).
 migrate:
 	$(COMPOSE) exec -T db psql -U meeting -d meeting < db/0002_product_auth.sql
+	$(COMPOSE) exec -T db psql -U meeting -d meeting < db/0003_calendar_integrations.sql

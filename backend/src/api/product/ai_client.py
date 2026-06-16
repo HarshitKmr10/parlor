@@ -52,6 +52,10 @@ async def _post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
         )
 
 
+async def embed(payload: dict[str, Any]) -> dict[str, Any]:
+    return await _post("/embed", payload)
+
+
 async def summarize(payload: dict[str, Any]) -> dict[str, Any]:
     return await _post("/summarize", payload)
 

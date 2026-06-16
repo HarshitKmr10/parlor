@@ -25,6 +25,9 @@ pgqueuer==0.26.3
 pyjwt>=2.12,<3
 pwdlib[argon2]>=0.2.1
 
+# Calendar OAuth token encryption at rest (Fernet) — Round 2.
+cryptography>=42.0
+
 # HTTP client (ai-service proxy + warm-pool dispatcher)
 httpx>=0.27,<0.28
 

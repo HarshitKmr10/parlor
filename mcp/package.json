@@ -1,0 +1,32 @@
+{
+  "name": "verdant-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for the Verdant AI meeting assistant — query a workspace's meeting knowledge base over the Verdant backend product API.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "verdant-mcp": "dist/server.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/server.js",
+    "dev": "node --import tsx src/server.ts",
+    "smoke": "node --import tsx scripts/smoke.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}
