@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
-import type { ActionItem, MeetingMeta } from "./types";
+import type { ActionItem, MeetingMeta, TranscriptSegment } from "./types";
 import { formatClock, indexSpeakers } from "./utils";
 import { useMockTranscript } from "./useMockTranscript";
+import { useLiveTranscript } from "./useLiveTranscript";
 import { SpeakerRail } from "./SpeakerRail";
 import { TranscriptStream } from "./TranscriptStream";
 import { AskBar } from "./AskBar";
@@ -12,19 +13,113 @@ type Props = {
   meeting: MeetingMeta;
   summaryBullets: readonly string[];
   actionItems: readonly ActionItem[];
+  /**
+   * When provided, the view subscribes to the real meeting WebSocket and
+   * falls back to the mock simulation if the socket is unavailable. When
+   * omitted (e.g. the marketing `/live` demo), it always uses the mock.
+   */
+  meetingId?: string;
+  /** Custom "ask" resolver wired to the real /ask endpoint when available. */
+  onAsk?: (question: string) => Promise<import("./types").AskAnswer>;
 };
 
+/** Mock-driven container (demo). Keeps the original public signature intact. */
 export function LiveMeetingView({
   meeting,
   summaryBullets,
   actionItems,
+  meetingId,
+  onAsk,
 }: Props) {
+  if (meetingId) {
+    return (
+      <LiveSocketView
+        meeting={meeting}
+        summaryBullets={summaryBullets}
+        actionItems={actionItems}
+        meetingId={meetingId}
+        onAsk={onAsk}
+      />
+    );
+  }
+  return (
+    <MockView
+      meeting={meeting}
+      summaryBullets={summaryBullets}
+      actionItems={actionItems}
+      onAsk={onAsk}
+    />
+  );
+}
+
+function MockView({
+  meeting,
+  summaryBullets,
+  actionItems,
+  onAsk,
+}: Omit<Props, "meetingId">) {
   const { segments, activeSpeakerId, elapsedSec } = useMockTranscript();
+  return (
+    <LiveLayout
+      meeting={meeting}
+      summaryBullets={summaryBullets}
+      actionItems={actionItems}
+      segments={segments}
+      activeSpeakerId={activeSpeakerId}
+      elapsedSec={elapsedSec}
+      isLive={false}
+      onAsk={onAsk}
+    />
+  );
+}
+
+function LiveSocketView({
+  meeting,
+  summaryBullets,
+  actionItems,
+  meetingId,
+  onAsk,
+}: Props & { meetingId: string }) {
+  const { segments, activeSpeakerId, elapsedSec, isLive } =
+    useLiveTranscript(meetingId);
+  return (
+    <LiveLayout
+      meeting={meeting}
+      summaryBullets={summaryBullets}
+      actionItems={actionItems}
+      segments={segments}
+      activeSpeakerId={activeSpeakerId}
+      elapsedSec={elapsedSec}
+      isLive={isLive}
+      onAsk={onAsk}
+    />
+  );
+}
+
+type LayoutProps = {
+  meeting: MeetingMeta;
+  summaryBullets: readonly string[];
+  actionItems: readonly ActionItem[];
+  segments: TranscriptSegment[];
+  activeSpeakerId: string | null;
+  elapsedSec: number;
+  isLive: boolean;
+  onAsk?: Props["onAsk"];
+};
+
+function LiveLayout({
+  meeting,
+  summaryBullets,
+  actionItems,
+  segments,
+  activeSpeakerId,
+  elapsedSec,
+  isLive,
+  onAsk,
+}: LayoutProps) {
   const speakers = meeting.participants;
   const speakerById = useMemo(() => indexSpeakers(speakers), [speakers]);
 
-  // Derived during render — no effect. Accumulate talk time per speaker from
-  // the segment durations seen so far.
   const talkTimeSec = useMemo(() => {
     const totals: Record<string, number> = {};
     for (const segment of segments) {
@@ -34,7 +129,6 @@ export function LiveMeetingView({
     return totals;
   }, [segments]);
 
-  // Reveal summary bullets progressively so the card visibly accumulates.
   const visibleBulletCount = Math.min(
     summaryBullets.length,
     1 + Math.floor(segments.length / 2),
@@ -47,10 +141,10 @@ export function LiveMeetingView({
         title={meeting.title}
         elapsedSec={elapsedSec}
         participantCount={speakers.length}
+        isLive={isLive}
       />
 
       <div className="mt-5 grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
-        {/* Speaker rail — horizontal on mobile, vertical sidebar on desktop */}
         <aside className="lg:order-1">
           <div className="rounded-lg border border-border-subtle bg-surface-1 p-3 lg:h-full lg:p-4">
             <h2 className="eyebrow mb-3 hidden lg:block">In the room</h2>
@@ -62,7 +156,6 @@ export function LiveMeetingView({
           </div>
         </aside>
 
-        {/* Transcript — the centerpiece */}
         <section
           aria-label="Transcript"
           className="order-first flex min-h-[420px] flex-col rounded-lg border border-border-subtle bg-surface-0 p-4 shadow-soft-sm lg:order-2 lg:min-h-0"
@@ -71,10 +164,9 @@ export function LiveMeetingView({
             <TranscriptStream segments={segments} speakers={speakers} />
           </div>
           <div className="divider-gold my-3" />
-          <AskBar speakers={speakers} />
+          <AskBar speakers={speakers} onAsk={onAsk} />
         </section>
 
-        {/* Right column — summary + action items; collapses below on mobile */}
         <aside className="flex flex-col gap-4 lg:order-3">
           <SummaryCard bullets={visibleBullets} />
           <ActionItemsList items={actionItems} speakerById={speakerById} />
@@ -88,13 +180,19 @@ type HeaderProps = {
   title: string;
   elapsedSec: number;
   participantCount: number;
+  isLive: boolean;
 };
 
-function MeetingHeader({ title, elapsedSec, participantCount }: HeaderProps) {
+function MeetingHeader({
+  title,
+  elapsedSec,
+  participantCount,
+  isLive,
+}: HeaderProps) {
   return (
     <header className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <p className="eyebrow mb-1">Live meeting</p>
+        <p className="eyebrow mb-1">{isLive ? "Live meeting" : "Live preview"}</p>
         <h1 className="font-display text-2xl text-ink">{title}</h1>
       </div>
       <div className="flex shrink-0 items-center gap-4">
@@ -210,12 +308,7 @@ function ActionItemsList({ items, speakerById }: ActionItemsProps) {
 
 function ClockIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      className="h-4 w-4"
-    >
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4">
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
       <path
         d="M12 7v5l3 2"
@@ -230,12 +323,7 @@ function ClockIcon() {
 
 function PeopleIcon() {
   return (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      fill="none"
-      className="h-4 w-4"
-    >
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4">
       <path
         d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM21 19v-1a4 4 0 0 0-3-3.87M16 4.13A4 4 0 0 1 16 11.87"
         stroke="currentColor"

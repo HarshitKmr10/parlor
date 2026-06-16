@@ -5,8 +5,13 @@
 # otherwise exclude it.
 
 !.env.example
+!.env.dev.example
 !envs/*.example.env
 
 # Local env files (per-developer) stay ignored.
 .env
+.env.dev
 envs/*.env
+
+# Local dev virtualenv created for the standalone product API runtime.
+.venv-dev/

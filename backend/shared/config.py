@@ -6,7 +6,8 @@ from functools import lru_cache
 from typing import List, Optional
 
 from pydantic import validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, NoDecode
+from typing_extensions import Annotated
 
 
 class Settings(BaseSettings):
@@ -54,9 +55,29 @@ class Settings(BaseSettings):
     QUEUE_RETRY_ATTEMPTS: int = 3
     QUEUE_RETRY_DELAY: int = 60  # seconds
 
-    # Security Configuration
-    ALLOWED_ORIGINS: List[str] = ["*"]
-    ALLOWED_HOSTS: List[str] = ["*"]
+    # Security Configuration.
+    # NoDecode: pydantic-settings would otherwise JSON-parse these List[str]
+    # fields from env, rejecting plain comma-separated strings like
+    # "http://a,http://b". With NoDecode the raw string reaches the
+    # parse_* validators below, which split on commas.
+    ALLOWED_ORIGINS: Annotated[List[str], NoDecode] = ["*"]
+    ALLOWED_HOSTS: Annotated[List[str], NoDecode] = ["*"]
+
+    # ─── Product API layer (/api/v1) ──────────────────────────────────────
+    # Runtime mode: "standalone" disables K8s warm-pool / sidecar machinery so
+    # the app boots against a plain Postgres without a cluster. "compose" is an
+    # accepted alias. Anything else assumes a K8s deployment.
+    RUNTIME_MODE: str = "standalone"
+
+    # JWT signing secret for product access/refresh tokens. MUST be overridden
+    # in any non-local environment (read from env; never hardcode).
+    JWT_SECRET: str = "dev-insecure-change-me"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_TTL_MINUTES: int = 30
+    REFRESH_TOKEN_TTL_DAYS: int = 30
+
+    # ai-service base URL for /summarize and /chat proxying.
+    AI_SERVICE_URL: str = "http://localhost:8100"
 
     # Worker Configuration
     WORKER_SCRIPT_PATH: str = "./worker/meeting_worker.py"
