@@ -1,0 +1,69 @@
+# =============================================================================
+# Verdant bot-runtime override.
+# =============================================================================
+# Swaps the `backend` service to the heavy bot-runtime image so the SAME
+# container that serves the API can spawn the real Playwright/Node meeting bot
+# locally (LocalBotRunner subprocess path) instead of degrading to
+# `bot_runtime_unavailable`.
+#
+# Usage (layered on top of the base compose):
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.botruntime.yml \
+#     up -d --build
+#
+# or simply: `make up-bots`.  Tear down with `make down`.
+#
+# The base docker-compose.yml backend service still builds Dockerfile.dev for
+# fast, API-only work (`make up`). This override is purely additive.
+# =============================================================================
+
+services:
+  backend:
+    build:
+      context: ./backend
+      # The full image: Python API + Node + pnpm node_modules + Playwright
+      # Chromium + Xvfb/pulseaudio/ffmpeg + local whisper cache.
+      dockerfile: Dockerfile.botruntime
+    environment:
+      # Standalone local subprocess dispatch (no K8s warm pool).
+      RUNTIME_MODE: standalone
+      MEETING_JOINER_USE_WARM_POOL: "false"
+      # Spawn the bot as a local subprocess (vs "disabled" which short-circuits
+      # to bot_runtime_unavailable). This is what flips the runtime to REAL.
+      MEETING_BOT_MODE: subprocess
+
+      # Standalone bot-tree location. The default in local_bot_runner.py points
+      # at the monorepo path (/app/meeting-joiner/src/...). In this layout the
+      # app lives at /app/src/..., so point the entrypoint there explicitly.
+      NODE_BOT_ENTRYPOINT: /app/src/bot/bot_scripts/sidecar_launcher.js
+
+      # Virtual display the bot's headful Chromium renders onto (set by the
+      # entrypoint too; declared here so app code that reads DISPLAY agrees).
+      DISPLAY: ":99"
+      RUNNING_IN_DOCKER: "true"
+
+      # Help LocalBotRunner._chromium_present() resolve the Playwright browser
+      # without relying on ~/.cache discovery.
+      PLAYWRIGHT_BROWSERS_PATH: /opt/ms-playwright
+
+      # Keyless STT — local whisper, no cloud keys. Cache baked/persisted in
+      # the image at /opt/hf-cache (see HF_HOME/TRANSFORMERS_CACHE in image).
+      LLM_PROVIDER: local_whisper
+      WHISPER_MODEL: tiny.en
+      HF_HOME: /opt/hf-cache
+      TRANSFORMERS_CACHE: /opt/hf-cache
+
+      # Bot identity / platform config (no secrets).
+      BOT_NAME: ${BOT_NAME:-Verdant Notetaker}
+      MEETING_JOINER_ENABLED_PLATFORMS: googlemeet
+      GOOGLEMEET_TRANSCRIPT_SOURCE: gmeet_captions
+      MEETING_JOINER_STORAGE_REQUIRED: "false"
+
+    # The botruntime image runs its own entrypoint (Xvfb + pulse, then uvicorn);
+    # do not let any base-compose `command:` shadow it. Base compose has none,
+    # but be explicit so the entrypoint always wraps the API process.
+    command: ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+    # shm too small (default 64MB) makes Chromium crash with renderer OOM.
+    shm_size: "1gb"
