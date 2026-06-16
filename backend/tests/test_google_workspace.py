@@ -313,6 +313,7 @@ class _FakeStore:
                 customer_id,
                 mkt_client,
                 mkt_proj,
+                notetaker_email,
                 enabled,
             ) = args
             prev = self._state["row"] or {}
@@ -330,6 +331,11 @@ class _FakeStore:
                 "customer_id": customer_id,
                 "marketplace_client_id": mkt_client,
                 "marketplace_project_number": mkt_proj,
+                "notetaker_email": (
+                    notetaker_email
+                    if notetaker_email is not None
+                    else prev.get("notetaker_email")
+                ),
                 "enabled": enabled,
                 "created_at": "2026-06-16T00:00:00+00:00",
                 "updated_at": "2026-06-16T00:00:00+00:00",

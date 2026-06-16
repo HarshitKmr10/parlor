@@ -41,6 +41,7 @@ from ..integrations.google_workspace.auth import (
     CALENDAR_READONLY_SCOPE,
     DIRECTORY_READONLY_SCOPE,
 )
+from ..integrations.google_workspace.policy import OrgMeetingPolicyRepo
 from ..observability import get_logger
 from ..shared.platformDetector import PlatformDetector
 from .calendar_poller import _extract_meeting_url
@@ -113,7 +114,10 @@ class WorkspaceCalendarSync:
         for org in orgs:
             try:
                 dispatched += await self._scan_org(
-                    db, org["workspace_id"], org["auth_config"]
+                    db,
+                    org["workspace_id"],
+                    org["auth_config"],
+                    notetaker_email=org.get("notetaker_email"),
                 )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
@@ -123,7 +127,9 @@ class WorkspaceCalendarSync:
                 )
         return dispatched
 
-    async def _scan_org(self, db, workspace_id: str, auth_config) -> int:
+    async def _scan_org(
+        self, db, workspace_id: str, auth_config, *, notetaker_email=None
+    ) -> int:
         auth = get_workspace_auth(auth_config)
         emails = await self.discover_users(auth_config, auth=auth)
         if not emails:
@@ -132,7 +138,9 @@ class WorkspaceCalendarSync:
         count = 0
         for email in emails:
             try:
-                count += await self._scan_user(db, workspace_id, auth, email)
+                count += await self._scan_user(
+                    db, workspace_id, auth, email, notetaker_email=notetaker_email
+                )
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "workspace_calendar_sync.user_error",
@@ -151,7 +159,9 @@ class WorkspaceCalendarSync:
             customer_id=auth_config.customer_id,
         )
 
-    async def _scan_user(self, db, workspace_id: str, auth, user_email: str) -> int:
+    async def _scan_user(
+        self, db, workspace_id: str, auth, user_email: str, *, notetaker_email=None
+    ) -> int:
         events = await self._fetch_user_events(auth, user_email)
         count = 0
         for event in events:
@@ -165,7 +175,25 @@ class WorkspaceCalendarSync:
             # Shared dedupe with the per-user poller.
             if await self._already_booked(db, event_id):
                 continue
-            if await self._dispatch_event(db, workspace_id, url, platform, event_id):
+            # Policy gate (BOTH calendar + ad-hoc dispatch consult policy). The
+            # event organizer (or the calendar owner as a fallback) is the
+            # subject we evaluate allow/deny/opt-out against.
+            organizer = (event.get("organizer") or {}).get("email") or user_email
+            decision = await OrgMeetingPolicyRepo(db).evaluate(
+                workspace_id, organizer_email=organizer
+            )
+            if not decision.allowed:
+                logger.info(
+                    "workspace_calendar_sync.policy_skip",
+                    workspace_id=workspace_id,
+                    organizer=organizer,
+                    reason=decision.reason,
+                )
+                continue
+            if await self._dispatch_event(
+                db, workspace_id, url, platform, event_id,
+                notetaker_email=notetaker_email,
+            ):
                 count += 1
         return count
 
@@ -204,7 +232,8 @@ class WorkspaceCalendarSync:
         return bool(rows)
 
     async def _dispatch_event(
-        self, db, workspace_id: str, url: str, platform: str, event_id: str
+        self, db, workspace_id: str, url: str, platform: str, event_id: str,
+        *, notetaker_email=None,
     ) -> bool:
         """Create + dispatch a bot for one calendar event (best effort).
 
@@ -254,6 +283,7 @@ class WorkspaceCalendarSync:
                 meeting_service=service,
                 queue_service=queue_service,
                 allow_on_demand=True,
+                notetaker_email=notetaker_email,
             )
         except Exception as exc:  # noqa: BLE001
             logger.warning(

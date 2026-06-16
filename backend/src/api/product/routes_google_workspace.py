@@ -34,13 +34,23 @@ from ...integrations.google_workspace.auth import (
     DIRECTORY_READONLY_SCOPE,
     WorkspaceAuthError,
 )
+from ...integrations.google_workspace.policy import OrgMeetingPolicyRepo
+from ...services.meet_events_service import (
+    MeetEventsService,
+    PubSubNotConfiguredError,
+    WorkspaceNotConfiguredError,
+)
 from ..database.connection import DatabaseConnection
 from .deps import get_current_workspace, get_db
 from .errors import ApiError
 from .schemas import (
+    EventSubscribeResponse,
+    EventSubscription,
+    EventSubscriptionsResponse,
     GoogleWorkspaceConfig,
     GoogleWorkspaceConfigRequest,
     GoogleWorkspaceUsersResponse,
+    OrgMeetingPolicyModel,
     Workspace,
 )
 
@@ -103,6 +113,9 @@ async def configure(
         customer_id=body.customer_id,
         marketplace_client_id=body.marketplace_client_id,
         marketplace_project_number=body.marketplace_project_number,
+        notetaker_email=(
+            str(body.notetaker_email) if body.notetaker_email else None
+        ),
         enabled=body.enabled,
     )
     return _to_config(row)
@@ -172,3 +185,103 @@ async def list_users(
             f"Failed to list org users: {exc}",
         )
     return GoogleWorkspaceUsersResponse(users=emails, total=len(emails))
+
+
+# ── Pass 2: Workspace Events subscription lifecycle ──────────────────────────
+
+
+@router.post("/events/subscribe", response_model=EventSubscribeResponse)
+async def subscribe_events(
+    workspace: Workspace = Depends(get_current_workspace),
+) -> EventSubscribeResponse:
+    """Provision Meet conference-lifecycle subscriptions across the org.
+
+    Fans a Workspace Events subscription out to every active org user so an
+    instant Meet (one that never touches a calendar) fires a Pub/Sub push to our
+    webhook. Requires both an enabled org config AND a Pub/Sub topic.
+    """
+    try:
+        summary = await MeetEventsService().provision_workspace(workspace.id)
+    except PubSubNotConfiguredError as exc:
+        raise ApiError(400, "pubsub_not_configured", str(exc))
+    except WorkspaceNotConfiguredError as exc:
+        raise ApiError(400, "google_workspace_not_configured", str(exc))
+    except NotImplementedError as exc:
+        raise ApiError(501, "auth_mode_not_implemented", str(exc))
+    except WorkspaceAuthError as exc:
+        raise ApiError(400, "google_workspace_auth_error", str(exc))
+    except Exception as exc:  # noqa: BLE001
+        raise ApiError(502, "events_subscribe_error", f"Failed to subscribe: {exc}")
+    return EventSubscribeResponse.model_validate(summary)
+
+
+@router.get("/events/subscriptions", response_model=EventSubscriptionsResponse)
+async def list_event_subscriptions(
+    workspace: Workspace = Depends(get_current_workspace),
+) -> EventSubscriptionsResponse:
+    """List the workspace's Workspace Events subscriptions + their states."""
+    rows = await MeetEventsService().list_subscriptions(workspace.id)
+    subs = [EventSubscription.model_validate(r) for r in rows]
+    return EventSubscriptionsResponse(subscriptions=subs, total=len(subs))
+
+
+@router.delete("/events/subscriptions")
+async def delete_event_subscriptions(
+    workspace: Workspace = Depends(get_current_workspace),
+) -> dict:
+    """Tear down all Workspace Events subscriptions for the workspace."""
+    summary = await MeetEventsService().teardown_workspace(workspace.id)
+    return summary
+
+
+# ── Pass 2: org meeting policy ───────────────────────────────────────────────
+
+
+@router.get("/policy", response_model=OrgMeetingPolicyModel)
+async def get_policy(
+    workspace: Workspace = Depends(get_current_workspace),
+    db: DatabaseConnection = Depends(get_db),
+) -> OrgMeetingPolicyModel:
+    """Current auto-join policy (permissive default when none is configured)."""
+    policy = await OrgMeetingPolicyRepo(db).get(workspace.id)
+    return OrgMeetingPolicyModel.model_validate(
+        {
+            "autoJoinEnabled": policy.auto_join_enabled,
+            "mode": policy.mode,
+            "allow": policy.allow or {},
+            "deny": policy.deny or {},
+            "optOutEmails": policy.opt_out_emails or [],
+            "recordingDisclosureText": policy.recording_disclosure_text,
+        }
+    )
+
+
+@router.put("/policy", response_model=OrgMeetingPolicyModel)
+async def put_policy(
+    body: OrgMeetingPolicyModel,
+    workspace: Workspace = Depends(get_current_workspace),
+    db: DatabaseConnection = Depends(get_db),
+) -> OrgMeetingPolicyModel:
+    """Upsert the workspace's auto-join policy."""
+    try:
+        policy = await OrgMeetingPolicyRepo(db).upsert(
+            workspace_id=workspace.id,
+            auto_join_enabled=body.auto_join_enabled,
+            mode=body.mode,
+            allow=body.allow.model_dump(),
+            deny=body.deny.model_dump(),
+            opt_out_emails=body.opt_out_emails,
+            recording_disclosure_text=body.recording_disclosure_text,
+        )
+    except ValueError as exc:
+        raise ApiError(400, "invalid_policy", str(exc))
+    return OrgMeetingPolicyModel.model_validate(
+        {
+            "autoJoinEnabled": policy.auto_join_enabled,
+            "mode": policy.mode,
+            "allow": policy.allow or {},
+            "deny": policy.deny or {},
+            "optOutEmails": policy.opt_out_emails or [],
+            "recordingDisclosureText": policy.recording_disclosure_text,
+        }
+    )

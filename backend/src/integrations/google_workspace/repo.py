@@ -17,7 +17,7 @@ from .auth import AUTH_MODE_DWD, OrgAuthConfig
 _PUBLIC_COLUMNS = (
     "id, workspace_id, domain, customer_id, auth_mode, "
     "delegated_admin_email, marketplace_client_id, marketplace_project_number, "
-    "enabled, created_at, updated_at"
+    "notetaker_email, enabled, created_at, updated_at"
 )
 
 
@@ -91,6 +91,19 @@ class GoogleWorkspaceOrgRepo:
             marketplace_project_number=row.get("marketplace_project_number"),
         )
 
+    async def get_notetaker_email(self, workspace_id: str) -> Optional[str]:
+        """The Workspace account the bot joins meetings AS for this workspace.
+
+        Returns ``None`` when unset (callers fall back to
+        ``settings.MEET_NOTETAKER_EMAIL``).
+        """
+        rows = await self._db.store.query_raw(
+            "SELECT notetaker_email FROM google_workspace_orgs "
+            "WHERE workspace_id = $1::uuid",
+            workspace_id,
+        )
+        return dict(rows[0]).get("notetaker_email") if rows else None
+
     async def upsert(
         self,
         *,
@@ -102,6 +115,7 @@ class GoogleWorkspaceOrgRepo:
         customer_id: Optional[str] = None,
         marketplace_client_id: Optional[str] = None,
         marketplace_project_number: Optional[str] = None,
+        notetaker_email: Optional[str] = None,
         enabled: bool,
     ) -> Dict[str, Any]:
         """Upsert the org config (one row per workspace).
@@ -116,8 +130,9 @@ class GoogleWorkspaceOrgRepo:
             INSERT INTO google_workspace_orgs
               (workspace_id, auth_mode, service_account_json,
                delegated_admin_email, domain, customer_id,
-               marketplace_client_id, marketplace_project_number, enabled)
-            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
+               marketplace_client_id, marketplace_project_number,
+               notetaker_email, enabled)
+            VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             ON CONFLICT (workspace_id) DO UPDATE
               SET auth_mode = EXCLUDED.auth_mode,
                   service_account_json = COALESCE(
@@ -128,6 +143,9 @@ class GoogleWorkspaceOrgRepo:
                   customer_id = EXCLUDED.customer_id,
                   marketplace_client_id = EXCLUDED.marketplace_client_id,
                   marketplace_project_number = EXCLUDED.marketplace_project_number,
+                  notetaker_email = COALESCE(
+                      EXCLUDED.notetaker_email,
+                      google_workspace_orgs.notetaker_email),
                   enabled = EXCLUDED.enabled,
                   updated_at = NOW()
             RETURNING {_PUBLIC_COLUMNS},
@@ -141,6 +159,7 @@ class GoogleWorkspaceOrgRepo:
             customer_id,
             marketplace_client_id,
             marketplace_project_number,
+            notetaker_email,
             enabled,
         )
         row = dict(rows[0])
@@ -165,7 +184,7 @@ class GoogleWorkspaceOrgRepo:
         rows = await self._db.store.query_raw(
             "SELECT workspace_id, auth_mode, service_account_json, "
             "delegated_admin_email, domain, customer_id, "
-            "marketplace_client_id, marketplace_project_number "
+            "marketplace_client_id, marketplace_project_number, notetaker_email "
             "FROM google_workspace_orgs WHERE enabled = TRUE"
         )
         out: list[Dict[str, Any]] = []
@@ -175,6 +194,7 @@ class GoogleWorkspaceOrgRepo:
             out.append(
                 {
                     "workspace_id": str(d.get("workspace_id")),
+                    "notetaker_email": d.get("notetaker_email"),
                     "auth_config": OrgAuthConfig.from_service_account_json(
                         sa_json,
                         auth_mode=d.get("auth_mode") or AUTH_MODE_DWD,

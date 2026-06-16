@@ -135,6 +135,7 @@ class LocalBotRunner:
         bot_name: Optional[str],
         transcript_source: Optional[str],
         org_id: Optional[str],
+        notetaker_email: Optional[str] = None,
     ) -> None:
         self.meeting_id = meeting_id
         self.meeting_url = meeting_url
@@ -142,6 +143,9 @@ class LocalBotRunner:
         self.bot_name = bot_name or settings.BOT_NAME
         self.transcript_source = transcript_source
         self.org_id = org_id or ""
+        # The Workspace account the bot joins meetings AS (auto-admission to
+        # internal Meet meetings). Per-workspace; falls back to the env default.
+        self.notetaker_email = notetaker_email or settings.MEET_NOTETAKER_EMAIL
         self._proc: Optional[asyncio.subprocess.Process] = None
         self._monitor_task: Optional[asyncio.Task[None]] = None
 
@@ -248,6 +252,10 @@ class LocalBotRunner:
         env["SESSION_NUMBER"] = "1"
         if self.transcript_source:
             env["TRANSCRIPT_SOURCE"] = self.transcript_source
+        if self.notetaker_email:
+            # The bot reads this to sign in / present the notetaker identity so
+            # internal Meet meetings auto-admit it.
+            env["MEET_NOTETAKER_EMAIL"] = self.notetaker_email
         return env
 
     async def _monitor(self) -> None:
@@ -400,6 +408,7 @@ async def dispatch_local_bot(
     transcript_source: Optional[str],
     bot_name: Optional[str],
     org_id: Optional[str],
+    notetaker_email: Optional[str] = None,
 ) -> bool:
     """Standalone dispatch entrypoint — spawn a local bot for the meeting.
 
@@ -415,6 +424,7 @@ async def dispatch_local_bot(
         bot_name=bot_name,
         transcript_source=transcript_source,
         org_id=org_id,
+        notetaker_email=notetaker_email,
     )
     return await runner.start()
 

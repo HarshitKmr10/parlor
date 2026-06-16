@@ -38,11 +38,25 @@ DIRECTORY_READONLY_SCOPE = (
 )
 CALENDAR_READONLY_SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
 
+# ── Pass 2: ad-hoc Meet capture via Workspace Events API + Meet REST API ────
+# Subscribing to Meet conference lifecycle events requires the meetings
+# space.readonly scope; the Workspace Events subscription itself is created with
+# the same Meet scope as the target resource. Reading a Meet space / conference
+# record (to resolve the meetingUri) uses meetings.space.readonly too.
+MEET_READONLY_SCOPE = (
+    "https://www.googleapis.com/auth/meetings.space.readonly"
+)
+#: Scope set used when creating/managing Workspace Events subscriptions and
+#: resolving Meet spaces. Kept separate from calendar so an operator can grant
+#: incrementally.
+MEET_EVENTS_SCOPES: tuple[str, ...] = (MEET_READONLY_SCOPE,)
+
 #: Union of every scope the org-wide flow may request. The service-account
 #: client must be authorized for exactly these in the admin console.
 DEFAULT_WORKSPACE_SCOPES: tuple[str, ...] = (
     DIRECTORY_READONLY_SCOPE,
     CALENDAR_READONLY_SCOPE,
+    MEET_READONLY_SCOPE,
 )
 
 AUTH_MODE_DWD = "dwd"
