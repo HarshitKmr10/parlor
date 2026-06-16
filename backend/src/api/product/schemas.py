@@ -36,8 +36,7 @@ class CamelModel(BaseModel):
         # typed str. Coerce on the way in so every model accepts raw DB rows.
         if isinstance(data, dict):
             return {
-                k: (str(v) if isinstance(v, uuid.UUID) else v)
-                for k, v in data.items()
+                k: (str(v) if isinstance(v, uuid.UUID) else v) for k, v in data.items()
             }
         return data
 
@@ -120,9 +119,7 @@ class ApiKeyCreated(ApiKey):
 
 # ── Meetings ─────────────────────────────────────────────────────────────
 Platform = Literal["zoom", "meet", "teams", "desktop"]
-MeetingStatusLiteral = Literal[
-    "scheduled", "joining", "ongoing", "completed", "failed"
-]
+MeetingStatusLiteral = Literal["scheduled", "joining", "ongoing", "completed", "failed"]
 
 
 class Participant(CamelModel):
@@ -276,3 +273,51 @@ class IntegrationUpdate(CamelModel):
     kind: IntegrationKind
     enabled: bool = False
     config: dict[str, Any] = Field(default_factory=dict)
+
+
+# ── Google Workspace (org-wide capture) ────────────────────────────────────
+WorkspaceAuthMode = Literal["dwd", "marketplace"]
+
+
+class GoogleWorkspaceConfigRequest(CamelModel):
+    """Configure org-wide capture for the active workspace (admin action).
+
+    For ``dwd`` (default), ``serviceAccountJson`` + ``delegatedAdminEmail`` are
+    required on first configure. The SA JSON is encrypted at rest and NEVER
+    returned. On a later toggle (enable/disable) it may be omitted to keep the
+    stored key.
+    """
+
+    auth_mode: WorkspaceAuthMode = "dwd"
+    service_account_json: Optional[str] = Field(None, min_length=1)
+    delegated_admin_email: Optional[EmailStr] = None
+    domain: Optional[str] = Field(None, max_length=320)
+    customer_id: Optional[str] = Field(None, max_length=64)
+    marketplace_client_id: Optional[str] = Field(None, max_length=255)
+    marketplace_project_number: Optional[str] = Field(None, max_length=64)
+    enabled: bool = True
+
+
+class GoogleWorkspaceConfig(CamelModel):
+    """Public view of org-wide config. The SA JSON is replaced by a fingerprint;
+    the raw key material is never serialized."""
+
+    workspace_id: str
+    auth_mode: WorkspaceAuthMode
+    domain: Optional[str] = None
+    customer_id: Optional[str] = None
+    delegated_admin_email: Optional[str] = None
+    marketplace_client_id: Optional[str] = None
+    marketplace_project_number: Optional[str] = None
+    has_service_account: bool = False
+    service_account_fingerprint: Optional[str] = None
+    enabled: bool = False
+    created_at: datetime
+    updated_at: datetime
+
+
+class GoogleWorkspaceUsersResponse(CamelModel):
+    """Preview of discovered org users — proves directory + DWD work."""
+
+    users: List[str] = Field(default_factory=list)
+    total: int = 0

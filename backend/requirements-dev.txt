@@ -28,6 +28,11 @@ pwdlib[argon2]>=0.2.1
 # Calendar OAuth token encryption at rest (Fernet) — Round 2.
 cryptography>=42.0
 
+# Org-wide Google Workspace capture (Round 3): Admin SDK Directory + Calendar
+# via domain-wide delegation (service account impersonation).
+google-api-python-client>=2.100
+google-auth>=2.30
+
 # HTTP client (ai-service proxy + warm-pool dispatcher)
 httpx>=0.27,<0.28
 
