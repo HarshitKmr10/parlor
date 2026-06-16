@@ -1,0 +1,29 @@
+# Optional. Most deployments expose the bot's API only via internal services;
+# include this only if you need an external endpoint for the /health and
+# meeting-management routes.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: meeting-joiner
+  annotations:
+    # Pick the annotations your ingress controller expects.
+    # Examples (uncomment one):
+    # kubernetes.io/ingress.class: "nginx"
+    # nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  rules:
+  - host: <YOUR_DOMAIN>
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: meeting-joiner
+            port:
+              number: 80
+  tls:
+  - hosts:
+    - <YOUR_DOMAIN>
+    secretName: meeting-joiner-tls

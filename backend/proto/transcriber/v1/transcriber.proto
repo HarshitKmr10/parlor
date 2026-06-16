@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package transcriber.v1;
+
+// Bidirectional streaming protocol between meeting-worker (audio source)
+// and transcriber-worker (stateless diarization service).
+//
+// Phase 2 of the resilient streaming plan. Decouples audio capture from
+// STT processing so:
+//   • a transcriber-worker pod crash doesn't kill the bot's recording
+//   • transcribers scale horizontally based on active sessions
+//   • a different transcriber pod can pick up a meeting via the Resume
+//     RPC if the original worker dies mid-meeting
+//
+// All timestamps are wall-clock ms since epoch unless explicitly noted
+// (audio offset ms = milliseconds since the meeting's audio stream start).
+
+service TranscriberService {
+  // Bidirectional streaming RPC. Client sends audio frames (and optional
+  // Resume on reconnect); server emits transcript events + per-frame acks.
+  rpc StreamTranscription(stream ClientMessage) returns (stream ServerMessage);
+
+  // Health check. Lightweight — returns immediately.
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+message ClientMessage {
+  oneof payload {
+    SessionStart start = 1;
+    AudioFrame frame = 2;
+    Resume resume = 3;
+    SessionEnd end = 4;
+  }
+}
+
+message ServerMessage {
+  oneof payload {
+    SessionAck ack = 1;
+    TranscriptEvent transcript = 2;
+    FrameAck frame_ack = 3;
+    Error error = 4;
+  }
+}
+
+// Sent once at the start of a session.
+message SessionStart {
+  string meeting_id = 1;
+  string provider = 2;          // 'assemblyai' | 'aws_transcribe' | 'deepgram'
+  uint32 sample_rate = 3;       // Hz
+  string language_code = 4;     // 'en-US'
+  uint32 max_speakers = 5;      // 1..10
+  string auth_token = 6;        // shared-secret HMAC for cross-tenant safety
+}
+
+message SessionAck {
+  string session_id = 1;        // server-assigned
+  uint64 server_started_at = 2; // ms since epoch
+}
+
+// PCM16 LE 16kHz mono frame.
+message AudioFrame {
+  uint64 sequence = 1;          // monotonic per session
+  uint64 ts_ms = 2;             // wall-clock at frame start
+  bytes pcm16 = 3;              // <= 64 KiB per frame
+  bool is_final_frame = 4;      // true when this is the last frame the
+                                 // client will send (graceful close)
+}
+
+message FrameAck {
+  uint64 last_seq_acked = 1;    // client may free replay buffer up to this seq
+}
+
+message Resume {
+  string meeting_id = 1;        // ties back to a SessionAck'd session
+  uint64 last_seq_acked = 2;    // client's view of the last ack
+  string auth_token = 3;
+}
+
+message SessionEnd {
+  string reason = 1;            // 'meeting_ended' | 'rotate' | 'shutdown' | ...
+}
+
+message TranscriptEvent {
+  string segment_id = 1;        // stable across reconnect (server-generated)
+  EventKind kind = 2;
+  string speaker_idx = 3;       // 'spk_0' (provider-side anonymous tag)
+  string speaker_label = 4;     // raw provider label, e.g. 'A' or '0'
+  uint64 start_ms = 5;          // wall-clock
+  uint64 end_ms = 6;
+  string text = 7;
+  string provider = 8;
+  string session_id = 9;        // current adapter session
+  double confidence = 10;       // 0..1 if available
+  repeated Word words = 11;
+
+  enum EventKind {
+    PARTIAL = 0;
+    FINAL = 1;
+  }
+}
+
+message Word {
+  string word = 1;
+  uint64 start_ms = 2;
+  uint64 end_ms = 3;
+  string speaker_idx = 4;
+  double confidence = 5;
+}
+
+message Error {
+  ErrorCode code = 1;
+  string message = 2;
+  bool retriable = 3;
+
+  enum ErrorCode {
+    UNKNOWN = 0;
+    UNAUTHENTICATED = 1;
+    PROVIDER_UNAVAILABLE = 2;
+    INVALID_FRAME = 3;
+    SESSION_EXPIRED = 4;
+    BACKPRESSURE = 5;
+  }
+}
+
+message HealthRequest {}
+message HealthResponse {
+  bool serving = 1;
+  uint32 active_sessions = 2;
+  uint64 server_started_at = 3;
+}

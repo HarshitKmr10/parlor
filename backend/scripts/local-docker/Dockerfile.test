@@ -1,0 +1,51 @@
+# Slim local-test image for the Google Meet join flow. Mirrors the
+# production meeting_worker.Dockerfile only on the surfaces that matter
+# for the join + rejection-detection bug surface:
+#
+#   - linux/amd64 (build with --platform linux/amd64 on Mac ARM via
+#     Docker buildx + qemu)
+#   - Chainguard wolfi-base (same as prod) with the same Chromium +
+#     Xvfb + PulseAudio stack
+#   - Bare minimum Node runtime + Playwright (no Python, no Prisma,
+#     no AWS / Azure SDKs, no pgqueuer, no Zoom SDK)
+#
+# Source code is bind-mounted at runtime so iterate-edit-rerun loops
+# don't trigger an image rebuild.
+
+FROM cgr.dev/chainguard/wolfi-base:latest
+
+WORKDIR /app
+
+# Match prod (meeting_worker.Dockerfile): Chromium + Xvfb + xkb companions
+# (xvfb dies without xkeyboard-config + xkbcomp), PulseAudio for the
+# virtual_speaker sink Chromium captures from, font for the Meet UI.
+RUN apk update && apk upgrade && apk add --no-cache \
+    nodejs-22 npm \
+    chromium \
+    xvfb xauth xkeyboard-config xkbcomp xdpyinfo \
+    pulseaudio pulseaudio-utils dbus \
+    libxrandr alsa-lib pango cairo gtk-3 gdk-pixbuf libxcomposite \
+    libxcursor libxdamage libxi libxtst nss cups-libs libdrm mesa-gbm mesa \
+    font-liberation bash \
+  && CHROMIUM_BIN=$(find /usr -type f \( -name "chromium" -o -name "chromium-browser" \) -executable 2>/dev/null | head -1) \
+  && if [ -z "$CHROMIUM_BIN" ]; then echo "ERROR: chromium not found" >&2; exit 1; fi \
+  && ln -sf "$CHROMIUM_BIN" /usr/bin/chromium-browser \
+  && /usr/bin/chromium-browser --version
+
+# Skip Playwright's chromium download — we use the OS chromium above.
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+ENV RUNNING_IN_DOCKER=true
+ENV DISPLAY=:99
+
+# Copy a minimal package.json that pulls only what join.js + the probe
+# script need. Source files are bind-mounted, not copied.
+COPY scripts/local-docker/package.test.json /app/package.json
+RUN npm install --omit=dev
+
+# Entrypoint script starts Xvfb + PulseAudio (matching prod's start.sh
+# minimal subset) before handing off to node. CMD is overridden by
+# docker-compose to run the desired script.
+COPY scripts/local-docker/entrypoint.test.sh /app/entrypoint.test.sh
+RUN chmod +x /app/entrypoint.test.sh
+ENTRYPOINT ["/app/entrypoint.test.sh"]
+CMD ["node", "/app/src/scripts/probe/googlemeet/probe.js"]

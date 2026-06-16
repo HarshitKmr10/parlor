@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pnp.*
+
+# Build output
+dist/
+build/
+.next/
+.turbo/
+out/
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+graphify-out/
+
+# Logs
+*.log
+
+# OS
+.DS_Store

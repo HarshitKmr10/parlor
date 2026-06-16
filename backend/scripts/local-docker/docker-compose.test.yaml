@@ -1,0 +1,116 @@
+# Local Docker test harness for the Google Meet join flow.
+#
+# Builds against linux/amd64 even on Mac ARM (uses buildx + qemu so the
+# wolfi-base image — which only ships amd64 in the public registry —
+# works). Bind-mounts the meeting-joiner source into the container so
+# edit-rerun loops don't rebuild.
+#
+# Usage:
+#   # one-time: build the image (~5-10 min on Mac ARM, mostly apk + npm)
+#   docker compose -f scripts/local-docker/docker-compose.test.yaml build
+#
+#   # run the WebRTC architecture probe against a Meet URL
+#   MEET_URL=https://meet.google.com/abc-defg-hij \
+#     docker compose -f scripts/local-docker/docker-compose.test.yaml \
+#     run --rm test-probe
+#
+#   # run the live e2e (audio_asr or gmeet_captions mode)
+#   MEET_URL=https://meet.google.com/abc-defg-hij MODE=gmeet_captions \
+#     docker compose -f scripts/local-docker/docker-compose.test.yaml \
+#     run --rm test-live
+#
+#   # exercise just the join flow (smallest reproducer for selector bugs)
+#   MEET_URL=https://meet.google.com/abc-defg-hij \
+#     docker compose -f scripts/local-docker/docker-compose.test.yaml \
+#     run --rm test-join
+
+services:
+  test-base: &test-base
+    platform: linux/amd64
+    build:
+      context: ../..
+      dockerfile: scripts/local-docker/Dockerfile.test
+      platforms: ["linux/amd64"]
+    image: meeting-joiner-local-test:latest
+    # Bind-mount only the source dirs the test scripts touch. node_modules
+    # stays in the image so we don't shadow the install with the host's
+    # macOS-built copy.
+    volumes:
+      - ../../src:/app/src:ro
+      - ../../scripts:/app/scripts:ro
+      - ../../tests:/app/tests:ro
+      # Output goes to the host so screenshots / segments.jsonl / probe
+      # JSON survive the container teardown.
+      - ./out:/app/out
+      # ~/.aws/credentials → /root/.aws/credentials so the AWS SDK auto-
+      # finds creds for audio_asr mode. The mount is optional (the
+      # container path is created if missing); compose will silently
+      # skip if the host file doesn't exist on a particular dev box.
+      - ${HOME}/.aws:/root/.aws:ro
+    environment:
+      - GOOGLE_MEET_ADMISSION_TIMEOUT_MS=240000
+      - GOOGLE_MEET_USE_AUTH=false
+      - LOG_LEVEL=info
+      # Off by default in the test image — opt in with -e if you want
+      # to validate the AWS / Azure adapter end-to-end.
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_REGION
+      - ASR_PROVIDER
+
+  test-probe:
+    <<: *test-base
+    command:
+      - node
+      - /app/scripts/probe/googlemeet/probe.js
+      - "${MEET_URL}"
+      - --bot-name
+      - "Probe Bot"
+      - --seconds
+      - "60"
+
+  test-live:
+    <<: *test-base
+    environment:
+      - GOOGLE_MEET_ADMISSION_TIMEOUT_MS=240000
+      - GOOGLE_MEET_USE_AUTH=false
+      - LOG_LEVEL=info
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY
+      - AWS_REGION
+      - ASR_PROVIDER
+      # Forces live.js to write segments + screenshots into the
+      # writable /app/out bind-mount instead of the read-only scripts/
+      # tree. Visible on the host as scripts/local-docker/out/test-live/.
+      - LIVE_OUT_DIR=/app/out/test-live
+    command:
+      - node
+      - /app/scripts/e2e/googlemeet/live.js
+      - "${MEET_URL}"
+      - --bot-name
+      - "Local Test Bot"
+      - --seconds
+      - "${SECONDS:-90}"
+      - --mode
+      - "${MODE:-audio_asr}"
+
+  # Smallest reproducer for selector-classification bugs (rejection
+  # false-positives, name-input misses, etc.). Joins, hits whatever
+  # state, dumps DOM diagnostics, leaves.
+  test-join:
+    <<: *test-base
+    command:
+      - node
+      - /app/scripts/local-docker/test-join.js
+      - "${MEET_URL}"
+
+  # Captions enable debugger. Joins, snapshots toolbar buttons, opens
+  # the More menu, snapshots menu items, attempts to click the
+  # captions item, snapshots the result. JSON dumps land in
+  # out/captions-debug/<ts>/ for offline analysis.
+  test-captions-debug:
+    <<: *test-base
+    command:
+      - node
+      - /app/scripts/local-docker/test-captions-debug.js
+      - "${MEET_URL}"

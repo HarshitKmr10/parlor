@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: meeting-joiner-worker
+  labels:
+    app: meeting-joiner
+    role: worker
+spec:
+  replicas: 1
+  strategy:
+    # Bots hold long-lived browser sessions; the safe rollout shape is
+    # to bring up the new pod, wait for it to be ready, then terminate
+    # the old one.
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: meeting-joiner
+      role: worker
+  template:
+    metadata:
+      labels:
+        app: meeting-joiner
+        role: worker
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - name: meeting-joiner
+        image: <YOUR_REGISTRY>/meeting-joiner:1.0.0
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 3001
+        envFrom:
+        - configMapRef:
+            name: meeting-joiner-config
+        - secretRef:
+            name: meeting-joiner-secrets
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "1Gi"
+          limits:
+            cpu: "2"
+            memory: "4Gi"
+        livenessProbe:
+          exec:
+            command: ["sh", "-c", "pgrep -f Xvfb && pgrep -f pulseaudio"]
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}

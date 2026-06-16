@@ -1,0 +1,12 @@
+# meeting-joiner specific gitignore (additive to the repo root .gitignore).
+#
+# Allow the bundled env template so vendor consumers can read the
+# documented contract; the repo root .gitignore's `.env*` rule would
+# otherwise exclude it.
+
+!.env.example
+!envs/*.example.env
+
+# Local env files (per-developer) stay ignored.
+.env
+envs/*.env

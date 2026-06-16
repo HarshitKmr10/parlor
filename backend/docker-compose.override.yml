@@ -1,0 +1,36 @@
+services:
+  api:
+    image: meeting-joiner-api:withotel
+    build: !reset null
+    env_file:
+      - .env
+    volumes:
+      - ./.env:/app/meeting-joiner/.env:ro
+      - ./src:/app/meeting-joiner/src
+      - ./shared:/app/meeting-joiner/shared:ro
+    command:
+      - python3
+      - -m
+      - uvicorn
+      - src.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
+  worker:
+    image: meeting-joiner-api:withotel
+    build: !reset null
+    env_file:
+      - .env
+    volumes:
+      - ./.env:/app/meeting-joiner/.env:ro
+      - ./src:/app/meeting-joiner/src
+      - ./shared:/app/meeting-joiner/shared:ro
+      - ./workers:/app/meeting-joiner/workers

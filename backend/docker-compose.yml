@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  # FastAPI service
+  api:
+    build:
+      context: ..  # Parent directory (aiops)
+      dockerfile: meeting-joiner/infra/docker/meeting_worker.Dockerfile
+    container_name: meeting-joiner-api
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
+      - ZOOM_CLIENT_ID=${ZOOM_CLIENT_ID}
+      - ZOOM_CLIENT_SECRET=${ZOOM_CLIENT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HOST=0.0.0.0
+      - PORT=8000
+      - LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/app/src:ro
+      - transcript_data:/tmp/zoom_transcripts
+    networks:
+      - meeting-network
+    restart: unless-stopped
+
+  # PGQueuer Worker (supports both MS Teams and Zoom)
+  worker:
+    build:
+      context: ..  # Parent directory (aiops)
+      dockerfile: meeting-joiner/infra/docker/meeting_worker.Dockerfile
+    container_name: meeting-joiner-worker
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
+      - ZOOM_CLIENT_ID=${ZOOM_CLIENT_ID}
+      - ZOOM_CLIENT_SECRET=${ZOOM_CLIENT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./src:/app/src:ro
+      - transcript_data:/tmp/zoom_transcripts
+    networks:
+      - meeting-network
+    restart: unless-stopped
+    # Worker needs more resources for Zoom SDK
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+
+volumes:
+  transcript_data:
+
+networks:
+  meeting-network:
+    driver: bridge
