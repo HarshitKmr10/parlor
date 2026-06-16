@@ -45,6 +45,9 @@ from .api.routes import sessions as sessions_routes
 from .api.product.errors import ApiError
 from .api.product.routes_auth import auth_router, workspaces_router
 from .api.product.routes_calendar import router as product_calendar_router
+from .api.product.routes_google_workspace import (
+    router as product_google_workspace_router,
+)
 from .api.product.routes_integrations import router as product_integrations_router
 from .api.product.routes_meetings import router as product_meetings_router
 from .services.ghost_pod_reaper import close_ghost_pod_reaper, get_ghost_pod_reaper
@@ -272,6 +275,30 @@ async def lifespan(app: FastAPI):
         else:
             logger.info("Calendar poller disabled (not standalone)")
 
+        # Start the org-wide Google Workspace calendar sync — in standalone,
+        # for each enabled Workspace org it reads every org user's calendar
+        # (via domain-wide delegation) and dispatches a local bot for imminent
+        # Meet meetings. Gated by GOOGLE_WORKSPACE_ENABLED; no-ops quietly when
+        # disabled or when no org is configured.
+        if _is_standalone():
+            try:
+                from .services.workspace_calendar_sync import (
+                    get_workspace_calendar_sync,
+                )
+
+                if settings.GOOGLE_WORKSPACE_ENABLED:
+                    await get_workspace_calendar_sync().start()
+                    logger.info("Workspace calendar sync started")
+                else:
+                    logger.info(
+                        "Workspace calendar sync disabled "
+                        "(GOOGLE_WORKSPACE_ENABLED=false)"
+                    )
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Workspace calendar sync start failed: %s", e)
+        else:
+            logger.info("Workspace calendar sync disabled (not standalone)")
+
         logger.info(
             "Meeting Joiner Service started - run worker separately for job processing"
         )
@@ -318,6 +345,16 @@ async def lifespan(app: FastAPI):
             logger.info("Calendar poller stopped")
         except Exception as e:  # noqa: BLE001
             logger.warning("Calendar poller stop error: %s", e)
+
+        try:
+            from .services.workspace_calendar_sync import (
+                close_workspace_calendar_sync,
+            )
+
+            await close_workspace_calendar_sync()
+            logger.info("Workspace calendar sync stopped")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Workspace calendar sync stop error: %s", e)
 
         try:
             from .services.local_bot_runner import shutdown_local_bot_runners
@@ -395,6 +432,7 @@ app.include_router(auth_router)
 app.include_router(workspaces_router)
 app.include_router(product_meetings_router)
 app.include_router(product_calendar_router)
+app.include_router(product_google_workspace_router)
 app.include_router(product_integrations_router)
 
 

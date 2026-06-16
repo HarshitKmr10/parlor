@@ -59,6 +59,11 @@ opentelemetry-instrumentation-logging = "^0.56b0"
 # create the per-meeting pod and run replenish + reaper loops.
 kubernetes-asyncio = "^31.1.0"
 
+# Org-wide Google Workspace capture (Round 3): Admin SDK Directory + Calendar
+# read via domain-wide delegation (service-account impersonation).
+google-api-python-client = "^2.100"
+google-auth = "^2.30"
+
 # Prometheus client for sidecar /metrics endpoint
 prometheus-client = "^0.20.0"
 

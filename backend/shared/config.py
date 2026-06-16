@@ -107,6 +107,14 @@ class Settings(BaseSettings):
     CALENDAR_POLL_INTERVAL_S: int = 60
     CALENDAR_JOIN_LEAD_MINUTES: int = 5
 
+    # ─── Org-wide Google Workspace capture (Round 3) ──────────────────────
+    # Master gate for the domain-wide calendar sync background loop. Default
+    # false so the app boots with NO Google creds and the sync no-ops. Even
+    # when true, the loop only runs for workspaces that have an *enabled* org
+    # configured via POST /api/v1/google-workspace. Per-org auth (service
+    # account JSON, delegated admin) is stored encrypted in the DB, never here.
+    GOOGLE_WORKSPACE_ENABLED: bool = False
+
     # ─── Outbound integration delivery (Round 2) ──────────────────────────
     # SMTP for the email recap provider. If host is unset, the email provider
     # logs the recap instead of sending (dev-friendly).
