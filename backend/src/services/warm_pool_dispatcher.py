@@ -58,6 +58,9 @@ class SidecarConfigurePayload:
     bot_avatar_url: Optional[str] = None
     webhook_url: Optional[str] = None
     max_duration_seconds: Optional[int] = None
+    # The Workspace account the bot joins meetings AS (auto-admission to
+    # internal Meet meetings). Optional; passed through to the sidecar bot.
+    notetaker_email: Optional[str] = None
 
     def to_json(self) -> dict:
         payload: dict[str, object] = {
@@ -68,6 +71,8 @@ class SidecarConfigurePayload:
             "bot_name": self.bot_name,
             "session_number": self.session_number,
         }
+        if self.notetaker_email is not None:
+            payload["notetaker_email"] = self.notetaker_email
         if self.transcript_source is not None:
             payload["transcript_source"] = self.transcript_source
         if self.bot_avatar_url is not None:

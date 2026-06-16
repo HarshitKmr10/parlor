@@ -25,6 +25,20 @@ from .auth import (
     get_workspace_auth,
 )
 from .directory import DirectoryClient
+from .events import (
+    DEFAULT_MEET_EVENT_TYPES,
+    EVENT_CONFERENCE_STARTED,
+    EVENT_PARTICIPANT_JOINED,
+    MeetSpaceResolver,
+    SubscriptionResult,
+    WorkspaceEventsClient,
+    WorkspaceEventSubscriptionRepo,
+)
+from .policy import (
+    OrgMeetingPolicy,
+    OrgMeetingPolicyRepo,
+    PolicyDecision,
+)
 from .repo import GoogleWorkspaceOrgRepo
 
 __all__ = [
@@ -35,4 +49,16 @@ __all__ = [
     "get_workspace_auth",
     "DirectoryClient",
     "GoogleWorkspaceOrgRepo",
+    # Pass 2: ad-hoc Meet events
+    "WorkspaceEventsClient",
+    "WorkspaceEventSubscriptionRepo",
+    "MeetSpaceResolver",
+    "SubscriptionResult",
+    "DEFAULT_MEET_EVENT_TYPES",
+    "EVENT_CONFERENCE_STARTED",
+    "EVENT_PARTICIPANT_JOINED",
+    # Pass 2: org meeting policy
+    "OrgMeetingPolicy",
+    "OrgMeetingPolicyRepo",
+    "PolicyDecision",
 ]

@@ -50,6 +50,7 @@ from .api.product.routes_google_workspace import (
 )
 from .api.product.routes_integrations import router as product_integrations_router
 from .api.product.routes_meetings import router as product_meetings_router
+from .api.product.routes_pubsub import router as product_pubsub_router
 from .services.ghost_pod_reaper import close_ghost_pod_reaper, get_ghost_pod_reaper
 from .services.meeting_scheduler import (
     close_meeting_scheduler,
@@ -299,6 +300,27 @@ async def lifespan(app: FastAPI):
         else:
             logger.info("Workspace calendar sync disabled (not standalone)")
 
+        # Start the Meet events renewer — keeps Workspace Events subscriptions
+        # (ad-hoc / instant Meet capture) alive before they expire. No-ops
+        # quietly when GOOGLE_WORKSPACE_ENABLED is false or no Pub/Sub topic is
+        # configured, so this is safe to start unconditionally in standalone.
+        if _is_standalone():
+            try:
+                from .services.meet_events_service import get_meet_events_renewer
+
+                if settings.GOOGLE_WORKSPACE_ENABLED and settings.GOOGLE_PUBSUB_TOPIC:
+                    await get_meet_events_renewer().start()
+                    logger.info("Meet events renewer started")
+                else:
+                    logger.info(
+                        "Meet events renewer disabled "
+                        "(GOOGLE_WORKSPACE_ENABLED / GOOGLE_PUBSUB_TOPIC unset)"
+                    )
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Meet events renewer start failed: %s", e)
+        else:
+            logger.info("Meet events renewer disabled (not standalone)")
+
         logger.info(
             "Meeting Joiner Service started - run worker separately for job processing"
         )
@@ -355,6 +377,14 @@ async def lifespan(app: FastAPI):
             logger.info("Workspace calendar sync stopped")
         except Exception as e:  # noqa: BLE001
             logger.warning("Workspace calendar sync stop error: %s", e)
+
+        try:
+            from .services.meet_events_service import close_meet_events_renewer
+
+            await close_meet_events_renewer()
+            logger.info("Meet events renewer stopped")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Meet events renewer stop error: %s", e)
 
         try:
             from .services.local_bot_runner import shutdown_local_bot_runners
@@ -434,6 +464,8 @@ app.include_router(product_meetings_router)
 app.include_router(product_calendar_router)
 app.include_router(product_google_workspace_router)
 app.include_router(product_integrations_router)
+# Pub/Sub push webhook (Google -> us; NO product auth, sender-verified).
+app.include_router(product_pubsub_router)
 
 
 # Dependency injection
@@ -557,6 +589,7 @@ async def dispatch_meeting(
     queue_service,
     session_number: int = 1,
     allow_on_demand: bool = True,
+    notetaker_email: Optional[str] = None,
 ) -> tuple[bool, Optional[str]]:
     """Dispatch a meeting's bot: warm pool first, PGQueuer fallback second.
 
@@ -588,6 +621,7 @@ async def dispatch_meeting(
             transcript_source=transcript_source,
             bot_name=bot_name,
             org_id=org_id,
+            notetaker_email=notetaker_email,
         )
         message = (
             "Bot dispatched as local subprocess"
@@ -609,6 +643,7 @@ async def dispatch_meeting(
             bot_name=bot_name or settings.BOT_NAME,
             session_number=session_number,
             transcript_source=transcript_source,
+            notetaker_email=notetaker_email,
         )
         result = await dispatch_to_warm_pool(payload, allow_on_demand=allow_on_demand)
         if result.success:

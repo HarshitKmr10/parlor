@@ -115,6 +115,32 @@ class Settings(BaseSettings):
     # account JSON, delegated admin) is stored encrypted in the DB, never here.
     GOOGLE_WORKSPACE_ENABLED: bool = False
 
+    # ─── Ad-hoc / instant Meet capture via Workspace Events + Pub/Sub (Pass 2)
+    # The Cloud Pub/Sub topic the Workspace Events subscriptions publish to.
+    # Format: "projects/{project}/topics/{topic}". Unset => subscribe routes
+    # return a clear 400 "pubsub_not_configured" and the webhook acks-and-ignores.
+    GOOGLE_PUBSUB_TOPIC: Optional[str] = None
+    # Shared-secret query token guarding the push webhook when OIDC is not used.
+    # The Pub/Sub push subscription must append ?token=<this> to the push URL.
+    GOOGLE_PUBSUB_VERIFICATION_TOKEN: Optional[str] = None
+    # Expected audience of the Pub/Sub push OIDC bearer token (the push
+    # endpoint URL configured on the subscription). When set, the webhook
+    # verifies a Google-signed OIDC token instead of (or in addition to) the
+    # shared-secret token. Unset => OIDC verification is skipped.
+    GOOGLE_PUBSUB_OIDC_AUDIENCE: Optional[str] = None
+    # Optional: restrict the accepted OIDC token's service-account email
+    # (the push subscription's auth identity). Unset => any Google-issued
+    # token with the right audience is accepted.
+    GOOGLE_PUBSUB_OIDC_SERVICE_ACCOUNT: Optional[str] = None
+    # The Google Workspace account email the notetaker bot joins meetings AS,
+    # for auto-admission to internal Meet meetings. A per-workspace override is
+    # stored in the DB; this is the process-wide default fallback.
+    MEET_NOTETAKER_EMAIL: Optional[str] = None
+    # How many minutes before expiry a Workspace Events subscription is renewed.
+    MEET_EVENTS_RENEW_LEAD_MINUTES: int = 60
+    # Renewal loop tick interval (seconds).
+    MEET_EVENTS_RENEW_INTERVAL_S: int = 300
+
     # ─── Outbound integration delivery (Round 2) ──────────────────────────
     # SMTP for the email recap provider. If host is unset, the email provider
     # logs the recap instead of sending (dev-friendly).

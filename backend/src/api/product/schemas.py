@@ -295,6 +295,9 @@ class GoogleWorkspaceConfigRequest(CamelModel):
     customer_id: Optional[str] = Field(None, max_length=64)
     marketplace_client_id: Optional[str] = Field(None, max_length=255)
     marketplace_project_number: Optional[str] = Field(None, max_length=64)
+    # The Workspace account the notetaker bot joins meetings AS (auto-admission
+    # to internal Meet meetings). Optional; falls back to MEET_NOTETAKER_EMAIL.
+    notetaker_email: Optional[EmailStr] = None
     enabled: bool = True
 
 
@@ -309,6 +312,7 @@ class GoogleWorkspaceConfig(CamelModel):
     delegated_admin_email: Optional[str] = None
     marketplace_client_id: Optional[str] = None
     marketplace_project_number: Optional[str] = None
+    notetaker_email: Optional[str] = None
     has_service_account: bool = False
     service_account_fingerprint: Optional[str] = None
     enabled: bool = False
@@ -321,3 +325,64 @@ class GoogleWorkspaceUsersResponse(CamelModel):
 
     users: List[str] = Field(default_factory=list)
     total: int = 0
+
+
+# ── Pass 2: ad-hoc Meet capture — events subscriptions ──────────────────────
+class EventSubscription(CamelModel):
+    """One Workspace Events subscription (per org user)."""
+
+    id: str
+    workspace_id: str
+    google_subscription_id: Optional[str] = None
+    target_user_email: str
+    event_types: List[str] = Field(default_factory=list)
+    expire_time: Optional[datetime] = None
+    state: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @field_validator("event_types", mode="before")
+    @classmethod
+    def _coerce_event_types(cls, v: Any) -> Any:
+        # event_types is stored as JSONB; asyncpg may hand it back as a str.
+        if isinstance(v, str):
+            try:
+                import json as _json
+
+                parsed = _json.loads(v)
+                return parsed if isinstance(parsed, list) else []
+            except (ValueError, TypeError):
+                return []
+        return v or []
+
+
+class EventSubscriptionsResponse(CamelModel):
+    subscriptions: List[EventSubscription] = Field(default_factory=list)
+    total: int = 0
+
+
+class EventSubscribeResponse(CamelModel):
+    created: int = 0
+    failed: int = 0
+    total: int = 0
+
+
+# ── Pass 2: org meeting policy ──────────────────────────────────────────────
+PolicyMode = Literal["all", "allowlist", "denylist"]
+
+
+class PolicyRules(CamelModel):
+    emails: List[str] = Field(default_factory=list)
+    domains: List[str] = Field(default_factory=list)
+    ous: List[str] = Field(default_factory=list)
+
+
+class OrgMeetingPolicyModel(CamelModel):
+    """Per-workspace auto-join policy consulted before EVERY dispatch."""
+
+    auto_join_enabled: bool = True
+    mode: PolicyMode = "all"
+    allow: PolicyRules = Field(default_factory=PolicyRules)
+    deny: PolicyRules = Field(default_factory=PolicyRules)
+    opt_out_emails: List[str] = Field(default_factory=list)
+    recording_disclosure_text: Optional[str] = None
