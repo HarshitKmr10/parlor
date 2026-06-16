@@ -1,0 +1,153 @@
+# Running meeting-joiner standalone
+
+The `meeting-joiner/` directory is designed to be vendorable: copy it into
+another repo, configure env, and deploy. No dependency on the surrounding
+aiops monorepo at runtime.
+
+This document covers the two install paths:
+
+1. **Vendor into existing repo** — clone or subtree-merge the directory.
+2. **Run from this folder** — `docker compose up` quickstart, then K8s.
+
+For the monorepo deployment path (the day-to-day FuturePath production
+deploy), see `../infra/specs/meetingjoiner.yml` and the deployment
+runbook in `../runbooks/`. None of that applies in the standalone case.
+
+---
+
+## 1. Prerequisites
+
+- Postgres 14+ (Supabase, Azure Postgres, AWS RDS, plain Postgres — anything that speaks the wire protocol).
+- Docker 24+ (for the standalone image) OR Node 20 + Python 3.11 (for from-source).
+- Outbound HTTPS to the meeting platforms you'll join (Microsoft, Google, Zoom).
+- An AWS or Azure account if you use the audio-ASR path; Teams captions mode needs only Postgres.
+
+## 2. Configure
+
+```bash
+cp .env.example .env
+# Edit .env — fill DATABASE_URL at minimum. Every key is documented inline.
+```
+
+The env loader honors precedence (highest wins):
+
+1. `process.env` (whatever your platform injects — K8s ConfigMap/Secret, docker-compose `environment:`, GitHub Actions secrets, …)
+2. `meeting-joiner/.env`
+3. `meeting-joiner/envs/${NODE_ENV}.env` (optional per-env file)
+
+In container deployments you typically use (1). The `.env` file is for local dev.
+
+## 3. Apply the schema
+
+```bash
+psql "$DATABASE_URL" -f db/bootstrap.sql
+```
+
+The script is idempotent — re-running it on an existing database is safe.
+If your DB doesn't have `organizations` / `meetings` tables (most standalone
+deployments won't), the FK constraints are silently skipped.
+
+## 4. Pick your DB driver
+
+```bash
+export MEETING_JOINER_DB_DRIVER=pg     # raw SQL via pg / asyncpg (default standalone)
+# OR
+export MEETING_JOINER_DB_DRIVER=prisma # Prisma client — only useful if you also vendor core/
+```
+
+`pg` is the recommended path for standalone consumers — no Prisma generate
+step, no `core/` dependency.
+
+---
+
+## Install path A — Vendor into an existing repo
+
+```bash
+# From your repo root:
+git remote add aiops https://github.com/FuturePathAI/aiops.git
+git fetch aiops staging
+git read-tree --prefix=meeting-joiner -u aiops/staging:meeting-joiner
+git commit -m "vendor meeting-joiner"
+```
+
+Then add to your repo's CI / deployment pipeline:
+
+```bash
+# Build the image from the meeting-joiner/ directory only.
+docker build -t myregistry/meeting-joiner:1.0.0 meeting-joiner/
+
+# Apply the schema on first deploy.
+psql "$DATABASE_URL" -f meeting-joiner/db/bootstrap.sql
+
+# Apply the K8s manifests (after editing placeholders).
+kubectl apply -f meeting-joiner/deploy/configmap.example.yaml
+kubectl apply -f meeting-joiner/deploy/secret.example.yaml
+kubectl apply -f meeting-joiner/deploy/deployment.yaml
+kubectl apply -f meeting-joiner/deploy/service.yaml
+```
+
+Schema staying current with the upstream is your responsibility. The
+upstream CI runs `node meeting-joiner/db/extract-bootstrap.mjs` to fail
+when columns drift between `core/core/db/prisma/schema.prisma` and
+`meeting-joiner/db/bootstrap.sql` — when you periodically pull updates,
+just rerun `psql -f db/bootstrap.sql` for any new columns.
+
+## Install path B — Run from this folder
+
+```bash
+# Local dev (single host)
+docker compose up
+
+# Or from source:
+pnpm install
+poetry install
+psql "$DATABASE_URL" -f db/bootstrap.sql
+node src/processors/meetingProcessor.js <meeting_url> <meeting_id>
+```
+
+For K8s, see `deploy/README.md` and the manifests in `deploy/`.
+
+---
+
+## Env reference
+
+The full env contract is documented inline in `.env.example`. Quick map:
+
+| Bucket | Required for | Examples |
+|---|---|---|
+| Database | always | `DATABASE_URL`, `MEETING_JOINER_DB_DRIVER` |
+| Recording | Azure Blob upload | `AZURE_STORAGE_CONNECTION_STRING` or `AZURE_STORAGE_AUTH=managed_identity` with `AZURE_STORAGE_ACCOUNT_NAME`/`AZURE_STORAGE_BLOB_ENDPOINT` |
+| LLM | model calls | `OPENAI_API_KEY`, `AZURE_OPENAI_API_KEY`, AWS creds |
+| Speech | audio-ASR path | `AZURE_SPEECH_KEY`/`AZURE_SPEECH_REGION`, `AZURE_SPEECH_AUTH=managed_identity` with custom-subdomain `AZURE_SPEECH_ENDPOINT`, AWS Transcribe creds |
+| MS Teams | Teams meetings | `MSTEAMS_*` family |
+| Google Meet | Meet meetings | `GOOGLE_*` and `GOOGLEMEET_*` |
+| Zoom | Zoom meetings | `ZOOM_APP_CLIENT_ID`, `ZOOM_APP_CLIENT_SECRET` |
+| Diagnostics | debug only | `AUDIO_ARCHIVE_*`, `MSTEAMS_CSRC_AUDIO_DUMP_*` |
+
+## Operational hooks
+
+- **Exit reasons.** Every meeting writes `exit_reason` + `exit_details` on leave.
+  Query:
+  ```sql
+  SELECT exit_reason, COUNT(*), AVG(duration_min) AS avg_minutes
+    FROM (
+      SELECT exit_reason, EXTRACT(EPOCH FROM (bot_leave_time - bot_join_time))/60 AS duration_min
+        FROM meeting_joiner
+       WHERE bot_join_time IS NOT NULL
+    ) t
+   GROUP BY exit_reason
+   ORDER BY 2 DESC;
+  ```
+- **Schema drift.** CI runs `node db/extract-bootstrap.mjs` and `node db/extract-env-example.mjs` on every PR.
+- **Per-meeting transcripts.** The `meeting_joiner.transcript` JSON column carries
+  the live transcript; downstream consumers can poll or LISTEN/NOTIFY on it
+  via Postgres triggers if real-time consumption is needed.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| `DATABASE_URL is not set` at boot | required-keys validator hit | Set the env, restart |
+| `relation "meeting_joiner" does not exist` | bootstrap not applied | `psql "$DATABASE_URL" -f db/bootstrap.sql` |
+| `self.prisma is not available with MEETING_JOINER_DB_DRIVER=pg` | legacy code reaching for the Prisma client | Migrate the caller to `self.db.store.*`; or set `MEETING_JOINER_DB_DRIVER=prisma` if you vendored `core/` too |
+| Bot drops at 20-25 minutes on Teams | caption-mode aloneness regression (fixed in #3579) | Confirm you're on the post-fix commit; the captures-feed-aloneness wiring is in `bot_scripts/msteams/captureBridge.js` |

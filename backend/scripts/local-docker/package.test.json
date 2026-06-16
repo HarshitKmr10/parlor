@@ -1,0 +1,15 @@
+{
+  "name": "meeting-joiner-local-test",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Minimal package set for local-docker bot tests. Mirrors the prod meeting_worker.Dockerfile's runtime install but only the bits that matter for the Playwright join flow + AWS Transcribe Streaming for audio_asr-mode tests.",
+  "dependencies": {
+    "playwright": "^1.55.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "dotenv": "^17.0.0",
+    "uuid": "^11.1.0",
+    "@aws-sdk/client-transcribe-streaming": "^3.844.0",
+    "@aws-sdk/credential-providers": "^3.844.0"
+  }
+}

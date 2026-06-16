@@ -1,0 +1,31 @@
+# Linux test image to validate the Google Meet join with Vexa's vendored mocap
+# humanizer. Playwright 1.56 base (Chromium 141, matching our Chrome/141 UA) +
+# Xvfb + xdotool (XTEST input for the humanized layer).
+FROM mcr.microsoft.com/playwright:v1.56.0-noble
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      xvfb xdotool x11-utils fluxbox \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install JS deps. --ignore-scripts is fine (skips lifecycle/postinstall only) —
+# the earlier stealth failure was the MISSING `puppeteer-extra` package, not the
+# flag. With puppeteer-extra now in package.json, the stealth evasions
+# (webgl.vendor, chrome.runtime, ...) install + apply correctly (verified: Intel
+# WebGL + chrome.runtime=true). Keeping --ignore-scripts avoids puppeteer's
+# redundant ~150MB Chromium download.
+COPY package.json ./
+RUN npm install --no-audit --no-fund --ignore-scripts
+# Chromium build matching the pinned Playwright (141).
+RUN npx playwright install chromium
+
+# Bot code + runner
+COPY src ./src
+COPY tools ./tools
+
+ENV RUNNING_IN_DOCKER=true \
+    HOME=/root \
+    DISPLAY=:99
+
+ENTRYPOINT ["bash", "tools/entry.sh"]

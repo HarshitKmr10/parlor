@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: meeting-joiner-config
+data:
+  # See meeting-joiner/.env.example for the full key contract.
+  # Non-secret tuning lives here; secrets live in meeting-joiner-secrets.
+
+  PORT: "3001"
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  DEBUG: "false"
+
+  BOT_NAME: "AI Notetaker"
+  MAX_MEETING_DURATION_HOURS: "8"
+  MAX_MEETING_DURATION_MINUTES: "480"
+  AUTO_LEAVE_TIMEOUT_MINUTES: "3"
+
+  MEETING_JOINER_DB_DRIVER: "pg"
+  MEETING_JOINER_PG_MAX: "10"
+  MEETING_JOINER_BOOTSTRAP_ON_START: "false"
+
+  LLM_PROVIDER: "aws_transcribe"
+  TRANSCRIPTION_LANGUAGE: "en-US"
+
+  # Azure Blob upload. Use managed_identity with AZURE_STORAGE_ACCOUNT_NAME
+  # or AZURE_STORAGE_BLOB_ENDPOINT when running on Azure Workload Identity.
+  AZURE_STORAGE_AUTH: "auto"
+  AZURE_STORAGE_ACCOUNT_NAME: ""
+  AZURE_STORAGE_BLOB_ENDPOINT: ""
+  AZURE_STORAGE_CONTAINER_NAME: "meeting-recordings"
+
+  # Azure Speech. Managed identity requires AZURE_SPEECH_ENDPOINT pointing at
+  # the Speech resource custom subdomain; region+key remains supported.
+  AZURE_SPEECH_AUTH: "auto"
+
+  # MS Teams tuning (override the safe defaults shipped in .env.example
+  # if you've measured a better set for your environment).
+  MSTEAMS_TRANSCRIPT_SOURCE: "teams_captions"
+  MSTEAMS_ENABLE_CAPTIONS: "true"
+  MSTEAMS_ATTRIBUTION_MODE: "webrtc_csrc"
+  MSTEAMS_CSRC_ROUTING: "floor_owner"
+
+  # Google Meet
+  GOOGLEMEET_CAPTURE_MODE: "audio_asr"
+  GOOGLEMEET_TRANSCRIPT_SOURCE: "audio_asr"

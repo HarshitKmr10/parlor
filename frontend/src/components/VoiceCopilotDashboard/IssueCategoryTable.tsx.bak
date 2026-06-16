@@ -1,0 +1,218 @@
+'use client';
+
+import React, { useState } from 'react';
+import { Box, Flex, Text, Table, Button, Badge } from '@radix-ui/themes';
+import { useTranslation } from 'react-i18next';
+import CustomAvatar from 'components/CustomAvatar';
+import Shimmer from 'components/common/Shimmer/Shimmer';
+
+interface IssueDetail {
+  id: string;
+  meeting_id: string;
+  session_start: string;
+  agent_name: string;
+  employee_id: string;
+  category: string;
+  type: string;
+  count: number;
+  status: string;
+  tickets_created: number;
+  channel: string;
+}
+
+interface IssueCategoryTableProps {
+  data: {
+    issues: IssueDetail[];
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      total_pages: number;
+    };
+  } | null;
+  loading: boolean;
+  onPageChange?: (page: number) => void;
+}
+
+export default function IssueCategoryTable({ data, loading, onPageChange }: IssueCategoryTableProps) {
+  const { t } = useTranslation();
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    if (onPageChange) {
+      onPageChange(page);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    return status === 'resolved' ? 'green' : 'orange';
+  };
+
+  return (
+    <Box className="rounded-lg border bg-white p-4">
+      <Flex justify="between" align="center" className="mb-4">
+        <Text size="5" weight="medium">Issue Category</Text>
+        {data?.pagination && (
+          <Text size="2" className="text-gray-500">
+            Showing {data.issues.length} of {data.pagination.total} issues
+          </Text>
+        )}
+      </Flex>
+
+      <Box className="h-[400px] overflow-y-auto">
+        <Table.Root>
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeaderCell>
+                <Text size="2" weight="regular" className="text-gray-600">Call ID</Text>
+              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>
+                <Text size="2" weight="regular" className="text-gray-600">Agent</Text>
+              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>
+                <Text size="2" weight="regular" className="text-gray-600">Employee</Text>
+              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>
+                <Text size="2" weight="regular" className="text-gray-600">Category</Text>
+              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>
+                <Text size="2" weight="regular" className="text-gray-600">Type</Text>
+              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>
+                <Text size="2" weight="regular" className="text-gray-600">Status</Text>
+              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>
+                <Text size="2" weight="regular" className="text-gray-600">Tickets</Text>
+              </Table.ColumnHeaderCell>
+              <Table.ColumnHeaderCell>
+                <Text size="2" weight="regular" className="text-gray-600">Date</Text>
+              </Table.ColumnHeaderCell>
+            </Table.Row>
+          </Table.Header>
+
+          <Table.Body>
+            {loading ? (
+              [...Array(8)].map((_, index) => (
+                <Table.Row key={index}>
+                  <Table.Cell><Shimmer width="6rem" height="1.5rem" /></Table.Cell>
+                  <Table.Cell><Shimmer width="8rem" height="1.5rem" /></Table.Cell>
+                  <Table.Cell><Shimmer width="5rem" height="1.5rem" /></Table.Cell>
+                  <Table.Cell><Shimmer width="5rem" height="1.5rem" /></Table.Cell>
+                  <Table.Cell><Shimmer width="5rem" height="1.5rem" /></Table.Cell>
+                  <Table.Cell><Shimmer width="5rem" height="1.5rem" /></Table.Cell>
+                  <Table.Cell><Shimmer width="3rem" height="1.5rem" /></Table.Cell>
+                  <Table.Cell><Shimmer width="6rem" height="1.5rem" /></Table.Cell>
+                </Table.Row>
+              ))
+            ) : data?.issues && data.issues.length > 0 ? (
+              data.issues.map((issue) => (
+                <Table.Row key={issue.id}>
+                  <Table.Cell>
+                    <Text size="2" className="text-neutral-l2 font-mono">
+                      {issue.meeting_id.slice(0, 8)}...
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Flex gap="2" align="center">
+                      <CustomAvatar
+                        alt={issue.agent_name || 'Unknown'}
+                        name={issue.agent_name || 'Unknown'}
+                        extra="rounded-sm bg-gray-200 text-xs"
+                        height="24px"
+                        width="24px"
+                        src={null}
+                      />
+                      <Text size="2" className="text-neutral-l2">
+                        {issue.agent_name || 'Unknown'}
+                      </Text>
+                    </Flex>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text size="2" className="text-neutral-l2">
+                      {issue.employee_id || '-'}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text size="2" className="text-neutral-l2 capitalize">
+                      {issue.category}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text size="2" className="text-neutral-l2 capitalize">
+                      {issue.type}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Badge color={getStatusColor(issue.status)} className="capitalize">
+                      {issue.status}
+                    </Badge>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text size="2" weight="medium" className="text-neutral-l2">
+                      {issue.tickets_created}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text size="2" className="text-neutral-l2">
+                      {issue.session_start
+                        ? new Date(issue.session_start).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric'
+                          })
+                        : '-'}
+                    </Text>
+                  </Table.Cell>
+                </Table.Row>
+              ))
+            ) : (
+              <Table.Row>
+                <Table.Cell colSpan={8}>
+                  <Flex justify="center" align="center" className="py-8">
+                    <Text size="2" color="gray">No issue details available</Text>
+                  </Flex>
+                </Table.Cell>
+              </Table.Row>
+            )}
+          </Table.Body>
+        </Table.Root>
+      </Box>
+
+      {/* Pagination */}
+      {data?.pagination && data.pagination.total_pages > 1 && (
+        <Flex justify="center" gap="2" className="mt-4">
+          <Button
+            size="1"
+            variant="outline"
+            onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          {Array.from({ length: Math.min(5, data.pagination.total_pages) }, (_, i) => {
+            const page = i + 1;
+            return (
+              <Button
+                key={page}
+                size="1"
+                variant={currentPage === page ? 'solid' : 'outline'}
+                onClick={() => handlePageChange(page)}
+              >
+                {page}
+              </Button>
+            );
+          })}
+          <Button
+            size="1"
+            variant="outline"
+            onClick={() => handlePageChange(Math.min(data.pagination.total_pages, currentPage + 1))}
+            disabled={currentPage === data.pagination.total_pages}
+          >
+            Next
+          </Button>
+        </Flex>
+      )}
+    </Box>
+  );
+}

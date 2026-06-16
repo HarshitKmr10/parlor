@@ -1,0 +1,5 @@
+/* ChatVirtualAgentConfig.css */
+.custom-header-cell::before,
+.custom-header-cell::after {
+  display: none !important;
+}

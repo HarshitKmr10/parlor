@@ -1,0 +1,30 @@
+# Allow everything - we need the gitignored Zoom SDK files
+# The py-zoom-meeting-sdk/src/zoomsdk/* files are gitignored but needed for Docker build
+
+# Exclude common unnecessary files
+**/.git
+**/.github
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.Python
+**/.DS_Store
+**/node_modules
+**/.venv
+**/.env.local
+**/venv
+**/*.log
+**/.pytest_cache
+**/.mypy_cache
+**/.coverage
+**/htmlcov
+**/.tox
+**/dist
+**/*.egg-info
+**/.idea
+**/.vscode
+
+# But include zoom SDK files even though they're gitignored
+!py-zoom-meeting-sdk/src/zoomsdk/
+

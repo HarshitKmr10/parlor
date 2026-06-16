@@ -1,0 +1,1010 @@
+[
+  {
+    "time_point": 1722470400000,
+    "Available_Space_GB": 18.7490802377,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722474000000,
+    "Available_Space_GB": 19.9014286128,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722477600000,
+    "Available_Space_GB": 19.4639878836,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722481200000,
+    "Available_Space_GB": 19.1973169684,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722484800000,
+    "Available_Space_GB": 18.3120372809,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722488400000,
+    "Available_Space_GB": 18.3119890407,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722492000000,
+    "Available_Space_GB": 18.1161672243,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722495600000,
+    "Available_Space_GB": 19.7323522915,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722499200000,
+    "Available_Space_GB": 19.2022300235,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722502800000,
+    "Available_Space_GB": 19.4161451556,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722506400000,
+    "Available_Space_GB": 18.0411689886,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722510000000,
+    "Available_Space_GB": 19.9398197043,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722513600000,
+    "Available_Space_GB": 19.6648852816,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722517200000,
+    "Available_Space_GB": 18.4246782214,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722520800000,
+    "Available_Space_GB": 18.3636499344,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722524400000,
+    "Available_Space_GB": 18.3668090197,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722528000000,
+    "Available_Space_GB": 18.6084844859,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722531600000,
+    "Available_Space_GB": 19.0495128633,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722535200000,
+    "Available_Space_GB": 18.8638900373,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722538800000,
+    "Available_Space_GB": 18.5824582804,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722542400000,
+    "Available_Space_GB": 19.2237057894,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722546000000,
+    "Available_Space_GB": 18.2789877213,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722549600000,
+    "Available_Space_GB": 18.5842892971,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722553200000,
+    "Available_Space_GB": 18.7327236866,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722556800000,
+    "Available_Space_GB": 16.9121399684,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722560400000,
+    "Available_Space_GB": 17.5703519228,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722564000000,
+    "Available_Space_GB": 16.3993475643,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722567600000,
+    "Available_Space_GB": 17.0284688768,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722571200000,
+    "Available_Space_GB": 17.1848291377,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722574800000,
+    "Available_Space_GB": 16.0929008254,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722578400000,
+    "Available_Space_GB": 17.2150897038,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722582000000,
+    "Available_Space_GB": 16.3410482474,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722585600000,
+    "Available_Space_GB": 16.130103186,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722589200000,
+    "Available_Space_GB": 17.8977710745,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722592800000,
+    "Available_Space_GB": 17.9312640661,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722596400000,
+    "Available_Space_GB": 17.6167946962,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722600000000,
+    "Available_Space_GB": 16.6092275383,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722603600000,
+    "Available_Space_GB": 16.195344228,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722607200000,
+    "Available_Space_GB": 17.368466053,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722610800000,
+    "Available_Space_GB": 16.8803049875,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722614400000,
+    "Available_Space_GB": 16.2440764697,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722618000000,
+    "Available_Space_GB": 16.9903538202,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722621600000,
+    "Available_Space_GB": 16.0687770422,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722625200000,
+    "Available_Space_GB": 17.8186408042,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722628800000,
+    "Available_Space_GB": 16.5175599632,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722632400000,
+    "Available_Space_GB": 17.3250445687,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722636000000,
+    "Available_Space_GB": 16.6234221522,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722639600000,
+    "Available_Space_GB": 17.0401360424,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722643200000,
+    "Available_Space_GB": 15.0934205587,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722646800000,
+    "Available_Space_GB": 14.3697089111,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722650400000,
+    "Available_Space_GB": 15.9391692555,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722654000000,
+    "Available_Space_GB": 15.5502656467,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722657600000,
+    "Available_Space_GB": 15.8789978831,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722661200000,
+    "Available_Space_GB": 15.7896547009,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722664800000,
+    "Available_Space_GB": 15.1957999576,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722668400000,
+    "Available_Space_GB": 15.84374847,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722672000000,
+    "Available_Space_GB": 14.1769850041,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722675600000,
+    "Available_Space_GB": 14.3919657248,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722679200000,
+    "Available_Space_GB": 14.0904545778,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722682800000,
+    "Available_Space_GB": 14.6506606615,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722686400000,
+    "Available_Space_GB": 14.7773545794,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722690000000,
+    "Available_Space_GB": 14.5426980635,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722693600000,
+    "Available_Space_GB": 15.6574750183,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722697200000,
+    "Available_Space_GB": 14.7135066534,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722700800000,
+    "Available_Space_GB": 14.5618690194,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722704400000,
+    "Available_Space_GB": 15.0853921663,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722708000000,
+    "Available_Space_GB": 14.2818484499,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722711600000,
+    "Available_Space_GB": 15.6043939615,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722715200000,
+    "Available_Space_GB": 14.1491012874,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722718800000,
+    "Available_Space_GB": 15.9737738732,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722722400000,
+    "Available_Space_GB": 15.5444895386,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722726000000,
+    "Available_Space_GB": 14.3974313631,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722729600000,
+    "Available_Space_GB": 12.0110442342,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722733200000,
+    "Available_Space_GB": 13.6309228569,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722736800000,
+    "Available_Space_GB": 13.4137146877,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722740400000,
+    "Available_Space_GB": 13.4580143361,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722744000000,
+    "Available_Space_GB": 13.5425406934,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722747600000,
+    "Available_Space_GB": 12.1480893035,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722751200000,
+    "Available_Space_GB": 12.7169314571,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722754800000,
+    "Available_Space_GB": 12.2317381191,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722758400000,
+    "Available_Space_GB": 13.7262068518,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722762000000,
+    "Available_Space_GB": 13.2465962537,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722765600000,
+    "Available_Space_GB": 12.6617960497,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722769200000,
+    "Available_Space_GB": 12.1271167006,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722772800000,
+    "Available_Space_GB": 12.6219646434,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722776400000,
+    "Available_Space_GB": 12.6503666441,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722780000000,
+    "Available_Space_GB": 13.4592123567,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722783600000,
+    "Available_Space_GB": 13.2751149427,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722787200000,
+    "Available_Space_GB": 13.7744254852,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722790800000,
+    "Available_Space_GB": 12.9444298503,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722794400000,
+    "Available_Space_GB": 12.2391884919,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722798000000,
+    "Available_Space_GB": 13.4264895744,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722801600000,
+    "Available_Space_GB": 13.5215700972,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722805200000,
+    "Available_Space_GB": 13.1225543951,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722808800000,
+    "Available_Space_GB": 13.5419343599,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722812400000,
+    "Available_Space_GB": 12.9875911927,
+    "Lower_Bound": null,
+    "Upper_Bound": null
+  },
+  {
+    "time_point": 1722816000000,
+    "Available_Space_GB": 11.0454656588,
+    "Lower_Bound": 11.0454656588,
+    "Upper_Bound": 11.0454656588
+  },
+  {
+    "time_point": 1722819600000,
+    "Available_Space_GB": 10.8550820367,
+    "Lower_Bound": 9.769573833,
+    "Upper_Bound": 11.9405902404
+  },
+  {
+    "time_point": 1722823200000,
+    "Available_Space_GB": 10.0508382535,
+    "Lower_Bound": 9.0457544281,
+    "Upper_Bound": 11.0559220788
+  },
+  {
+    "time_point": 1722826800000,
+    "Available_Space_GB": 10.215782854,
+    "Lower_Bound": 9.1942045686,
+    "Upper_Bound": 11.2373611394
+  },
+  {
+    "time_point": 1722830400000,
+    "Available_Space_GB": 10.0628583714,
+    "Lower_Bound": 9.0565725342,
+    "Upper_Bound": 11.0691442085
+  },
+  {
+    "time_point": 1722834000000,
+    "Available_Space_GB": 11.2728208225,
+    "Lower_Bound": 10.1455387403,
+    "Upper_Bound": 12.4001029048
+  },
+  {
+    "time_point": 1722837600000,
+    "Available_Space_GB": 10.6287119622,
+    "Lower_Bound": 9.5658407659,
+    "Upper_Bound": 11.6915831584
+  },
+  {
+    "time_point": 1722841200000,
+    "Available_Space_GB": 11.0171413823,
+    "Lower_Bound": 9.9154272441,
+    "Upper_Bound": 12.1188555206
+  },
+  {
+    "time_point": 1722844800000,
+    "Available_Space_GB": 11.8151329479,
+    "Lower_Bound": 10.6336196531,
+    "Upper_Bound": 12.9966462426
+  },
+  {
+    "time_point": 1722848400000,
+    "Available_Space_GB": 10.4985844583,
+    "Lower_Bound": 9.4487260125,
+    "Upper_Bound": 11.5484429041
+  },
+  {
+    "time_point": 1722852000000,
+    "Available_Space_GB": 10.8207658461,
+    "Lower_Bound": 9.7386892615,
+    "Upper_Bound": 11.9028424307
+  },
+  {
+    "time_point": 1722855600000,
+    "Available_Space_GB": 11.5111022771,
+    "Lower_Bound": 10.3599920494,
+    "Upper_Bound": 12.6622125048
+  },
+  {
+    "time_point": 1722859200000,
+    "Available_Space_GB": 10.457596331,
+    "Lower_Bound": 9.4118366979,
+    "Upper_Bound": 11.5033559641
+  },
+  {
+    "time_point": 1722862800000,
+    "Available_Space_GB": 10.1539598197,
+    "Lower_Bound": 9.1385638377,
+    "Upper_Bound": 11.1693558016
+  },
+  {
+    "time_point": 1722866400000,
+    "Available_Space_GB": 10.5795029058,
+    "Lower_Bound": 9.5215526152,
+    "Upper_Bound": 11.6374531964
+  },
+  {
+    "time_point": 1722870000000,
+    "Available_Space_GB": 10.3224425745,
+    "Lower_Bound": 9.2901983171,
+    "Upper_Bound": 11.354686832
+  },
+  {
+    "time_point": 1722873600000,
+    "Available_Space_GB": 11.8593953047,
+    "Lower_Bound": 10.6734557742,
+    "Upper_Bound": 13.0453348352
+  },
+  {
+    "time_point": 1722877200000,
+    "Available_Space_GB": 11.6162407591,
+    "Lower_Bound": 10.4546166832,
+    "Upper_Bound": 12.777864835
+  },
+  {
+    "time_point": 1722880800000,
+    "Available_Space_GB": 11.266807513,
+    "Lower_Bound": 10.1401267617,
+    "Upper_Bound": 12.3934882643
+  },
+  {
+    "time_point": 1722884400000,
+    "Available_Space_GB": 11.7429211804,
+    "Lower_Bound": 10.5686290623,
+    "Upper_Bound": 12.9172132984
+  },
+  {
+    "time_point": 1722888000000,
+    "Available_Space_GB": 11.6073441538,
+    "Lower_Bound": 10.4466097384,
+    "Upper_Bound": 12.7680785692
+  },
+  {
+    "time_point": 1722891600000,
+    "Available_Space_GB": 10.3731401178,
+    "Lower_Bound": 9.335826106,
+    "Upper_Bound": 11.4104541295
+  },
+  {
+    "time_point": 1722895200000,
+    "Available_Space_GB": 11.785117997,
+    "Lower_Bound": 10.6066061973,
+    "Upper_Bound": 12.9636297967
+  },
+  {
+    "time_point": 1722898800000,
+    "Available_Space_GB": 11.0786844838,
+    "Lower_Bound": 9.9708160354,
+    "Upper_Bound": 12.1865529322
+  },
+  {
+    "time_point": 1722902400000,
+    "Available_Space_GB": 9.6148803103,
+    "Lower_Bound": 8.6533922793,
+    "Upper_Bound": 10.5763683414
+  },
+  {
+    "time_point": 1722906000000,
+    "Available_Space_GB": 9.7921825998,
+    "Lower_Bound": 8.8129643399,
+    "Upper_Bound": 10.7714008598
+  },
+  {
+    "time_point": 1722909600000,
+    "Available_Space_GB": 8.6360069499,
+    "Lower_Bound": 7.7724062549,
+    "Upper_Bound": 9.4996076449
+  },
+  {
+    "time_point": 1722913200000,
+    "Available_Space_GB": 8.2201038491,
+    "Lower_Bound": 7.3980934641,
+    "Upper_Bound": 9.042114234
+  },
+  {
+    "time_point": 1722916800000,
+    "Available_Space_GB": 8.4558703251,
+    "Lower_Bound": 7.6102832926,
+    "Upper_Bound": 9.3014573576
+  },
+  {
+    "time_point": 1722920400000,
+    "Available_Space_GB": 8.8542155773,
+    "Lower_Bound": 7.9687940195,
+    "Upper_Bound": 9.739637135
+  },
+  {
+    "time_point": 1722924000000,
+    "Available_Space_GB": 9.6360295318,
+    "Lower_Bound": 8.6724265787,
+    "Upper_Bound": 10.599632485
+  },
+  {
+    "time_point": 1722927600000,
+    "Available_Space_GB": 9.7214611665,
+    "Lower_Bound": 8.7493150499,
+    "Upper_Bound": 10.6936072832
+  },
+  {
+    "time_point": 1722931200000,
+    "Available_Space_GB": 8.0139042611,
+    "Lower_Bound": 7.212513835,
+    "Upper_Bound": 8.8152946872
+  },
+  {
+    "time_point": 1722934800000,
+    "Available_Space_GB": 9.0214946052,
+    "Lower_Bound": 8.1193451446,
+    "Upper_Bound": 9.9236440657
+  },
+  {
+    "time_point": 1722938400000,
+    "Available_Space_GB": 8.8348220063,
+    "Lower_Bound": 7.9513398057,
+    "Upper_Bound": 9.7183042069
+  },
+  {
+    "time_point": 1722942000000,
+    "Available_Space_GB": 8.4442156209,
+    "Lower_Bound": 7.5997940588,
+    "Upper_Bound": 9.288637183
+  },
+  {
+    "time_point": 1722945600000,
+    "Available_Space_GB": 8.2397307347,
+    "Lower_Bound": 7.4157576612,
+    "Upper_Bound": 9.0637038081
+  },
+  {
+    "time_point": 1722949200000,
+    "Available_Space_GB": 8.6752303428,
+    "Lower_Bound": 7.8077073085,
+    "Upper_Bound": 9.5427533771
+  },
+  {
+    "time_point": 1722952800000,
+    "Available_Space_GB": 9.8858194078,
+    "Lower_Bound": 8.897237467,
+    "Upper_Bound": 10.8744013486
+  },
+  {
+    "time_point": 1722956400000,
+    "Available_Space_GB": 8.646405864,
+    "Lower_Bound": 7.7817652776,
+    "Upper_Bound": 9.5110464504
+  },
+  {
+    "time_point": 1722960000000,
+    "Available_Space_GB": 9.0375812435,
+    "Lower_Bound": 8.1338231191,
+    "Upper_Bound": 9.9413393678
+  },
+  {
+    "time_point": 1722963600000,
+    "Available_Space_GB": 9.4060379178,
+    "Lower_Bound": 8.465434126,
+    "Upper_Bound": 10.3466417096
+  },
+  {
+    "time_point": 1722967200000,
+    "Available_Space_GB": 8.7272592048,
+    "Lower_Bound": 7.8545332843,
+    "Upper_Bound": 9.5999851252
+  },
+  {
+    "time_point": 1722970800000,
+    "Available_Space_GB": 9.9435641654,
+    "Lower_Bound": 8.9492077489,
+    "Upper_Bound": 10.937920582
+  },
+  {
+    "time_point": 1722974400000,
+    "Available_Space_GB": 9.9248945899,
+    "Lower_Bound": 8.9324051309,
+    "Upper_Bound": 10.9173840489
+  },
+  {
+    "time_point": 1722978000000,
+    "Available_Space_GB": 8.5035645917,
+    "Lower_Bound": 7.6532081325,
+    "Upper_Bound": 9.3539210508
+  },
+  {
+    "time_point": 1722981600000,
+    "Available_Space_GB": 8.9944970118,
+    "Lower_Bound": 8.0950473106,
+    "Upper_Bound": 9.893946713
+  },
+  {
+    "time_point": 1722985200000,
+    "Available_Space_GB": 8.6017566196,
+    "Lower_Bound": 7.7415809577,
+    "Upper_Bound": 9.4619322816
+  },
+  {
+    "time_point": 1722988800000,
+    "Available_Space_GB": 6.5696809888,
+    "Lower_Bound": 5.9127128899,
+    "Upper_Bound": 7.2266490876
+  },
+  {
+    "time_point": 1722992400000,
+    "Available_Space_GB": 6.0737738947,
+    "Lower_Bound": 5.4663965052,
+    "Upper_Bound": 6.6811512842
+  },
+  {
+    "time_point": 1722996000000,
+    "Available_Space_GB": 7.219128668,
+    "Lower_Bound": 6.4972158012,
+    "Upper_Bound": 7.9410415348
+  },
+  {
+    "time_point": 1722999600000,
+    "Available_Space_GB": 7.0053580465,
+    "Lower_Bound": 6.3048222418,
+    "Upper_Bound": 7.7058938511
+  },
+  {
+    "time_point": 1723003200000,
+    "Available_Space_GB": 6.1029575025,
+    "Lower_Bound": 5.4926617522,
+    "Upper_Bound": 6.7132532527
+  },
+  {
+    "time_point": 1723006800000,
+    "Available_Space_GB": 6.5572929285,
+    "Lower_Bound": 5.9015636356,
+    "Upper_Bound": 7.2130222213
+  },
+  {
+    "time_point": 1723010400000,
+    "Available_Space_GB": 7.8165317719,
+    "Lower_Bound": 7.0348785947,
+    "Upper_Bound": 8.5981849491
+  },
+  {
+    "time_point": 1723014000000,
+    "Available_Space_GB": 6.4791237813,
+    "Lower_Bound": 5.8312114032,
+    "Upper_Bound": 7.1270361595
+  },
+  {
+    "time_point": 1723017600000,
+    "Available_Space_GB": 6.2897897442,
+    "Lower_Bound": 5.6608107698,
+    "Upper_Bound": 6.9187687186
+  },
+  {
+    "time_point": 1723021200000,
+    "Available_Space_GB": 6.9789055206,
+    "Lower_Bound": 6.2810149685,
+    "Upper_Bound": 7.6767960726
+  },
+  {
+    "time_point": 1723024800000,
+    "Available_Space_GB": 7.9713009082,
+    "Lower_Bound": 7.1741708174,
+    "Upper_Bound": 8.768430999
+  },
+  {
+    "time_point": 1723028400000,
+    "Available_Space_GB": 6.484110543,
+    "Lower_Bound": 5.8356994887,
+    "Upper_Bound": 7.1325215973
+  },
+  {
+    "time_point": 1723032000000,
+    "Available_Space_GB": 7.3442710948,
+    "Lower_Bound": 6.6098439853,
+    "Upper_Bound": 8.0786982043
+  },
+  {
+    "time_point": 1723035600000,
+    "Available_Space_GB": 7.5232392307,
+    "Lower_Bound": 6.7709153076,
+    "Upper_Bound": 8.2755631537
+  },
+  {
+    "time_point": 1723039200000,
+    "Available_Space_GB": 6.475275088,
+    "Lower_Bound": 5.8277475792,
+    "Upper_Bound": 7.1228025968
+  },
+  {
+    "time_point": 1723042800000,
+    "Available_Space_GB": 7.4564326972,
+    "Lower_Bound": 6.7107894275,
+    "Upper_Bound": 8.2020759669
+  },
+  {
+    "time_point": 1723046400000,
+    "Available_Space_GB": 6.7355662654,
+    "Lower_Bound": 6.0620096389,
+    "Upper_Bound": 7.409122892
+  },
+  {
+    "time_point": 1723050000000,
+    "Available_Space_GB": 7.2646116612,
+    "Lower_Bound": 6.5381504951,
+    "Upper_Bound": 7.9910728273
+  },
+  {
+    "time_point": 1723053600000,
+    "Available_Space_GB": 7.2670594215,
+    "Lower_Bound": 6.5403534794,
+    "Upper_Bound": 7.9937653637
+  },
+  {
+    "time_point": 1723057200000,
+    "Available_Space_GB": 7.0715493681,
+    "Lower_Bound": 6.3643944313,
+    "Upper_Bound": 7.778704305
+  },
+  {
+    "time_point": 1723060800000,
+    "Available_Space_GB": 6.1805795401,
+    "Lower_Bound": 5.5625215861,
+    "Upper_Bound": 6.7986374941
+  },
+  {
+    "time_point": 1723064400000,
+    "Available_Space_GB": 7.6706049912,
+    "Lower_Bound": 6.9035444921,
+    "Upper_Bound": 8.4376654903
+  },
+  {
+    "time_point": 1723068000000,
+    "Available_Space_GB": 6.6415601299,
+    "Lower_Bound": 5.9774041169,
+    "Upper_Bound": 7.3057161429
+  },
+  {
+    "time_point": 1723071600000,
+    "Available_Space_GB": 6.3730370208,
+    "Lower_Bound": 5.7357333187,
+    "Upper_Bound": 7.0103407229
+  }
+]

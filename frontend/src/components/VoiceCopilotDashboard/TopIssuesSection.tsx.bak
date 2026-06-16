@@ -1,0 +1,148 @@
+'use client';
+
+import React, { useState } from 'react';
+import { Box, Flex, Text, Button } from '@radix-ui/themes';
+import { useTranslation } from 'react-i18next';
+import Shimmer from 'components/common/Shimmer/Shimmer';
+import { AlertCircle, CheckCircle2, Clock } from 'lucide-react';
+
+interface TopIssue {
+  normalized_query: string;
+  category: string;
+  type: string;
+  count: number;
+  resolved: number;
+  unresolved: number;
+  affected_sessions: number;
+}
+
+interface TopIssuesSectionProps {
+  data: TopIssue[] | null;
+  loading: boolean;
+  onStatusChange?: (status: string | null) => void;
+}
+
+export default function TopIssuesSection({ data, loading, onStatusChange }: TopIssuesSectionProps) {
+  const { t } = useTranslation();
+  const [activeStatus, setActiveStatus] = useState<'all' | 'resolved' | 'unresolved'>('all');
+
+  const handleStatusChange = (status: 'all' | 'resolved' | 'unresolved') => {
+    setActiveStatus(status);
+    if (onStatusChange) {
+      onStatusChange(status === 'all' ? null : status);
+    }
+  };
+
+  const displayData = data?.slice(0, 8) || [];
+
+  const getStatusIcon = (resolved: number, unresolved: number) => {
+    const total = resolved + unresolved;
+    const resolvedPercentage = total > 0 ? (resolved / total) * 100 : 0;
+
+    if (resolvedPercentage >= 70) {
+      return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+    } else if (resolvedPercentage >= 40) {
+      return <Clock className="w-4 h-4 text-yellow-500" />;
+    } else {
+      return <AlertCircle className="w-4 h-4 text-red-500" />;
+    }
+  };
+
+  return (
+    <Box className="h-[400px] rounded-lg border bg-white p-4">
+      <Flex justify="between" align="center" className="mb-4">
+        <Text size="5" weight="medium">Top Issues</Text>
+        <Flex gap="2">
+          <Button
+            size="1"
+            variant={activeStatus === 'all' ? 'solid' : 'outline'}
+            onClick={() => handleStatusChange('all')}
+            className="cursor-pointer"
+          >
+            All
+          </Button>
+          <Button
+            size="1"
+            variant={activeStatus === 'resolved' ? 'solid' : 'outline'}
+            onClick={() => handleStatusChange('resolved')}
+            className="cursor-pointer"
+          >
+            Resolved
+          </Button>
+          <Button
+            size="1"
+            variant={activeStatus === 'unresolved' ? 'solid' : 'outline'}
+            onClick={() => handleStatusChange('unresolved')}
+            className="cursor-pointer"
+          >
+            Unresolved
+          </Button>
+        </Flex>
+      </Flex>
+
+      <Box className="h-[320px] overflow-y-auto">
+        {loading ? (
+          <Flex direction="column" gap="3">
+            {[...Array(5)].map((_, index) => (
+              <Box key={index} className="rounded-lg border p-3">
+                <Flex justify="between" align="center">
+                  <Flex direction="column" gap="1">
+                    <Shimmer width="10rem" height="1.2rem" />
+                    <Shimmer width="8rem" height="1rem" />
+                  </Flex>
+                  <Shimmer width="3rem" height="1.5rem" />
+                </Flex>
+              </Box>
+            ))}
+          </Flex>
+        ) : displayData.length > 0 ? (
+          <Flex direction="column" gap="3">
+            {displayData.map((issue, index) => (
+              <Box
+                key={`${issue.normalized_query || issue.category}_${index}`}
+                className="rounded-lg border p-3 hover:bg-gray-50 transition-colors"
+              >
+                <Flex justify="between" align="start">
+                  <Flex direction="column" gap="1" className="flex-1">
+                    <Flex align="center" gap="2">
+                      {getStatusIcon(issue.resolved, issue.unresolved)}
+                      <Text size="3" weight="medium" className="text-neutral-l2">
+                        {issue.normalized_query || `${issue.category.charAt(0).toUpperCase() + issue.category.slice(1)} - ${issue.type.charAt(0).toUpperCase() + issue.type.slice(1)}`}
+                      </Text>
+                    </Flex>
+                    <Flex gap="4" align="center">
+                      <Text size="1" className="text-gray-500">
+                        {issue.affected_sessions} session{issue.affected_sessions !== 1 ? 's' : ''} affected
+                      </Text>
+                      <Text size="1" className="text-green-600">
+                        {issue.resolved} resolved
+                      </Text>
+                      <Text size="1" className="text-red-600">
+                        {issue.unresolved} unresolved
+                      </Text>
+                    </Flex>
+                  </Flex>
+                  <Flex direction="column" align="end" gap="1">
+                    <Text size="4" weight="bold" className="text-neutral-l2">
+                      {issue.count}
+                    </Text>
+                    <Text size="1" className="text-gray-500">
+                      occurrences
+                    </Text>
+                  </Flex>
+                </Flex>
+              </Box>
+            ))}
+          </Flex>
+        ) : (
+          <Flex justify="center" align="center" className="h-full">
+            <Flex direction="column" align="center" gap="2">
+              <AlertCircle className="w-12 h-12 text-gray-300" />
+              <Text size="2" color="gray">No issues found for selected filter</Text>
+            </Flex>
+          </Flex>
+        )}
+      </Box>
+    </Box>
+  );
+}

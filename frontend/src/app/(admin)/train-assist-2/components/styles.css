@@ -1,0 +1,21 @@
+.prose {
+  @apply text-sm;
+}
+
+.prose strong {
+  @apply font-semibold;
+  @apply text-medium;
+}
+
+.prose h2 {
+  @apply font-medium text-[1.25rem];
+}
+
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
