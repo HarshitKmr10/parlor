@@ -44,6 +44,8 @@ from .api.models.schemas import (
 from .api.routes import sessions as sessions_routes
 from .api.product.errors import ApiError
 from .api.product.routes_auth import auth_router, workspaces_router
+from .api.product.routes_calendar import router as product_calendar_router
+from .api.product.routes_integrations import router as product_integrations_router
 from .api.product.routes_meetings import router as product_meetings_router
 from .services.ghost_pod_reaper import close_ghost_pod_reaper, get_ghost_pod_reaper
 from .services.meeting_scheduler import (
@@ -256,6 +258,20 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning("Meeting scheduler start failed: %s", e)
 
+        # Start the calendar poller — in standalone, periodically scans
+        # auto-join calendar accounts for imminent meetings and dispatches a
+        # local bot. No-ops quietly when no OAuth creds are configured.
+        if _is_standalone():
+            try:
+                from .services.calendar_poller import get_calendar_poller
+
+                await get_calendar_poller().start()
+                logger.info("Calendar poller started")
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Calendar poller start failed: %s", e)
+        else:
+            logger.info("Calendar poller disabled (not standalone)")
+
         logger.info(
             "Meeting Joiner Service started - run worker separately for job processing"
         )
@@ -294,6 +310,22 @@ async def lifespan(app: FastAPI):
             logger.info("Meeting scheduler stopped")
         except Exception as e:
             logger.warning("Meeting scheduler stop error: %s", e)
+
+        try:
+            from .services.calendar_poller import close_calendar_poller
+
+            await close_calendar_poller()
+            logger.info("Calendar poller stopped")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Calendar poller stop error: %s", e)
+
+        try:
+            from .services.local_bot_runner import shutdown_local_bot_runners
+
+            await shutdown_local_bot_runners()
+            logger.info("Local bot runners stopped")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Local bot runner shutdown error: %s", e)
 
         if _canary_service is not None:
             try:
@@ -362,6 +394,8 @@ app.include_router(sessions_routes.router)
 app.include_router(auth_router)
 app.include_router(workspaces_router)
 app.include_router(product_meetings_router)
+app.include_router(product_calendar_router)
+app.include_router(product_integrations_router)
 
 
 # Dependency injection
@@ -502,6 +536,28 @@ async def dispatch_meeting(
     """
     dispatched = False
     dispatch_message: Optional[str] = None
+
+    # Standalone mode: no K8s warm pool. Spawn the bot as a local subprocess
+    # (mirroring the sidecar's bot_supervisor) and let the LocalBotRunner drive
+    # the scheduled→joining→ongoing→completed/failed transitions + heartbeats.
+    if _is_standalone():
+        from .services.local_bot_runner import dispatch_local_bot  # noqa: PLC0415
+
+        spawned = await dispatch_local_bot(
+            meeting_id=meeting_id,
+            meeting_url=meeting_url,
+            platform=platform,
+            transcript_source=transcript_source,
+            bot_name=bot_name,
+            org_id=org_id,
+        )
+        message = (
+            "Bot dispatched as local subprocess"
+            if spawned
+            else "Bot runtime unavailable; meeting marked failed"
+        )
+        return spawned, message
+
     use_warm_pool = (
         os.environ.get("MEETING_JOINER_USE_WARM_POOL", "true").lower() != "false"
     )

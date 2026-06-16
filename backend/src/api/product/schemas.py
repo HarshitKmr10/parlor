@@ -225,3 +225,36 @@ class AskResponse(CamelModel):
     @classmethod
     def _default_citations(cls, v: Any) -> Any:
         return v or []
+
+
+# ── Calendar ─────────────────────────────────────────────────────────────
+CalendarProvider = Literal["google", "microsoft"]
+
+
+class CalendarAccount(CamelModel):
+    id: str
+    provider: CalendarProvider
+    email: str
+    auto_join: bool = False
+    connected_at: datetime
+
+
+class CalendarAccountUpdate(CamelModel):
+    auto_join: bool
+
+
+# ── Outbound integrations ──────────────────────────────────────────────────
+IntegrationKind = Literal["slack", "email", "notion", "hubspot"]
+
+
+class Integration(CamelModel):
+    kind: IntegrationKind
+    enabled: bool = False
+    config: dict[str, Any] = Field(default_factory=dict)
+    implemented: bool = True
+
+
+class IntegrationUpdate(CamelModel):
+    kind: IntegrationKind
+    enabled: bool = False
+    config: dict[str, Any] = Field(default_factory=dict)

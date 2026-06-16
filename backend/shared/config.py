@@ -79,6 +79,44 @@ class Settings(BaseSettings):
     # ai-service base URL for /summarize and /chat proxying.
     AI_SERVICE_URL: str = "http://localhost:8100"
 
+    # ─── Standalone local bot dispatch (Round 2) ──────────────────────────
+    # In RUNTIME_MODE=standalone there is no K8s warm pool, so a bot is run as
+    # a local subprocess (mirroring the sidecar's bot_supervisor). Escape
+    # hatch: "subprocess" spawns the bot locally; "disabled" skips spawning and
+    # immediately marks the meeting failed with a clear exit_reason (useful for
+    # CI / dev boxes with no browser).
+    MEETING_BOT_MODE: str = "subprocess"
+
+    # ─── Calendar integration (Round 2) ───────────────────────────────────
+    # Fernet key (url-safe base64, 32 bytes) used to encrypt calendar OAuth
+    # tokens at rest. If unset, the app generates an ephemeral key at boot and
+    # logs a warning — fine for dev, MUST be set in production so tokens survive
+    # restarts. Never hardcode a real key here.
+    CALENDAR_TOKEN_KEY: Optional[str] = None
+
+    # OAuth client credentials. Unset => the connect route returns 501
+    # "calendar provider not configured" so dev still boots without creds.
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    MS_CLIENT_ID: Optional[str] = None
+    MS_CLIENT_SECRET: Optional[str] = None
+    # Public base URL the OAuth provider redirects back to (callback origin).
+    CALENDAR_OAUTH_REDIRECT_BASE: str = "http://localhost:8000"
+
+    # Calendar poller: auto-join meetings starting within this many minutes.
+    CALENDAR_POLL_INTERVAL_S: int = 60
+    CALENDAR_JOIN_LEAD_MINUTES: int = 5
+
+    # ─── Outbound integration delivery (Round 2) ──────────────────────────
+    # SMTP for the email recap provider. If host is unset, the email provider
+    # logs the recap instead of sending (dev-friendly).
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_FROM: str = "meetings@example.com"
+    SMTP_USE_TLS: bool = True
+
     # Worker Configuration
     WORKER_SCRIPT_PATH: str = "./worker/meeting_worker.py"
     JS_BOT_SCRIPT_PATH: str = "./bot_scripts"

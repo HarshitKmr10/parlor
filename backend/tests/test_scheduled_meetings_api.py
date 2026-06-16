@@ -177,10 +177,12 @@ async def test_dispatch_meeting_marks_deterministic_warm_pool_rejection_failed()
         mark_meeting_failed=True,
     )
 
+    # This exercises the K8s warm-pool rejection path, which only runs in
+    # non-standalone mode (standalone diverts to the local subprocess runner).
     with patch(
         "src.main.dispatch_to_warm_pool",
         new=AsyncMock(return_value=result),
-    ):
+    ), patch("src.main._is_standalone", return_value=False):
         with pytest.raises(HTTPException) as excinfo:
             await dispatch_meeting(
                 meeting_id="m-1",
