@@ -1,0 +1,31 @@
+import { isApiErrorBody } from "./error";
+
+/**
+ * Browser-side fetch helper for the Next route handlers (same-origin proxies).
+ * Parses the `{ error: { code, message } }` envelope and throws a plain Error
+ * with the contract message so client components can surface it inline.
+ */
+export async function postJson<T>(url: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const text = await response.text();
+  const data: unknown = text ? safeParse(text) : null;
+
+  if (!response.ok) {
+    if (isApiErrorBody(data)) throw new Error(data.error.message);
+    throw new Error("Request failed. Please try again.");
+  }
+  return data as T;
+}
+
+function safeParse(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}

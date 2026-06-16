@@ -42,6 +42,9 @@ from .api.models.schemas import (
     MeetingTranscriptResponse,
 )
 from .api.routes import sessions as sessions_routes
+from .api.product.errors import ApiError
+from .api.product.routes_auth import auth_router, workspaces_router
+from .api.product.routes_meetings import router as product_meetings_router
 from .services.ghost_pod_reaper import close_ghost_pod_reaper, get_ghost_pod_reaper
 from .services.meeting_scheduler import (
     close_meeting_scheduler,
@@ -89,6 +92,15 @@ class WarmPoolDispatchHTTPException(HTTPException):
 worker_instance = None
 worker_task = None
 _canary_service: Optional["SelectorCanaryService"] = None
+
+
+def _is_standalone() -> bool:
+    """True when running without a Kubernetes cluster (local dev / compose).
+
+    Gates the warm-pool, ghost-pod reaper, and selector-canary machinery — all
+    of which require K8s — so the app boots cleanly against a plain Postgres.
+    """
+    return os.environ.get("RUNTIME_MODE", "").lower() in ("standalone", "compose")
 
 _TEAMS_CAPTIONS_TRANSCRIPT_SOURCE_ALIASES = {
     "teams_captions",
@@ -210,25 +222,31 @@ async def lifespan(app: FastAPI):
         # known test URLs. Auto-skips platforms with no canary URL configured.
         # Catches Teams/Meet DOM-selector breakage before customers do.
         global _canary_service
-        try:
-            db = await get_db_connection()
-            meeting_svc = MeetingService(db)
-            _canary_service = SelectorCanaryService(meeting_service=meeting_svc)
-            await _canary_service.start()
-            logger.info("Selector canary service started")
-        except Exception as e:
-            logger.warning("Canary start failed: %s", e)
+        if _is_standalone():
+            logger.info("Selector canary disabled (RUNTIME_MODE=standalone)")
+        else:
+            try:
+                db = await get_db_connection()
+                meeting_svc = MeetingService(db)
+                _canary_service = SelectorCanaryService(meeting_service=meeting_svc)
+                await _canary_service.start()
+                logger.info("Selector canary service started")
+            except Exception as e:
+                logger.warning("Canary start failed: %s", e)
 
         # Start the ghost-pod reaper — detects meetings whose pod
         # disappeared from k8s (node failure, force-evict) and re-runs
         # the rejoin orchestrator so the meeting doesn't silently die.
         # Complements the warm-pool reaper, which only sees pods that
         # still exist.
-        try:
-            await get_ghost_pod_reaper().start()
-            logger.info("Ghost-pod reaper started")
-        except Exception as e:
-            logger.warning("Ghost-pod reaper start failed: %s", e)
+        if _is_standalone():
+            logger.info("Ghost-pod reaper disabled (RUNTIME_MODE=standalone)")
+        else:
+            try:
+                await get_ghost_pod_reaper().start()
+                logger.info("Ghost-pod reaper started")
+            except Exception as e:
+                logger.warning("Ghost-pod reaper start failed: %s", e)
 
         # Start the meeting scheduler — dispatches bots for meetings booked
         # with a future `scheduled_at` once their time comes due.
@@ -307,10 +325,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Add middleware
+# Add middleware.
+# CORS: the web dashboard runs on http://localhost:3000 and sends the bearer
+# token + X-Workspace-Id header, so it must be an explicitly allowed origin
+# (wildcard "*" cannot be combined with allow_credentials in browsers).
+_cors_origins = list(dict.fromkeys([*settings.ALLOWED_ORIGINS, "http://localhost:3000"]))
+if "*" in _cors_origins:
+    # "*" + credentials is invalid; for dev keep credentials and pin to the
+    # known dashboard origin plus any explicitly configured ones.
+    _cors_origins = [o for o in _cors_origins if o != "*"] or ["http://localhost:3000"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -318,8 +345,23 @@ app.add_middleware(
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
 
+
+# Product-layer error envelope: ApiError -> { "error": { code, message, ... } }
+@app.exception_handler(ApiError)
+async def _api_error_handler(_request, exc: ApiError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(status_code=exc.status_code, content=exc.envelope())
+
+
 # Internal API routes — sidecar callbacks for session-ended events.
 app.include_router(sessions_routes.router)
+
+# Product API (/api/v1): auth, workspaces, meetings. Added in front of the
+# existing internal (no-auth) endpoints without altering them.
+app.include_router(auth_router)
+app.include_router(workspaces_router)
+app.include_router(product_meetings_router)
 
 
 # Dependency injection
@@ -411,6 +453,11 @@ async def readiness_check():
         checks["queue"] = "pgqueuer"
     elif simple_queue_service and getattr(simple_queue_service, "_initialized", False):
         checks["queue"] = "simple_queue_fallback"
+    elif _is_standalone():
+        # In standalone/compose dev the queue is optional: meetings can be
+        # created and inspected without a worker consuming the queue. Don't
+        # fail readiness just because PGQueuer hasn't initialized.
+        checks["queue"] = "not_initialized (optional in standalone)"
     else:
         checks["queue"] = "not_initialized"
         overall_ok = False

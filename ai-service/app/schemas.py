@@ -1,0 +1,126 @@
+"""Pydantic v2 schemas matching docs/API-CONTRACT.md.
+
+JSON is camelCase on the wire (via aliases); Python attributes stay snake_case.
+All models populate by both field name and alias so internal construction and
+HTTP request parsing both work.
+"""
+
+from __future__ import annotations
+
+import uuid
+
+from pydantic import BaseModel, ConfigDict, Field
+from pydantic.alias_generators import to_camel
+
+
+class CamelModel(BaseModel):
+    """Base model: camelCase JSON aliases, accept by name or alias."""
+
+    model_config = ConfigDict(
+        alias_generator=to_camel,
+        populate_by_name=True,
+        extra="ignore",
+    )
+
+
+# --- Shared entities (mirror the API contract) -----------------------------
+
+
+class TranscriptSegment(CamelModel):
+    id: str
+    speaker_id: str | None = None
+    speaker_name: str
+    text: str
+    t_start_sec: float
+    t_end_sec: float | None = None
+    created_at: str | None = None
+
+
+class ActionItem(CamelModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    text: str
+    assignee: str | None = None
+    due_date: str | None = None
+    done: bool = False
+
+
+class Chapter(CamelModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    t_start_sec: float
+    t_end_sec: float | None = None
+
+
+class MeetingInsights(CamelModel):
+    summary: str
+    key_points: list[str] = Field(default_factory=list)
+    action_items: list[ActionItem] = Field(default_factory=list)
+    chapters: list[Chapter] = Field(default_factory=list)
+
+
+class Citation(CamelModel):
+    segment_id: str
+    speaker_name: str
+    text: str
+    t_start_sec: float
+
+
+class ChatMessage(CamelModel):
+    role: str
+    content: str
+
+
+class MeetingMeta(CamelModel):
+    title: str
+    participants: list[str] = Field(default_factory=list)
+
+
+# --- Request / response payloads -------------------------------------------
+
+
+class SummarizeRequest(CamelModel):
+    meeting_id: str
+    meta: MeetingMeta
+    segments: list[TranscriptSegment]
+
+
+class EmbedRequest(CamelModel):
+    workspace_id: str
+    meeting_id: str
+    segments: list[TranscriptSegment]
+
+
+class EmbedResponse(CamelModel):
+    embedded: int
+
+
+class ChatRequest(CamelModel):
+    workspace_id: str
+    meeting_id: str | None = None
+    question: str
+    history: list[ChatMessage] = Field(default_factory=list)
+
+
+class ChatResponse(CamelModel):
+    answer: str
+    citations: list[Citation] = Field(default_factory=list)
+
+
+class HealthResponse(CamelModel):
+    status: str
+    mode: str
+    provider_order: list[str]
+    providers_available: list[str]
+    database: str
+
+
+# --- Error envelope --------------------------------------------------------
+
+
+class ErrorBody(CamelModel):
+    code: str
+    message: str
+
+
+class ErrorEnvelope(CamelModel):
+    error: ErrorBody

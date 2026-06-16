@@ -92,6 +92,47 @@ when columns drift between `core/core/db/prisma/schema.prisma` and
 `meeting-joiner/db/bootstrap.sql` — when you periodically pull updates,
 just rerun `psql -f db/bootstrap.sql` for any new columns.
 
+## Quickstart — product API dev runtime (Postgres + pgvector + backend)
+
+The fastest way to run the full backend (internal joiner endpoints **plus** the
+`/api/v1` product layer: auth, workspaces, product meetings) against a local
+Postgres with the `pgvector` extension:
+
+```bash
+make dev
+# equivalently:
+cp .env.dev.example .env.dev
+docker compose -f docker-compose.dev.yml --env-file .env.dev up --build
+```
+
+This brings up:
+
+- `db` — `pgvector/pgvector:pg16`, schema auto-applied on first boot from
+  `db/bootstrap.sql` + `db/0002_product_auth.sql`.
+- `api` — FastAPI on host port `8000` (override with `API_PORT`), in
+  `RUNTIME_MODE=standalone` so the Kubernetes warm-pool / sidecar / ghost-pod
+  reaper / selector-canary machinery is disabled and the app boots without a
+  cluster, using the asyncpg (`MEETING_JOINER_DB_DRIVER=pg`) driver.
+
+Smoke test:
+
+```bash
+curl localhost:8000/health   # 200 {"status":"healthy",...}
+curl localhost:8000/ready    # 200 {"status":"ready","checks":{"database":"ok",...}}
+
+# Sign up (creates user + first workspace + owner membership)
+curl -X POST localhost:8000/api/v1/auth/signup -H 'Content-Type: application/json' \
+  -d '{"email":"you@example.com","password":"supersecret123","name":"You","workspaceName":"Acme"}'
+```
+
+Use the returned `accessToken` as `Authorization: Bearer <token>` and the
+workspace id as the `X-Workspace-Id` header for `/api/v1/*` calls. MCP servers
+authenticate with `X-API-Key: <key>` instead (create one via
+`POST /api/v1/workspaces/{id}/api-keys`).
+
+To re-apply the product migration against a running DB (idempotent): `make
+migrate`. To wipe the DB volume and start fresh: `make dev-reset`.
+
 ## Install path B — Run from this folder
 
 ```bash

@@ -1,0 +1,49 @@
+# Standalone dev dependencies for the meeting-joiner backend + product API.
+#
+# This is a curated subset of pyproject.toml that excludes the monorepo-only
+# `core` path dependency (which does not exist standalone) and the heavy
+# Zoom/browser bot extras. It is enough to import and run src.main with the
+# asyncpg (pg) driver and serve /health, /ready, and the /api/v1 product layer.
+
+# Web framework
+fastapi>=0.120,<0.121
+uvicorn[standard]>=0.30,<0.31
+pydantic>=2.5,<3
+pydantic-settings>=2.1,<3
+email-validator>=2.1            # required by pydantic EmailStr
+python-multipart>=0.0.27
+python-dotenv>=1.0
+starlette>=0.49,<0.50
+
+# Database
+asyncpg>=0.30,<1.0
+
+# Queue (imported at module load by main.py)
+pgqueuer==0.26.3
+
+# Auth (product layer)
+pyjwt>=2.12,<3
+pwdlib[argon2]>=0.2.1
+
+# HTTP client (ai-service proxy + warm-pool dispatcher)
+httpx>=0.27,<0.28
+
+# K8s client — imported at module load by warm_pool_manager / ghost_pod_reaper.
+# The runtime machinery is gated off via RUNTIME_MODE=standalone; the import
+# itself must still resolve.
+kubernetes-asyncio>=31.1,<32
+
+# Observability (imported at module load by main.py)
+structlog>=23.2
+prometheus-client>=0.20
+opentelemetry-api>=1.35
+opentelemetry-sdk>=1.35
+opentelemetry-exporter-otlp-proto-grpc>=1.35
+opentelemetry-instrumentation-fastapi>=0.56b0
+opentelemetry-instrumentation-asyncpg>=0.56b0
+opentelemetry-instrumentation-httpx>=0.56b0
+opentelemetry-instrumentation-logging>=0.56b0
+
+# Utilities pulled in by various modules
+psutil>=5.9
+aiofiles>=23.2

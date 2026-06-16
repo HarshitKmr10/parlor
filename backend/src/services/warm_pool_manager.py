@@ -1431,8 +1431,10 @@ async def get_warm_pool() -> Optional[WarmPoolManager]:
     Returns ``None`` in compose / local-dev mode where K8s is unavailable.
     """
     global _warm_pool
-    if os.environ.get("RUNTIME_MODE") == "compose":
-        logger.info("warm_pool.skipped_in_compose_mode")
+    # "standalone" (canonical) and "compose" (legacy alias) both mean
+    # no-Kubernetes local dev: the warm pool requires a cluster, so skip it.
+    if os.environ.get("RUNTIME_MODE", "").lower() in ("compose", "standalone"):
+        logger.info("warm_pool.skipped_in_standalone_mode")
         return None
 
     lock = _get_warm_pool_lock()

@@ -1,0 +1,80 @@
+# Standalone dev runtime for the AI meeting-assistant backend.
+#
+#   docker compose -f docker-compose.dev.yml --env-file .env.dev up --build
+#
+# Brings up:
+#   - db:  Postgres 16 + pgvector, schema applied on first boot from db/*.sql
+#   - api: the FastAPI backend in RUNTIME_MODE=standalone (no K8s warm pool)
+#
+# GET /health and GET /ready return 200 against this DB once both are healthy.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: meeting-saas-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-meeting}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meeting}
+      POSTGRES_DB: ${POSTGRES_DB:-meeting}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - meeting_pgdata:/var/lib/postgresql/data
+      # Applied alphabetically on FIRST init of an empty data dir.
+      - ./db/bootstrap.sql:/docker-entrypoint-initdb.d/00_bootstrap.sql:ro
+      - ./db/0002_product_auth.sql:/docker-entrypoint-initdb.d/01_product_auth.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meeting} -d ${POSTGRES_DB:-meeting}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    networks:
+      - meeting-saas
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: meeting-saas-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Compose-internal DSN (service name "db", internal port 5432).
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meeting}:${POSTGRES_PASSWORD:-meeting}@db:5432/${POSTGRES_DB:-meeting}
+      RUNTIME_MODE: standalone
+      MEETING_JOINER_DB_DRIVER: pg
+      MEETING_JOINER_SCHEMA: public
+      MEETING_JOINER_USE_WARM_POOL: "false"
+      HOST: 0.0.0.0
+      PORT: "8000"
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      # Product layer
+      JWT_SECRET: ${JWT_SECRET:-dev-insecure-change-me}
+      AI_SERVICE_URL: ${AI_SERVICE_URL:-http://localhost:8100}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      ALLOWED_HOSTS: "*"
+      # Bot/STT secrets are not needed to run the API in dev. Selecting Google
+      # Meet + captions mode + storage-not-required reduces the secret
+      # validator's hard requirements to just DATABASE_URL, so the API boots
+      # without any platform/STT/storage credentials.
+      MEETING_JOINER_ENABLED_PLATFORMS: googlemeet
+      GOOGLEMEET_TRANSCRIPT_SOURCE: gmeet_captions
+      MEETING_JOINER_STORAGE_REQUIRED: "false"
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./src:/app/src
+      - ./shared:/app/shared
+      - ./db:/app/db
+    command: >
+      uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - meeting-saas
+
+volumes:
+  meeting_pgdata:
+
+networks:
+  meeting-saas:
+    driver: bridge
