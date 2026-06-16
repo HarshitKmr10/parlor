@@ -6,13 +6,14 @@
 #   make reset   stop + remove containers AND the DB volume (fresh schema)
 #   make logs    follow logs for all services
 #   make smoke   run the end-to-end cross-service smoke test
+#   make smoke-botless  run the botless (desktop-capture) end-to-end smoke test
 #   make ps      show service status
 #   make psql    open a psql shell on the shared Postgres
 # =============================================================================
 
 COMPOSE := docker compose
 
-.PHONY: up down reset logs smoke ps psql build env
+.PHONY: up down reset logs smoke smoke-botless ps psql build env
 
 # Create .env from the example on first run, then build + start detached.
 up: env
@@ -46,6 +47,10 @@ psql:
 # Run the end-to-end smoke test against the running stack.
 smoke:
 	./scripts/smoke_e2e.sh
+
+# Run the botless (desktop-capture) end-to-end smoke test.
+smoke-botless:
+	./scripts/smoke_botless.sh
 
 # Create .env from .env.example if it does not exist yet.
 env:

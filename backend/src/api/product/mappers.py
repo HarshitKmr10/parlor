@@ -39,6 +39,11 @@ _STATUS_MAP = {
 
 
 def _platform(meeting_url: str) -> Optional[str]:
+    # Botless desktop-capture sessions use a synthetic ``desktop://`` URL that
+    # PlatformDetector does not (and should not) recognize as a joinable
+    # platform. Map the scheme to the contract's ``desktop`` platform directly.
+    if isinstance(meeting_url, str) and meeting_url.startswith("desktop://"):
+        return "desktop"
     detected = PlatformDetector.detect_platform(meeting_url)
     return _PLATFORM_MAP.get(detected)
 

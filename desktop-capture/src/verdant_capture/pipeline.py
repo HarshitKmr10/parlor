@@ -99,8 +99,8 @@ class CapturePipeline:
                             ingest_unavailable = True
                             self._on_status(
                                 "Backend has no transcript-ingest endpoint "
-                                "configured; keeping the local transcript and "
-                                "will still drive /summarize on stop."
+                                "(older build); keeping the local transcript "
+                                "and will still drive /summarize on stop."
                             )
         except KeyboardInterrupt:
             self._on_status("Stopping (Ctrl-C)...")
@@ -110,12 +110,13 @@ class CapturePipeline:
         return result
 
     def _try_ingest(self, meeting_id: str, segment: Segment) -> bool:
-        payload = {
-            "segment": segment.to_contract(),
-            "content": segment.to_internal_content_item(),
-        }
+        # The public ingest endpoint takes a batch of contract TranscriptSegments.
+        # We push each segment as it arrives (single-element batch) so the
+        # backend transcript + live WS update in near-real-time.
         try:
-            return self._client.post_segment(meeting_id, payload)  # type: ignore[union-attr]
+            return self._client.post_segments(  # type: ignore[union-attr]
+                meeting_id, [segment.to_contract()]
+            )
         except BackendError as exc:
             # A transient connection error shouldn't kill the capture; report
             # once and stop trying to push (we still keep the local transcript).

@@ -119,7 +119,7 @@ class ApiKeyCreated(ApiKey):
 
 
 # ── Meetings ─────────────────────────────────────────────────────────────
-Platform = Literal["zoom", "meet", "teams"]
+Platform = Literal["zoom", "meet", "teams", "desktop"]
 MeetingStatusLiteral = Literal[
     "scheduled", "joining", "ongoing", "completed", "failed"
 ]
@@ -198,6 +198,24 @@ class MeetingCreateRequest(CamelModel):
     title: Optional[str] = Field(None, max_length=500)
     scheduled_at: Optional[datetime] = None
     bot_name: Optional[str] = Field(None, max_length=100)
+
+
+class BotlessCreateRequest(CamelModel):
+    """Create a botless (desktop-capture) meeting — no bot dispatch."""
+
+    title: Optional[str] = Field(None, max_length=500)
+    source: Optional[Literal["desktop"]] = "desktop"
+
+
+class TranscriptIngestRequest(CamelModel):
+    """Append externally-captured transcript segments to a meeting."""
+
+    segments: List[TranscriptSegment] = Field(..., min_length=1)
+
+
+class TranscriptIngestResponse(CamelModel):
+    appended: int
+    last_segment_at: Optional[datetime] = None
 
 
 class TranscriptResponse(CamelModel):

@@ -6,17 +6,20 @@ chosen ``X-Workspace-Id``.
 
 Botless capture vs. the contract
 --------------------------------
-The public contract (docs/API-CONTRACT.md) has no botless-create and no
-public transcript-ingest endpoint: ``POST /api/v1/meetings`` requires a real
-zoom/meet/teams URL and *dispatches a server-side bot*. So this client:
+The public contract (docs/API-CONTRACT.md) now exposes a botless path:
 
-* Creates the meeting row with a real ``meetingUrl`` you pass in (the meeting
-  the bot would otherwise join) so the row is contract-valid, OR records the
-  synthetic ``desktop://<host>/<ts>`` locally when no backend ingest is wired.
-* Streams each segment to a configurable ingest path (``--ingest-path`` /
-  ``VERDANT_INGEST_PATH``). If none is configured or the backend returns
-  404/405, it degrades gracefully: it keeps the local transcript and still
-  drives ``/summarize`` with the collected segments.
+* ``POST /api/v1/meetings/botless`` creates a workspace-scoped meeting WITHOUT
+  dispatching a bot (synthetic ``desktop://`` URL, ``platform: 'desktop'``,
+  ``status: 'ongoing'``). Used when no real meeting URL is given.
+* ``POST /api/v1/meetings/{id}/transcript`` ingests batches of captured
+  segments server-side (the default ingest path here).
+* ``POST /api/v1/meetings/{id}/complete`` finalizes the session and triggers
+  the embed+summarize pipeline.
+
+A real meeting URL still routes through ``POST /api/v1/meetings`` (which
+dispatches a server-side bot). If the backend is older and lacks the ingest
+endpoint (404/405), segment streaming degrades gracefully: it keeps the local
+transcript and still drives ``/summarize`` with the collected segments.
 
 Every network failure raises a typed :class:`BackendError`/:class:`AuthError`
 with a clear message — the CLI never shows a raw traceback.
@@ -136,28 +139,71 @@ class VerdantClient:
         self._raise_for_status(resp, "create meeting")
         return resp.json()
 
-    def post_segment(self, meeting_id: str, segment_payloads: dict[str, Any]) -> bool:
-        """POST a single transcript segment to the configured ingest path.
+    def create_botless_meeting(
+        self, *, title: Optional[str]
+    ) -> dict[str, Any]:
+        """Create a botless (desktop-capture) meeting via ``/meetings/botless``.
 
-        Returns ``True`` on success. Returns ``False`` (without raising) when no
-        ingest path is configured or the backend has no such endpoint (404/405)
-        — the caller treats that as "ingest unavailable, keep local transcript".
+        No bot is dispatched; the backend assigns a synthetic ``desktop://``
+        URL and starts the meeting ``ongoing``.
+        """
+        body: dict[str, Any] = {"source": "desktop"}
+        if title:
+            body["title"] = title
+        try:
+            resp = self._client.post(
+                "/api/v1/meetings/botless", json=body, headers=self._auth_headers()
+            )
+        except httpx.HTTPError as exc:
+            raise BackendError(self._conn_msg(exc)) from exc
+        self._raise_for_status(resp, "create botless meeting")
+        return resp.json()
+
+    def post_segments(
+        self, meeting_id: str, segments: list[dict[str, Any]]
+    ) -> bool:
+        """POST a batch of contract ``TranscriptSegment``s to the ingest path.
+
+        Defaults to ``POST /api/v1/meetings/{id}/transcript`` (the public
+        ingest endpoint). An explicit ``ingest_path`` override still wins for
+        non-standard backends. Returns ``True`` on success. Returns ``False``
+        (without raising) when the backend has no such endpoint (404/405) — the
+        caller keeps the local transcript and still drives ``/summarize``.
         Connection-level failures still raise :class:`BackendError`.
         """
-        path = self._config.ingest_path
-        if not path:
-            return False
+        if not segments:
+            return True
+        path = self._config.ingest_path or "/api/v1/meetings/{id}/transcript"
         url = path.replace("{meeting_id}", meeting_id).replace("{id}", meeting_id)
         try:
             resp = self._client.post(
-                url, json=segment_payloads, headers=self._auth_headers()
+                url, json={"segments": segments}, headers=self._auth_headers()
             )
         except httpx.HTTPError as exc:
             raise BackendError(self._conn_msg(exc)) from exc
         if resp.status_code in (404, 405):
             return False
-        self._raise_for_status(resp, "ingest segment")
+        self._raise_for_status(resp, "ingest segments")
         return True
+
+    def complete_meeting(self, meeting_id: str) -> dict[str, Any]:
+        """Finalize via ``POST /meetings/{id}/complete`` (botless finalize).
+
+        Falls back to the ``DELETE /meetings/{id}`` stop path on 404/405 for
+        older backends; both transition the meeting to ``completed`` and fire
+        the server-side completion (embed+summarize) pipeline.
+        """
+        try:
+            resp = self._client.post(
+                f"/api/v1/meetings/{meeting_id}/complete",
+                headers=self._auth_headers(),
+            )
+        except httpx.HTTPError as exc:
+            raise BackendError(self._conn_msg(exc)) from exc
+        if resp.status_code in (404, 405):
+            return self.stop_meeting(meeting_id)
+        self._raise_for_status(resp, "complete meeting")
+        return resp.json()
 
     def summarize(self, meeting_id: str) -> dict[str, Any]:
         try:

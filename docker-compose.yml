@@ -129,7 +129,11 @@ services:
       backend:
         condition: service_healthy
     environment:
+      # Browser -> backend (published host port; baked into the client bundle).
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8001}
+      # Server-side (SSR / route handlers) -> backend via internal compose DNS.
+      # The published localhost port is not reachable from inside the container.
+      API_INTERNAL_URL: ${API_INTERNAL_URL:-http://backend:8000}
       NODE_ENV: production
       PORT: "3000"
       HOSTNAME: 0.0.0.0

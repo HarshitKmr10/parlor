@@ -21,7 +21,7 @@ All three surfaces (backend, ai-service, web) build against this. Keep it in syn
 ### Entities
 - `User { id, email, name, createdAt }`
 - `Workspace { id, name, slug, role }`  (role = owner|admin|member for the current user)
-- `Meeting { id, workspaceId, title, platform: 'zoom'|'meet'|'teams', meetingUrl, status: 'scheduled'|'joining'|'ongoing'|'completed'|'failed', scheduledAt?, startedAt?, endedAt?, durationSec?, participants: Participant[], hasSummary, hasRecording, createdAt }`
+- `Meeting { id, workspaceId, title, platform: 'zoom'|'meet'|'teams'|'desktop', meetingUrl, status: 'scheduled'|'joining'|'ongoing'|'completed'|'failed', scheduledAt?, startedAt?, endedAt?, durationSec?, participants: Participant[], hasSummary, hasRecording, createdAt }`  (`platform: 'desktop'` = botless desktop-capture session)
 - `Participant { id, name, email?, joinedAt?, leftAt? }`
 - `TranscriptSegment { id, speakerId, speakerName, text, tStartSec, tEndSec, createdAt }`
 - `MeetingInsights { summary: string, keyPoints: string[], actionItems: ActionItem[], chapters: Chapter[] }`
@@ -33,10 +33,13 @@ All three surfaces (backend, ai-service, web) build against this. Keep it in syn
 ## Meetings (backend, workspace-scoped)
 - `GET  /api/v1/meetings?status=&limit=&offset=` → `{ items: Meeting[], total, limit, offset }`
 - `POST /api/v1/meetings` `{ meetingUrl, title?, scheduledAt?, botName? }` → `Meeting` (creates + dispatches bot via existing joiner)
+- `POST /api/v1/meetings/botless` `{ title?, source?: 'desktop' }` → `Meeting` (creates a workspace-scoped meeting WITHOUT a bot: synthetic `meetingUrl` `desktop://<workspaceId>/<ts>`, `platform: 'desktop'`, `status: 'ongoing'`, `botName` null). Used by the desktop-capture client.
 - `GET  /api/v1/meetings/{id}` → `Meeting & { insights?: MeetingInsights }`
 - `GET  /api/v1/meetings/{id}/transcript?since=<ISO>` → `{ items: TranscriptSegment[], lastSegmentAt }`
+- `POST /api/v1/meetings/{id}/transcript` `{ segments: TranscriptSegment[] }` → `{ appended: number, lastSegmentAt }` (appends externally-captured segments to the meeting transcript; out-of-order/missing `createdAt` are clamped so the `since` cursor stays monotonic). Workspace-scoped, auth required.
 - `WS   /api/v1/meetings/{id}/live` → server pushes `{ type: 'segment', segment }` and `{ type: 'active_speaker', speakerId }` and `{ type: 'status', status }`
-- `DELETE /api/v1/meetings/{id}` → stop/cancel → `Meeting`
+- `POST /api/v1/meetings/{id}/complete` → finalize `ongoing → completed` → `Meeting` (idempotent; fires the embed+summarize completion pipeline). Use for botless meetings.
+- `DELETE /api/v1/meetings/{id}` → stop/cancel → `Meeting` (also fires the completion pipeline on the `→ completed` transition)
 - `POST /api/v1/meetings/{id}/summarize` → triggers ai-service; returns `MeetingInsights` (also stored)
 - `POST /api/v1/meetings/{id}/ask` `{ question, history?: {role,content}[] }` → `{ answer, citations: Citation[] }` (proxies ai-service `/chat`)
 

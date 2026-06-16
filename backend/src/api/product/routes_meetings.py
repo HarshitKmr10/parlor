@@ -27,12 +27,15 @@ from .meetings_repo import ProductMeetingsRepo
 from .schemas import (
     AskRequest,
     AskResponse,
+    BotlessCreateRequest,
     Citation,
     Meeting,
     MeetingCreateRequest,
     MeetingInsights,
     MeetingListResponse,
     MeetingWithInsights,
+    TranscriptIngestRequest,
+    TranscriptIngestResponse,
     TranscriptResponse,
     Workspace,
 )
@@ -44,6 +47,28 @@ router = APIRouter(prefix="/api/v1/meetings", tags=["meetings"])
 _VALID_STATUSES = {"scheduled", "joining", "ongoing", "completed", "failed"}
 # Internal joiner platform tokens we accept on create.
 _SUPPORTED_PLATFORMS = {"msteams", "googlemeet", "zoom"}
+
+
+def _fire_completion_pipeline(meeting_id: str) -> None:
+    """Kick the embed→summarize→recap pipeline as a background task.
+
+    Imported lazily to avoid a circular import at module load. Tolerates the
+    pipeline being unavailable — the meeting still completes, and the user can
+    trigger ``POST /{id}/summarize`` manually.
+    """
+    try:
+        from ...services.completion_pipeline import (  # noqa: PLC0415
+            run_completion_pipeline,
+        )
+
+        asyncio.create_task(
+            run_completion_pipeline(meeting_id),
+            name=f"completion-pipeline-{meeting_id}",
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "completion_pipeline_skipped meeting=%s error=%s", meeting_id, exc
+        )
 
 
 async def _service(db: DatabaseConnection = Depends(get_db)) -> MeetingService:
@@ -164,6 +189,136 @@ async def create_meeting(
     return meeting
 
 
+@router.post("/botless", response_model=Meeting, status_code=201)
+async def create_botless_meeting(
+    body: BotlessCreateRequest,
+    workspace: Workspace = Depends(get_current_workspace),
+    service: MeetingService = Depends(_service),
+    repo: ProductMeetingsRepo = Depends(_repo),
+) -> Meeting:
+    """Create a workspace-scoped meeting WITHOUT dispatching a bot.
+
+    Used by the desktop-capture client: audio is captured + transcribed
+    client-side and segments are pushed via ``POST /{id}/transcript``. The
+    meeting carries a synthetic ``desktop://<workspaceId>/<timestamp>`` URL,
+    platform ``desktop``, starts ``ongoing``, and has no bot name.
+    """
+    from datetime import datetime, timezone  # noqa: PLC0415
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+    synthetic_url = f"desktop://{workspace.id}/{stamp}"
+
+    record = await service.create_meeting(
+        meeting_url=synthetic_url,
+        org_id=None,
+        bot_name=None,
+        transcript_source=None,
+        scheduled_at=None,
+    )
+
+    await repo.set_workspace(record.id, workspace.id)
+    if body.title:
+        await repo.set_title(record.id, body.title)
+
+    # No bot dispatch. Move straight to "ongoing" so the live/transcript paths
+    # treat this like an in-progress meeting receiving segments.
+    await service.update_meeting_status(record.id, InternalStatus.ONGOING)
+
+    refreshed = await service.get_meeting_by_id(record.id) or record
+    meeting = to_meeting(refreshed, title=body.title)
+    meeting.workspace_id = workspace.id
+    return meeting
+
+
+@router.post(
+    "/{meeting_id}/transcript", response_model=TranscriptIngestResponse
+)
+async def ingest_transcript(
+    meeting_id: str,
+    body: TranscriptIngestRequest,
+    workspace: Workspace = Depends(get_current_workspace),
+    service: MeetingService = Depends(_service),
+    repo: ProductMeetingsRepo = Depends(_repo),
+) -> TranscriptIngestResponse:
+    """Append externally-captured transcript segments to a meeting.
+
+    Reuses the internal ``append_transcript_segment`` so the row's transcript
+    JSON, ``totalSegments`` and ``lastSegmentTime`` stay consistent with the
+    bot-driven path. Each segment is appended in ``tStartSec`` order; the
+    ``createdAt`` (or "now") timestamp drives the ``since`` cursor + live WS.
+    Out-of-order or missing timestamps are clamped to a monotonic value so the
+    cursor never regresses.
+    """
+    record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
+
+    from datetime import datetime, timezone  # noqa: PLC0415
+
+    # Determine the latest existing segment timestamp so newly-appended
+    # segments never carry an earlier "timestamp" (which would break `since`).
+    existing = segments_from_transcript(record.transcript)
+    floor: Optional[datetime] = existing[-1].created_at if existing else None
+
+    # Append in start-time order for stable transcript ordering.
+    incoming = sorted(body.segments, key=lambda s: s.t_start_sec)
+
+    appended = 0
+    last_at: Optional[datetime] = floor
+    for seg in incoming:
+        ts = seg.created_at
+        if ts is None:
+            ts = datetime.now(timezone.utc)
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        # Clamp out-of-order timestamps so the monotonic `since` cursor holds.
+        if last_at is not None and ts <= last_at:
+            ts = last_at
+        content_item = {
+            "id": seg.id,
+            "speaker": seg.speaker_name,
+            "speakerId": seg.speaker_id,
+            "text": seg.text,
+            "startTime": seg.t_start_sec,
+            "endTime": seg.t_end_sec,
+            "timestamp": ts.isoformat(),
+        }
+        result = await service.append_transcript_segment(meeting_id, content_item)
+        if result is not None:
+            appended += 1
+            last_at = ts
+
+    if appended == 0:
+        raise ApiError(
+            500, "ingest_failed", "No transcript segments could be appended"
+        )
+
+    return TranscriptIngestResponse(appended=appended, last_segment_at=last_at)
+
+
+@router.post("/{meeting_id}/complete", response_model=Meeting)
+async def complete_meeting(
+    meeting_id: str,
+    workspace: Workspace = Depends(get_current_workspace),
+    service: MeetingService = Depends(_service),
+    repo: ProductMeetingsRepo = Depends(_repo),
+) -> Meeting:
+    """Finalize a meeting (``ongoing`` → ``completed``) and run the AI pipeline.
+
+    Used by botless desktop-capture to finalize a session. Idempotent: if the
+    meeting is already terminal, this is a no-op that returns the current state.
+    Transitioning to ``completed`` fires the embed→summarize→recap pipeline.
+    """
+    record, scoped = await _load_scoped_meeting(
+        meeting_id, workspace.id, service, repo
+    )
+    if record.status.value not in ("completed", "failed"):
+        await service.update_meeting_status(meeting_id, InternalStatus.COMPLETED)
+        _fire_completion_pipeline(meeting_id)
+    refreshed = await service.get_meeting_by_id(meeting_id) or record
+    meeting = to_meeting(refreshed, title=scoped.get("title"))
+    meeting.workspace_id = workspace.id
+    return meeting
+
+
 @router.get("/{meeting_id}", response_model=MeetingWithInsights)
 async def get_meeting(
     meeting_id: str,
@@ -222,6 +377,7 @@ async def stop_meeting(
     )
     if record.status.value not in ("completed", "failed"):
         await service.update_meeting_status(meeting_id, InternalStatus.COMPLETED)
+        _fire_completion_pipeline(meeting_id)
     refreshed = await service.get_meeting_by_id(meeting_id) or record
     meeting = to_meeting(refreshed, title=scoped.get("title"))
     meeting.workspace_id = workspace.id
