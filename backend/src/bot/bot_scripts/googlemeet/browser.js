@@ -18,25 +18,47 @@ const fs = require('fs');
 // NOTE: requires `puppeteer-extra` to be installed (package.json) or several
 // evasions (webgl.vendor, chrome.runtime, ...) silently no-op and Google Meet
 // flags the raw SwiftShader WebGL renderer → instant "You can't join" reject.
-const stealthPlugin = StealthPlugin();
-stealthPlugin.enabledEvasions.delete("iframe.contentWindow");
-stealthPlugin.enabledEvasions.delete("media.codecs");
-// Drop user-agent-override: left enabled it forces a Windows UA + Client-Hints
-// onto our Linux Chromium, contradicting navigator.userAgentData (unspoofable)
-// and triggering the bot interstitial. The honest Linux UA we set on the context
-// flows through instead (verified required).
-stealthPlugin.enabledEvasions.delete("user-agent-override");
-chromium.use(stealthPlugin);
+// Apply the hardened stealth recipe to a playwright-extra chromium instance.
+// Extracted so generate-auth.js can launch with the SAME stealth config as the
+// production bot (the captured session must be consistent with how the bot
+// later presents itself).
+function buildStealthChromium() {
+  const stealthPlugin = StealthPlugin();
+  stealthPlugin.enabledEvasions.delete("iframe.contentWindow");
+  stealthPlugin.enabledEvasions.delete("media.codecs");
+  // Drop user-agent-override: left enabled it forces a Windows UA + Client-Hints
+  // onto our Linux Chromium, contradicting navigator.userAgentData (unspoofable)
+  // and triggering the bot interstitial. The honest Linux UA we set on the context
+  // flows through instead (verified required).
+  stealthPlugin.enabledEvasions.delete("user-agent-override");
+  chromium.use(stealthPlugin);
+  return chromium;
+}
 
-// Path to auth.json for authenticated sessions
-const AUTH_FILE = path.join(__dirname, 'auth.json');
+buildStealthChromium();
 
 /**
- * Check if authenticated session is available
- * @returns {boolean} True if auth.json exists
+ * Resolve the storageState (auth) file the bot should load, option-driven.
+ *
+ * Resolution order (first non-empty wins):
+ *   1. options.storageStatePath
+ *   2. process.env.GOOGLE_AUTH_STATE_PATH
+ *
+ * GOOGLE_MEET_USE_AUTH is the master toggle, BUT a resolved + EXISTING file is
+ * treated as sufficient on its own (so a deployment that mounts the file and
+ * forgets the flag still authenticates). When nothing resolves or the file is
+ * missing, the bot falls back to anonymous guest.
+ *
+ * @param {Object} options
+ * @param {string} [options.storageStatePath] Explicit path (wins over env).
+ * @returns {{ path: string|null, exists: boolean, useAuthRequested: boolean }}
  */
-function hasAuthFile() {
-  return fs.existsSync(AUTH_FILE);
+function resolveAuthState(options = {}) {
+  const useAuthRequested = process.env.GOOGLE_MEET_USE_AUTH === 'true' || !!options.useAuth;
+  const candidate = options.storageStatePath || process.env.GOOGLE_AUTH_STATE_PATH || null;
+  const trimmed = candidate && String(candidate).trim() ? String(candidate).trim() : null;
+  const exists = trimmed ? fs.existsSync(trimmed) : false;
+  return { path: trimmed, exists, useAuthRequested };
 }
 
 /**
@@ -68,20 +90,19 @@ function getBrowserPath() {
 }
 
 /**
- * Launch Playwright browser with stealth configuration for Google Meet
- * @param {Object} options - Launch options
- * @param {boolean} options.headless - Run in headless mode (default: based on RUNNING_IN_DOCKER)
- * @param {string} options.userDataDir - Optional user data directory for persistent sessions
- * @returns {Promise<{browser: Browser, context: BrowserContext, page: Page}>}
+ * Build the hardened launch options used for both the production bot and the
+ * generate-auth CLI. Extracted so the captured auth session is launched with
+ * the same flags the bot later runs under.
+ * @param {Object} options
+ * @param {boolean} [options.headless] Force headless (default: false / headed).
+ * @returns {import('playwright').LaunchOptions}
  */
-async function launchBrowser(options = {}) {
+function buildLaunchOptions(options = {}) {
   const isDocker = process.env.RUNNING_IN_DOCKER === 'true';
   // CRITICAL: Google Meet detects headless browsers and blocks them
   // We run with headless: false even in Docker (using the Xvfb virtual display)
   // Our Docker setup has Xvfb on :99, so we can run headed mode
   const headless = options.headless !== undefined ? options.headless : false;
-
-  console.log(`[GoogleMeet Browser] Launching browser (headless: ${headless}, docker: ${isDocker}, display: ${process.env.DISPLAY || 'not set'})`);
 
   // Hardened browser args for Google Meet bot-detection evasion
   // CRITICAL: Do NOT use --use-fake-device-for-media-stream (instant bot flag)
@@ -114,22 +135,75 @@ async function launchBrowser(options = {}) {
     launchArgs.push(`--display=${process.env.DISPLAY}`);
   }
 
-  // Set PULSE_SINK environment variable for Chrome to use virtual speaker
-  if (isDocker) {
-    process.env.PULSE_SINK = 'virtual_speaker';
-    console.log('[GoogleMeet Browser] Set PULSE_SINK=virtual_speaker for audio capture');
-  }
-
-  const browserPath = getBrowserPath();
   const launchOptions = {
     headless,
     args: launchArgs,
     ignoreDefaultArgs: ['--enable-automation'],
   };
 
+  const browserPath = getBrowserPath();
   if (browserPath) {
     launchOptions.executablePath = browserPath;
-    console.log(`[GoogleMeet Browser] Using browser at: ${browserPath}`);
+  }
+  return launchOptions;
+}
+
+/**
+ * Build the minimal context options (UA derived from the live engine major).
+ * Shared with generate-auth so the captured session matches the bot's UA.
+ * @param {Object} options
+ * @param {string} options.chromeMajor Chromium major version (from browser.version()).
+ * @param {string} [options.storageStatePath] When set + caller wants auth, the
+ *   resolved storageState file (NOT applied here — caller decides; we just
+ *   accept it for symmetry/future use).
+ * @returns {import('playwright').BrowserContextOptions}
+ */
+function buildContextOptions(options = {}) {
+  const chromeMajor = options.chromeMajor || '141';
+  const dynamicUserAgent = `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeMajor}.0.0.0 Safari/537.36`;
+  // Minimal context — matches the reference bot exactly: ONLY permissions,
+  // userAgent, viewport. We deliberately do NOT set locale/timezoneId/hasTouch/
+  // isMobile/extra HTTP headers: a hardcoded timezone (e.g. America/New_York)
+  // can contradict the real egress-IP geolocation, and any context override that
+  // doesn't match the actual environment is a fingerprint inconsistency Google
+  // Meet can key on. Letting the browser's native values flow keeps everything
+  // self-consistent.
+  return {
+    permissions: ['camera', 'microphone'],
+    // Honest Linux UA whose Chrome major is derived from the live engine above
+    // (NOT hardcoded) so it always matches navigator.userAgentData. Paired with
+    // the deleted user-agent-override stealth evasion (BOTH required).
+    userAgent: dynamicUserAgent,
+    // viewport:null — window fills the Xvfb display so
+    // innerWidth/outerWidth/screen.width agree (a fixed viewport on a larger
+    // window is a detectable size inconsistency).
+    viewport: null,
+  };
+}
+
+/**
+ * Launch Playwright browser with stealth configuration for Google Meet
+ * @param {Object} options - Launch options
+ * @param {boolean} options.headless - Run in headless mode (default: based on RUNNING_IN_DOCKER)
+ * @param {string} [options.storageStatePath] - Explicit storageState (auth) file path.
+ * @param {boolean} [options.useAuth] - Force the auth master toggle on for this launch.
+ * @returns {Promise<{browser: Browser, context: BrowserContext, page: Page, authenticated: boolean}>}
+ */
+async function launchBrowser(options = {}) {
+  const isDocker = process.env.RUNNING_IN_DOCKER === 'true';
+  const headless = options.headless !== undefined ? options.headless : false;
+
+  console.log(`[GoogleMeet Browser] Launching browser (headless: ${headless}, docker: ${isDocker}, display: ${process.env.DISPLAY || 'not set'})`);
+
+  // Set PULSE_SINK environment variable for Chrome to use virtual speaker
+  if (isDocker) {
+    process.env.PULSE_SINK = 'virtual_speaker';
+    console.log('[GoogleMeet Browser] Set PULSE_SINK=virtual_speaker for audio capture');
+  }
+
+  const launchOptions = buildLaunchOptions({ headless });
+  if (launchOptions.executablePath) {
+    console.log(`[GoogleMeet Browser] Using browser at: ${launchOptions.executablePath}`);
   }
 
   const browser = await chromium.launch(launchOptions);
@@ -151,42 +225,28 @@ async function launchBrowser(options = {}) {
   } catch (e) {
     console.log(`[GoogleMeet Browser] could not read Chromium version (${e.message}); UA defaults to ${chromeMajor}`);
   }
-  const dynamicUserAgent = `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${chromeMajor}.0.0.0 Safari/537.36`;
 
-  // Check if we should use authenticated session
-  const useAuth = process.env.GOOGLE_MEET_USE_AUTH === 'true' || options.useAuth;
-  const authAvailable = hasAuthFile();
+  const contextOptions = buildContextOptions({ chromeMajor });
 
-  if (useAuth && authAvailable) {
-    console.log('[GoogleMeet Browser] Using authenticated session from auth.json');
-  } else if (useAuth && !authAvailable) {
-    console.log('[GoogleMeet Browser] GOOGLE_MEET_USE_AUTH=true but auth.json not found, proceeding as guest');
-  }
-
-  // Minimal context — matches the reference bot exactly: ONLY permissions,
-  // userAgent, viewport. We deliberately do NOT set locale/timezoneId/hasTouch/
-  // isMobile/extra HTTP headers: a hardcoded timezone (e.g. America/New_York)
-  // can contradict the real egress-IP geolocation, and any context override that
-  // doesn't match the actual environment is a fingerprint inconsistency Google
-  // Meet can key on. Letting the browser's native values flow keeps everything
-  // self-consistent.
-  const contextOptions = {
-    permissions: ['camera', 'microphone'],
-    // Honest Linux UA whose Chrome major is derived from the live engine above
-    // (NOT hardcoded) so it always matches navigator.userAgentData. Paired with
-    // the deleted user-agent-override stealth evasion (BOTH required).
-    userAgent: dynamicUserAgent,
-    // viewport:null — window fills the Xvfb display so
-    // innerWidth/outerWidth/screen.width agree (a fixed viewport on a larger
-    // window is a detectable size inconsistency).
-    viewport: null,
-  };
-
-  // Load authenticated session if available and requested
-  if (useAuth && authAvailable) {
-    contextOptions.storageState = AUTH_FILE;
-  } else if (options.userDataDir) {
-    contextOptions.storageState = options.userDataDir;
+  // ---- Authenticated session resolution (option/env-driven) ---------------
+  // storageState JSON (cookies + localStorage) is the auth artifact. We only
+  // attach it when a resolved file actually EXISTS; otherwise we fall back to
+  // anonymous guest (the default). See resolveAuthState() for the order.
+  const auth = resolveAuthState(options);
+  let authenticated = false;
+  if (auth.path && auth.exists) {
+    contextOptions.storageState = auth.path;
+    authenticated = true;
+    console.log(`[GoogleMeet Browser] AUTHENTICATED session: loading storageState from ${auth.path} (account=${process.env.MEET_NOTETAKER_EMAIL || 'unknown'}) authenticated=true`);
+    if (!auth.useAuthRequested) {
+      console.log('[GoogleMeet Browser] note: GOOGLE_MEET_USE_AUTH not set to "true", but a resolved auth file exists — treating as sufficient.');
+    }
+  } else if (auth.path && !auth.exists) {
+    console.log(`[GoogleMeet Browser] auth file resolved to ${auth.path} but it does NOT exist — falling back to anonymous guest. authenticated=false`);
+  } else if (auth.useAuthRequested) {
+    console.log('[GoogleMeet Browser] GOOGLE_MEET_USE_AUTH=true but no GOOGLE_AUTH_STATE_PATH / storageStatePath resolved — falling back to anonymous guest. authenticated=false');
+  } else {
+    console.log('[GoogleMeet Browser] no auth configured — joining as anonymous guest. authenticated=false');
   }
 
   const context = await browser.newContext(contextOptions);
@@ -207,7 +267,7 @@ async function launchBrowser(options = {}) {
 
   console.log('[GoogleMeet Browser] Browser launched successfully');
 
-  return { browser, context, page };
+  return { browser, context, page, authenticated };
 }
 
 /**
@@ -253,6 +313,8 @@ module.exports = {
   closeBrowser,
   takeScreenshot,
   getBrowserPath,
-  hasAuthFile,
-  AUTH_FILE
+  resolveAuthState,
+  buildStealthChromium,
+  buildLaunchOptions,
+  buildContextOptions,
 };

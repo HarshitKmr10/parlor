@@ -1,186 +1,264 @@
+#!/usr/bin/env node
+'use strict';
+
 /**
- * Google Meet Authentication Generator
+ * Google Meet Authentication Generator (CLI)
  *
- * This script generates an auth.json file containing a logged-in Google session.
- * Run this once manually to create the authentication state that the bot will use.
+ * Produces a Playwright `storageState` JSON capturing a logged-in Google
+ * session (cookies + localStorage). The bot loads this file to join meetings
+ * as an authenticated Workspace user — internal Meet meetings then auto-admit
+ * the bot instead of dropping it in the "Ask to join" lobby.
  *
  * Usage:
- *   # Set environment variables (or enter manually when prompted)
- *   export GOOGLE_ACCOUNT_USER="your-bot@gmail.com"
- *   export GOOGLE_ACCOUNT_PASSWORD="your-password"
+ *   node generate-auth.js --account bot@yourco.com --out /secrets/auth/bot.json [--force]
  *
- *   # Run the script
- *   node generate-auth.js
+ * Flags:
+ *   --account <email>   Google account you will sign in as (pre-filled, NEVER
+ *                       auto-typed password — auto-typing trips Google's bot
+ *                       detection). REQUIRED.
+ *   --out <path>        Where to write the storageState JSON. REQUIRED.
+ *   --force             Overwrite an existing --out file (no interactive prompt).
+ *   --help              Show this help.
  *
- * The script will:
- * 1. Open a browser window
- * 2. Navigate to Google sign-in
- * 3. Attempt to log in (or wait for manual login if 2FA is required)
- * 4. Save the authenticated session to auth.json
+ * The script:
+ *   1. Launches a HEADFUL Chromium (mandatory — 2FA needs a real window) with
+ *      the SAME stealth/UA/locale config the production bot uses, so the
+ *      captured session is consistent with how the bot later presents itself.
+ *   2. Pre-fills ONLY the email field; you type the password + complete 2FA
+ *      manually in the window.
+ *   3. Polls meet.google.com until it detects a logged-in session.
+ *   4. Writes the storageState JSON to --out (creating parent dirs).
+ *   5. Verifies the stored account matches --account and warns on mismatch.
  *
- * After running, the auth.json file can be used by the bot to join meetings
- * as an authenticated user, which:
- * - Removes the "may not be who they claim to be" warning
- * - Allows joining meetings that require Google sign-in
- * - Can bypass waiting room if invited to the calendar event
+ * Security:
+ *   - The output file holds LIVE session cookies. Treat it like a password:
+ *     mount it read-only, keep it out of git, encrypt at rest if stored in a DB.
+ *   - Run this from the same egress region/IP the bot will use — a session
+ *     captured in one geo and replayed from another is a fingerprint mismatch.
  */
 
-const { chromium } = require('playwright');
 const path = require('path');
 const fs = require('fs');
 
-const AUTH_FILE = path.join(__dirname, 'auth.json');
+// Reuse the production browser's stealth + launch/context config so the
+// captured session is consistent with how the bot presents itself at runtime.
+const { buildStealthChromium, buildLaunchOptions, buildContextOptions } = require('./browser');
 
-async function generateAuth() {
-  console.log('🔐 Google Meet Authentication Generator');
-  console.log('=====================================\n');
+const LOGIN_POLL_TIMEOUT_MS = 300000; // 5 min — generous window for manual 2FA
+const LOGIN_POLL_INTERVAL_MS = 2000;
 
-  const email = process.env.GOOGLE_ACCOUNT_USER;
-  const password = process.env.GOOGLE_ACCOUNT_PASSWORD;
+function printHelp() {
+  console.log(`Google Meet Authentication Generator
 
-  if (!email) {
-    console.log('⚠️  GOOGLE_ACCOUNT_USER not set - you will need to enter credentials manually');
+Usage:
+  node generate-auth.js --account <email> --out <path> [--force]
+
+Flags:
+  --account <email>   Google account to sign in as (email is pre-filled; you
+                      type the password + complete 2FA manually). REQUIRED.
+  --out <path>        Output storageState JSON path. REQUIRED.
+  --force             Overwrite an existing --out file without prompting.
+  --help              Show this help.
+
+Example (single account):
+  node generate-auth.js --account notetaker@yourco.com --out /secrets/auth/notetaker@yourco.com.json
+
+Example (account pool — run once per account into a shared dir):
+  node generate-auth.js --account bot-a@yourco.com --out /secrets/auth/bot-a@yourco.com.json
+  node generate-auth.js --account bot-b@yourco.com --out /secrets/auth/bot-b@yourco.com.json
+
+Then wire the bot:
+  export GOOGLE_MEET_USE_AUTH=true
+  export GOOGLE_AUTH_STATE_DIR=/secrets/auth     # pool: <DIR>/<sanitized-email>.json
+  # per meeting, select the account by setting MEET_NOTETAKER_EMAIL=<email>
+
+Security: the output file holds live session cookies. Mount read-only, keep out
+of git, encrypt at rest if stored in a DB. Run from the bot's egress region.`);
+}
+
+/**
+ * Minimal argv parser for the flags this CLI accepts.
+ * @param {string[]} argv
+ * @returns {{ account: string|null, out: string|null, force: boolean, help: boolean }}
+ */
+function parseArgs(argv) {
+  const args = { account: null, out: null, force: false, help: false };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--help' || a === '-h') args.help = true;
+    else if (a === '--force') args.force = true;
+    else if (a === '--account') args.account = argv[++i] || null;
+    else if (a === '--out') args.out = argv[++i] || null;
+    else if (a.startsWith('--account=')) args.account = a.slice('--account='.length);
+    else if (a.startsWith('--out=')) args.out = a.slice('--out='.length);
   }
+  return args;
+}
 
-  // Launch browser in headed mode so user can see and interact if needed
-  console.log('🚀 Launching browser...');
-  const browser = await chromium.launch({
-    headless: false, // Must be headed for manual interaction
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-blink-features=AutomationControlled',
-    ],
-  });
+/**
+ * Read the account email persisted in a storageState file, if any. Google
+ * stores the signed-in account hint in cookies; this is best-effort.
+ * @param {string} outPath
+ * @returns {string|null}
+ */
+function readStoredAccountHint(outPath) {
+  try {
+    const raw = JSON.parse(fs.readFileSync(outPath, 'utf8'));
+    const cookies = Array.isArray(raw.cookies) ? raw.cookies : [];
+    // ACCOUNT_CHOOSER / device cookies don't carry the email, but the
+    // logged-in session typically leaves an email hint in localStorage for
+    // accounts.google.com. We scan both stores loosely for an email token.
+    const origins = Array.isArray(raw.origins) ? raw.origins : [];
+    const blob = JSON.stringify({ cookies: cookies.map((c) => c.name), origins });
+    const m = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.exec(blob);
+    return m ? m[0] : null;
+  } catch (_) {
+    return null;
+  }
+}
 
-  const context = await browser.newContext({
-    viewport: { width: 1280, height: 720 },
-    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  });
+async function detectLoggedIn(page) {
+  return page.evaluate(() => {
+    const accountButton = document.querySelector('[aria-label*="Google Account"]');
+    const avatar = document.querySelector('img[aria-label*="Google Account"]');
+    const newMeetingButton = document.querySelector('button[aria-label*="New meeting"]');
+    return !!(accountButton || avatar || newMeetingButton);
+  }).catch(() => false);
+}
 
+async function generateAuth(account, outPath) {
+  console.log('Google Meet Authentication Generator');
+  console.log('====================================\n');
+  console.log(`[generate-auth] account: ${account}`);
+  console.log(`[generate-auth] output:  ${outPath}`);
+
+  // Ensure parent directory exists.
+  const outDir = path.dirname(path.resolve(outPath));
+  fs.mkdirSync(outDir, { recursive: true });
+
+  // Build the SAME stealth chromium + launch/context options the bot uses, but
+  // force headful (2FA needs a visible window).
+  const chromium = buildStealthChromium();
+  const launchOptions = buildLaunchOptions({ headless: false });
+  console.log('[generate-auth] launching headful Chromium (stealth, bot-matched config)...');
+  const browser = await chromium.launch(launchOptions);
+
+  let chromeMajor = '141';
+  try {
+    const ver = await browser.version();
+    const m = /(\d+)\./.exec(ver);
+    if (m) chromeMajor = m[1];
+  } catch (_) { /* default */ }
+
+  const contextOptions = buildContextOptions({ chromeMajor });
+  const context = await browser.newContext(contextOptions);
   const page = await context.newPage();
 
   try {
-    // Navigate to Google sign-in
-    console.log('📍 Navigating to Google sign-in...');
+    console.log('[generate-auth] navigating to Google sign-in...');
     await page.goto('https://accounts.google.com/signin/v2/identifier?service=meet', {
-      waitUntil: 'networkidle',
+      waitUntil: 'domcontentloaded',
     });
 
-    // Try automatic login if credentials provided
-    if (email && password) {
-      console.log('🔑 Attempting automatic login...');
-
-      // Enter email
-      try {
-        await page.waitForSelector('input[type="email"]', { timeout: 10000 });
-        await page.fill('input[type="email"]', email);
-        await page.click('#identifierNext');
-        await page.waitForTimeout(2000);
-      } catch (e) {
-        console.log('⚠️  Could not find email field - may already be on password step');
-      }
-
-      // Enter password
-      try {
-        await page.waitForSelector('input[type="password"]', { timeout: 10000 });
-        await page.fill('input[type="password"]', password);
-        await page.click('#passwordNext');
-        await page.waitForTimeout(3000);
-      } catch (e) {
-        console.log('⚠️  Could not find password field');
-      }
-    } else {
-      console.log('\n📝 Please sign in manually in the browser window...');
+    // Pre-fill ONLY the email (never the password — auto-typing the password
+    // is the single biggest bot-detection trip on Google's login flow).
+    try {
+      await page.waitForSelector('input[type="email"]', { timeout: 10000 });
+      await page.fill('input[type="email"]', account);
+      console.log('[generate-auth] email pre-filled. Click Next, then enter your password + complete 2FA in the window.');
+    } catch (_) {
+      console.log('[generate-auth] could not find the email field — sign in manually in the window.');
     }
 
-    // Wait for successful authentication
-    // This is indicated by reaching meet.google.com or seeing the user avatar
-    console.log('\n⏳ Waiting for successful authentication...');
-    console.log('   (If 2FA is required, please complete it in the browser)\n');
+    console.log('\n[generate-auth] Waiting for a logged-in Meet session (up to 5 min)...');
+    console.log('                Complete sign-in (password + 2FA) in the browser window now.\n');
 
-    // Wait for either Meet homepage or the account avatar
-    await Promise.race([
-      page.waitForURL('**/meet.google.com/**', { timeout: 120000 }),
-      page.waitForSelector('[aria-label*="Google Account"]', { timeout: 120000 }),
-      page.waitForSelector('a[href*="accounts.google.com"][aria-label*="Account"]', { timeout: 120000 }),
-    ]).catch(() => {
-      // If none match, check if we're on a Google page with the user logged in
-    });
-
-    // Verify we're logged in by checking for account indicator
-    await page.waitForTimeout(2000);
-
-    // Navigate to Meet to ensure cookies are set for that domain
-    await page.goto('https://meet.google.com/', { waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
-
-    // Check if we see indicators of being logged in
-    const loggedIn = await page.evaluate(() => {
-      // Look for signs of being logged in
-      const accountButton = document.querySelector('[aria-label*="Google Account"]');
-      const avatar = document.querySelector('img[aria-label*="Google Account"]');
-      const newMeetingButton = document.querySelector('button[aria-label*="New meeting"]');
-      return !!(accountButton || avatar || newMeetingButton);
-    });
+    const deadline = Date.now() + LOGIN_POLL_TIMEOUT_MS;
+    let loggedIn = false;
+    // Land on Meet first so cookies are set for that domain, then poll.
+    while (Date.now() < deadline) {
+      const onMeet = /meet\.google\.com/.test(page.url());
+      if (onMeet) {
+        loggedIn = await detectLoggedIn(page);
+        if (loggedIn) break;
+      } else {
+        // Once the account chooser/2FA clears we expect a Google domain login;
+        // nudge to Meet periodically to settle its cookies.
+        const onGoogle = /google\.com/.test(page.url());
+        if (onGoogle && (await detectLoggedIn(page))) {
+          await page.goto('https://meet.google.com/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+        }
+      }
+      await page.waitForTimeout(LOGIN_POLL_INTERVAL_MS);
+    }
 
     if (!loggedIn) {
-      console.log('⚠️  Could not verify login status. Saving state anyway...');
+      // One last navigation + check in case the loop raced the final redirect.
+      await page.goto('https://meet.google.com/', { waitUntil: 'domcontentloaded' }).catch(() => {});
+      await page.waitForTimeout(2000);
+      loggedIn = await detectLoggedIn(page);
+    }
+
+    if (!loggedIn) {
+      console.log('[generate-auth] WARNING: could not confirm a logged-in session. Saving state anyway — verify before use.');
     } else {
-      console.log('✅ Successfully logged in!');
+      console.log('[generate-auth] logged-in session detected.');
     }
 
-    // Save the authentication state
-    console.log(`\n💾 Saving authentication state to ${AUTH_FILE}...`);
-    await context.storageState({ path: AUTH_FILE });
+    console.log(`[generate-auth] saving storageState to ${outPath} ...`);
+    await context.storageState({ path: outPath });
 
-    console.log('\n✅ Authentication file generated successfully!');
-    console.log(`   File: ${AUTH_FILE}`);
-    console.log('\n📋 Next steps:');
-    console.log('   1. The bot will now use this auth file for authenticated sessions');
-    console.log('   2. Set GOOGLE_MEET_USE_AUTH=true in your environment');
-    console.log('   3. The bot will join meetings as an authenticated user');
-    console.log('\n⚠️  Security notes:');
-    console.log('   - Keep auth.json secure (it contains session cookies)');
-    console.log('   - Add auth.json to .gitignore');
-    console.log('   - Re-run this script if authentication expires');
-
-  } catch (error) {
-    console.error('\n❌ Error during authentication:', error.message);
-    console.log('\nTrying to save current state anyway...');
-
-    try {
-      await context.storageState({ path: AUTH_FILE });
-      console.log('💾 State saved (may be incomplete)');
-    } catch (saveError) {
-      console.error('Could not save state:', saveError.message);
+    // Verify the captured account matches --account (best-effort hint scan).
+    const hint = readStoredAccountHint(outPath);
+    if (hint && account && hint.toLowerCase() !== account.toLowerCase()) {
+      console.log(`[generate-auth] WARNING: stored session hint (${hint}) does not match --account (${account}). Confirm you signed into the right account.`);
     }
+
+    console.log('\n[generate-auth] DONE.');
+    console.log(`  File written: ${path.resolve(outPath)}`);
+    console.log('\nWire the bot:');
+    console.log('  export GOOGLE_MEET_USE_AUTH=true');
+    console.log(`  export GOOGLE_AUTH_STATE_DIR=${outDir}        # pool: <DIR>/<sanitized-email>.json`);
+    console.log(`  # or explicit single file: export GOOGLE_AUTH_STATE_PATH=${path.resolve(outPath)}`);
+    console.log(`  export MEET_NOTETAKER_EMAIL=${account}        # selects this account per meeting`);
+    console.log('\nSecurity:');
+    console.log('  - This file holds LIVE session cookies. Mount read-only, keep out of git.');
+    console.log('  - Encrypt at rest if stored in a DB. Re-run when the session expires.');
+    console.log('  - Capture + run from the same egress region/IP for fingerprint consistency.');
   } finally {
-    console.log('\n🔒 Closing browser...');
-    await browser.close();
+    console.log('\n[generate-auth] closing browser...');
+    await browser.close().catch(() => {});
   }
 }
 
-// Check if auth.json already exists
-if (fs.existsSync(AUTH_FILE)) {
-  console.log(`⚠️  ${AUTH_FILE} already exists.`);
-  console.log('   Delete it first if you want to regenerate.\n');
+async function main() {
+  const args = parseArgs(process.argv.slice(2));
 
-  const readline = require('readline');
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
+  if (args.help) {
+    printHelp();
+    process.exit(0);
+  }
+  if (!args.account || !args.out) {
+    console.error('[generate-auth] ERROR: --account and --out are required.\n');
+    printHelp();
+    process.exit(2);
+  }
 
-  rl.question('Overwrite existing auth.json? (y/N): ', async (answer) => {
-    rl.close();
-    if (answer.toLowerCase() === 'y') {
-      await generateAuth();
-    } else {
-      console.log('Cancelled.');
-      process.exit(0);
-    }
-  });
-} else {
-  generateAuth().catch(console.error);
+  const resolvedOut = path.resolve(args.out);
+  if (fs.existsSync(resolvedOut) && !args.force) {
+    console.error(`[generate-auth] ERROR: ${resolvedOut} already exists. Pass --force to overwrite.`);
+    process.exit(2);
+  }
+
+  await generateAuth(args.account, resolvedOut);
 }
+
+// Only run when invoked directly (so unit tests can require parseArgs etc.).
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(`[generate-auth] fatal: ${err && err.message ? err.message : err}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { parseArgs, readStoredAccountHint, printHelp };

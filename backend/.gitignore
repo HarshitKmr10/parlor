@@ -15,3 +15,14 @@ envs/*.env
 
 # Local dev virtualenv created for the standalone product API runtime.
 .venv-dev/
+
+# Google Meet signed-in bot auth artifacts (LIVE session cookies — never commit).
+# Playwright storageState JSON holds cookies + localStorage for the notetaker
+# account; treat it like a password.
+auth.json
+*.auth.json
+**/auth.json
+**/*.auth.json
+secrets/auth/
+**/google-auth-state/
+src/bot/bot_scripts/googlemeet/auth.json

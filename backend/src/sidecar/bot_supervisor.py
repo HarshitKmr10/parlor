@@ -64,6 +64,13 @@ def _build_env(config: ConfigureRequest) -> dict[str, str]:
         env["WEBHOOK_URL"] = str(config.webhook_url)
     if config.max_duration_seconds is not None:
         env["MAX_DURATION_SECONDS"] = str(config.max_duration_seconds)
+    # Signed-in Google Meet support (K8s parity with LocalBotRunner._build_env).
+    # MEET_NOTETAKER_EMAIL selects the pooled storageState; the sidecar_launcher
+    # resolves <GOOGLE_AUTH_STATE_DIR>/<email>.json (or honors an explicit path).
+    if config.notetaker_email is not None:
+        env["MEET_NOTETAKER_EMAIL"] = config.notetaker_email
+    if config.google_auth_state_path is not None:
+        env["GOOGLE_AUTH_STATE_PATH"] = config.google_auth_state_path
     return env
 
 

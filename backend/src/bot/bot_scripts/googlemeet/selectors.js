@@ -260,6 +260,26 @@ const googleJoinButtonSelectors = [
   'button:has-text("Join")'
 ];
 
+// "Join now" selectors — shown to an AUTHENTICATED user joining a meeting they
+// can enter directly (no lobby). Locale-agnostic structural selectors first,
+// English text fallbacks last (matching the existing selector style).
+const googleJoinNowSelectors = [
+  '//button[.//span[text()="Join now"]]',
+  'button[aria-label="Join now"]',
+  'button[aria-label*="Join now"]',
+  'button:has-text("Join now")',
+];
+
+// "Switch here" selectors — shown to an authenticated user when the SAME
+// account is already in the call on another device/tab; clicking moves the
+// active session to this browser.
+const googleSwitchHereSelectors = [
+  '//button[.//span[text()="Switch here"]]',
+  'button[aria-label="Switch here"]',
+  'button[aria-label*="Switch here"]',
+  'button:has-text("Switch here")',
+];
+
 // Camera button selectors
 const googleCameraButtonSelectors = [
   '[aria-label*="Turn off camera"]',
@@ -360,6 +380,8 @@ module.exports = {
   googleSpeakingIndicators,
   googleRemovalIndicators,
   googleJoinButtonSelectors,
+  googleJoinNowSelectors,
+  googleSwitchHereSelectors,
   googleCameraButtonSelectors,
   googleMicrophoneButtonSelectors,
   googleNameInputSelectors,

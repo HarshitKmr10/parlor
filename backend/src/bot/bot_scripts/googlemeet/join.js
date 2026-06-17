@@ -232,18 +232,207 @@ async function clickJoinButton(page) {
 }
 
 /**
+ * Build the HUMANIZED input helpers (clickHandle / fillField) used by both the
+ * authenticated and anonymous join paths. Initialises the OS-level XTEST
+ * interactor once and exposes Playwright-fallback-wrapped click/fill closures.
+ * Keeping this in one place guarantees the signed-in branch never silently
+ * downgrades to synthetic input (which Google flags).
+ * @param {Page} page
+ * @param {{screenshotPath: string|null, takeScreenshots: boolean}} ctx
+ * @returns {{ clickHandle: Function, fillField: Function }}
+ */
+function buildHumanizedHelpers(page, ctx = {}) {
+  const { screenshotPath = null, takeScreenshots = false } = ctx;
+  let humanizer = null;
+  const forceSynthetic = process.env.GMEET_FORCE_SYNTHETIC === 'true';
+  if (forceSynthetic) {
+    console.log('[GoogleMeet Join] Input mode: synthetic (FORCED via GMEET_FORCE_SYNTHETIC)');
+  }
+  try {
+    if (forceSynthetic) throw new Error('force-synthetic');
+    const h = new HumanizedInteractor(MOCAP_LIBRARY, {
+      log: (m) => console.log(m),
+      onMissScreenshot: async (p, reason) => {
+        if (takeScreenshots && screenshotPath) {
+          const { takeScreenshot } = require('./browser');
+          await takeScreenshot(p, screenshotPath, 'humanized_click_miss');
+        }
+      },
+    });
+    // available() is async; we resolve it lazily inside clickHandle the first
+    // time it's used to avoid making this builder async. We probe synchronously
+    // by deferring to the closures below.
+    humanizer = h;
+  } catch (e) {
+    console.log(`[GoogleMeet Join] humanizer init failed (${e.message}); synthetic input`);
+    humanizer = null;
+  }
+
+  // Resolve humanizer availability once, memoized.
+  let availabilityChecked = false;
+  let humanizerActive = false;
+  const ensureAvailability = async () => {
+    if (availabilityChecked) return humanizerActive;
+    availabilityChecked = true;
+    if (!humanizer) { humanizerActive = false; return false; }
+    try {
+      humanizerActive = await humanizer.available();
+      console.log(humanizerActive
+        ? '[GoogleMeet Join] Input mode: HUMANIZED (XTEST OS-level input)'
+        : '[GoogleMeet Join] Input mode: synthetic (xdotool/X unavailable — fallback)');
+    } catch (_) {
+      humanizerActive = false;
+    }
+    return humanizerActive;
+  };
+
+  // Click a resolved ElementHandle via humanized motion, falling back to a
+  // synthetic handle click when humanized is off or its endpoint check throws.
+  const clickHandle = async (handle, label) => {
+    if (await ensureAvailability()) {
+      try { await humanizer.navigateAndClick(page, handle); return; }
+      catch (e) { console.log(`[GoogleMeet Join] humanized click failed for '${label}' (${e.message}); synthetic fallback`); }
+    }
+    await handle.click({ timeout: 5000 });
+  };
+  // Fill a text field via humanized click+type, verifying the value landed;
+  // fall back to page.fill (synthetic) if humanized off or it didn't register.
+  const fillField = async (handle, selector, text, label) => {
+    if (await ensureAvailability()) {
+      try {
+        await humanizer.fillField(page, handle, text);
+        const v = await handle.inputValue().catch(() => '');
+        if (v.trim() === text) return;
+        console.log(`[GoogleMeet Join] humanized fill didn't register for '${label}' (got "${v}"); synthetic fallback`);
+      } catch (e) {
+        console.log(`[GoogleMeet Join] humanized fill failed for '${label}' (${e.message}); synthetic fallback`);
+      }
+    }
+    await page.fill(selector, '').catch(() => {});
+    await page.fill(selector, text);
+  };
+
+  return { clickHandle, fillField };
+}
+
+/**
+ * Authenticated (signed-in) join branch. Mirrors the Vexa upstream flow:
+ * skip name entry, mute mic/cam, then RACE "Join now" / "Switch here" /
+ * "Ask to join". If ONLY "Ask to join" appears, the cookies didn't actually
+ * authenticate the session — we log that, fill the bot name, and fall back to
+ * the anonymous lobby path.
+ * @returns {Promise<{joined: boolean, stale: boolean}>}
+ */
+async function joinAuthenticated(page, botName, helpers, ctx = {}) {
+  const { clickHandle, fillField } = helpers;
+  const { screenshotPath = null, takeScreenshots = false } = ctx;
+  const maybeShot = async (name) => {
+    if (takeScreenshots && screenshotPath) {
+      const { takeScreenshot } = require('./browser');
+      await takeScreenshot(page, screenshotPath, name).catch(() => {});
+    }
+  };
+
+  console.log('[GoogleMeet Join] Authenticated mode: skipping name input (using Google account identity)');
+  // Lobby SPA needs a moment after domcontentloaded to render the controls.
+  await page.waitForTimeout(3000);
+  await maybeShot('auth_lobby');
+
+  // Mute mic + camera (HUMANIZED click path, same as anonymous).
+  try {
+    const { handle: micH } = await waitForAnyHandle(page, selectors.googleMicrophoneButtonSelectors, 3000);
+    if (micH) { await clickHandle(micH, 'microphone'); console.log('[GoogleMeet Join] Microphone muted'); }
+  } catch (e) { console.log('[GoogleMeet Join] Microphone already muted or not found'); }
+  try {
+    const { handle: camH } = await waitForAnyHandle(page, selectors.googleCameraButtonSelectors, 3000);
+    if (camH) { await clickHandle(camH, 'camera'); console.log('[GoogleMeet Join] Camera turned off'); }
+  } catch (e) { console.log('[GoogleMeet Join] Camera already off or not found'); }
+
+  // Race the three possible authenticated outcomes. A direct in-call join shows
+  // "Join now"; same-account-elsewhere shows "Switch here"; a session that
+  // DIDN'T authenticate falls through to "Ask to join".
+  const raceSelectors = [
+    ...selectors.googleJoinNowSelectors.map((s) => ({ selector: s, type: 'join_now' })),
+    ...selectors.googleSwitchHereSelectors.map((s) => ({ selector: s, type: 'switch_here' })),
+    ...selectors.googleJoinButtonSelectors.map((s) => ({ selector: s, type: 'ask_to_join' })),
+  ];
+
+  const startTime = Date.now();
+  const timeout = 30000;
+  let matched = null;
+  while (Date.now() - startTime < timeout && !matched) {
+    for (const { selector, type } of raceSelectors) {
+      try {
+        const loc = selector.startsWith('//')
+          ? page.locator(`xpath=${selector}`).first()
+          : page.locator(selector).first();
+        if (await loc.isVisible({ timeout: 50 }).catch(() => false)) {
+          const handle = await loc.elementHandle().catch(() => null);
+          if (handle) { matched = { type, selector, handle }; break; }
+        }
+      } catch (_) { /* continue */ }
+    }
+    if (!matched) await page.waitForTimeout(200);
+  }
+
+  if (!matched) {
+    await maybeShot('auth_no_join_button');
+    throw new Error('authenticated join: no Join now / Switch here / Ask to join button after 30s');
+  }
+
+  if (matched.type === 'join_now') {
+    await clickHandle(matched.handle, 'join_now');
+    console.log('[GoogleMeet Join] Joined as authenticated user (Join now)');
+    await maybeShot('after_join_now');
+    return { joined: true, stale: false };
+  }
+  if (matched.type === 'switch_here') {
+    await clickHandle(matched.handle, 'switch_here');
+    console.log('[GoogleMeet Join] Joined as authenticated user (Switch here — same account already in call)');
+    await maybeShot('after_switch_here');
+    return { joined: true, stale: false };
+  }
+
+  // type === 'ask_to_join' → cookies did NOT authenticate the session. Distinct
+  // STALE signal so the caller / logs can tell a stale auth file apart from a
+  // legitimately-anonymous join.
+  console.log('[GoogleMeet Join] STALE_AUTH_SESSION: authenticated mode but only "Ask to join" appeared — cookies did not authenticate. Falling back to anonymous name entry.');
+  await maybeShot('auth_session_stale');
+  // Fill the bot name (we're in anonymous territory now).
+  const { handle: nameHandle, selector: nameSel } = await waitForAnyHandle(
+    page, selectors.googleNameInputSelectors, 5000);
+  if (nameHandle) {
+    await fillField(nameHandle, nameSel, botName, 'name');
+    console.log(`[GoogleMeet Join] Name entered (fallback): ${botName}`);
+  } else {
+    console.log('[GoogleMeet Join] No name field found during stale-auth fallback');
+  }
+  await clickHandle(matched.handle, 'ask_to_join');
+  console.log('[GoogleMeet Join] Requested to join via fallback (Ask to join)');
+  await maybeShot('after_join_click');
+  return { joined: true, stale: true };
+}
+
+/**
  * Main function to join a Google Meet meeting
  * @param {Page} page - Playwright page instance
  * @param {string} meetingUrl - Google Meet URL
  * @param {string} botName - Display name for the bot
  * @param {Object} options - Additional options
+ * @param {boolean} [options.authenticated] - Use the signed-in join flow.
  * @returns {Promise<boolean>} - Whether join request was successful
  */
 async function joinGoogleMeetMeeting(page, meetingUrl, botName, options = {}) {
-  const { screenshotPath = null, takeScreenshots = false } = options;
+  const { screenshotPath = null, takeScreenshots = false, authenticated = false } = options;
 
   console.log(`[GoogleMeet Join] Starting join process for: ${meetingUrl}`);
   console.log(`[GoogleMeet Join] Bot name: ${botName}`);
+  console.log(`[GoogleMeet Join] Auth mode: ${authenticated ? 'AUTHENTICATED (signed-in)' : 'anonymous guest'}`);
+
+  // Build the humanized input helpers ONCE so both the authenticated and
+  // anonymous paths keep using the same HUMANIZED XTEST click/fill layer
+  // (never weaken stealth by clicking authenticated controls synthetically).
+  const { clickHandle, fillField } = buildHumanizedHelpers(page, { screenshotPath, takeScreenshots });
 
   try {
     // Navigate to meeting URL. `domcontentloaded` is enough — Meet keeps
@@ -268,6 +457,15 @@ async function joinGoogleMeetMeeting(page, meetingUrl, botName, options = {}) {
     if (takeScreenshots && screenshotPath) {
       const { takeScreenshot } = require('./browser');
       await takeScreenshot(page, screenshotPath, 'after_navigation');
+    }
+
+    // Authenticated (signed-in) join: distinct flow — no name input, races
+    // "Join now" / "Switch here" / "Ask to join" and falls back to anonymous
+    // name entry if the session turns out stale (only "Ask to join" appears).
+    if (authenticated) {
+      const result = await joinAuthenticated(page, botName, { clickHandle, fillField }, { screenshotPath, takeScreenshots });
+      console.log(`[GoogleMeet Join] ${botName} requested to join Google Meet (authenticated, stale_session=${result.stale})`);
+      return true;
     }
 
     // Wait for either: name input (success), rejection (fail), or admission (already in meeting)
@@ -343,59 +541,9 @@ async function joinGoogleMeetMeeting(page, meetingUrl, botName, options = {}) {
       return true;
     }
 
-    // Proceed with name entry (matchedResult.type === 'name_input')
-    // --- Humanized input layer (OS-level XTEST motion + click) ---
-    let humanizer = null;
-    const forceSynthetic = process.env.GMEET_FORCE_SYNTHETIC === 'true';
-    if (forceSynthetic) {
-      console.log('[GoogleMeet Join] Input mode: synthetic (FORCED via GMEET_FORCE_SYNTHETIC)');
-    }
-    try {
-      if (forceSynthetic) throw new Error('force-synthetic');
-      const h = new HumanizedInteractor(MOCAP_LIBRARY, {
-        log: (m) => console.log(m),
-        onMissScreenshot: async (p, reason) => {
-          if (takeScreenshots && screenshotPath) {
-            const { takeScreenshot } = require('./browser');
-            await takeScreenshot(p, screenshotPath, 'humanized_click_miss');
-          }
-        },
-      });
-      if (await h.available()) {
-        humanizer = h;
-        console.log('[GoogleMeet Join] Input mode: HUMANIZED (XTEST OS-level input)');
-      } else {
-        console.log('[GoogleMeet Join] Input mode: synthetic (xdotool/X unavailable — fallback)');
-      }
-    } catch (e) {
-      console.log(`[GoogleMeet Join] humanizer init failed (${e.message}); synthetic input`);
-    }
-
-    // Click a resolved ElementHandle via humanized motion, falling back to a
-    // synthetic handle click when humanized is off or its endpoint check throws.
-    const clickHandle = async (handle, label) => {
-      if (humanizer) {
-        try { await humanizer.navigateAndClick(page, handle); return; }
-        catch (e) { console.log(`[GoogleMeet Join] humanized click failed for '${label}' (${e.message}); synthetic fallback`); }
-      }
-      await handle.click({ timeout: 5000 });
-    };
-    // Fill a text field via humanized click+type, verifying the value landed;
-    // fall back to page.fill (synthetic) if humanized off or it didn't register.
-    const fillField = async (handle, selector, text, label) => {
-      if (humanizer) {
-        try {
-          await humanizer.fillField(page, handle, text);
-          const v = await handle.inputValue().catch(() => '');
-          if (v.trim() === text) return;
-          console.log(`[GoogleMeet Join] humanized fill didn't register for '${label}' (got "${v}"); synthetic fallback`);
-        } catch (e) {
-          console.log(`[GoogleMeet Join] humanized fill failed for '${label}' (${e.message}); synthetic fallback`);
-        }
-      }
-      await page.fill(selector, '').catch(() => {});
-      await page.fill(selector, text);
-    };
+    // Proceed with name entry (matchedResult.type === 'name_input').
+    // The HUMANIZED clickHandle / fillField helpers were built once at the top
+    // of joinGoogleMeetMeeting() and are shared with the authenticated path.
 
     // Name (handle for the field we just detected)
     const { handle: nameHandle, selector: nameSel } = await waitForAnyHandle(
@@ -448,6 +596,8 @@ async function joinGoogleMeetMeeting(page, meetingUrl, botName, options = {}) {
 
 module.exports = {
   joinGoogleMeetMeeting,
+  joinAuthenticated,
+  buildHumanizedHelpers,
   enterBotName,
   clickJoinButton,
   muteMicrophone,

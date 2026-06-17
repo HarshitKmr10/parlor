@@ -30,3 +30,11 @@ graphify-out/
 
 # OS
 .DS_Store
+
+# Google Meet signed-in bot auth artifacts (LIVE session cookies — never commit)
+auth.json
+*.auth.json
+**/auth.json
+**/*.auth.json
+secrets/auth/
+**/google-auth-state/

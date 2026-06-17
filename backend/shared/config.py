@@ -136,6 +136,20 @@ class Settings(BaseSettings):
     # for auto-admission to internal Meet meetings. A per-workspace override is
     # stored in the DB; this is the process-wide default fallback.
     MEET_NOTETAKER_EMAIL: Optional[str] = None
+    # Signed-in Google Meet bot support.
+    #   GOOGLE_MEET_USE_AUTH  — master toggle. A resolved + existing storageState
+    #                            file is also treated as sufficient on its own.
+    #   GOOGLE_AUTH_STATE_DIR — directory of per-account Playwright storageState
+    #                            JSON files (multi-account pool). The bot selects
+    #                            <DIR>/<MEET_NOTETAKER_EMAIL>.json per meeting.
+    #   GOOGLE_AUTH_STATE_PATH — explicit single storageState file; wins over the
+    #                            pooled <DIR>/<email>.json resolution.
+    # These files hold LIVE session cookies — mount read-only, keep out of git,
+    # encrypt at rest if stored in a DB. Generate them with the headful CLI:
+    #   node src/bot/bot_scripts/googlemeet/generate-auth.js --account <email> --out <path>
+    GOOGLE_MEET_USE_AUTH: bool = False
+    GOOGLE_AUTH_STATE_DIR: Optional[str] = None
+    GOOGLE_AUTH_STATE_PATH: Optional[str] = None
     # How many minutes before expiry a Workspace Events subscription is renewed.
     MEET_EVENTS_RENEW_LEAD_MINUTES: int = 60
     # Renewal loop tick interval (seconds).
