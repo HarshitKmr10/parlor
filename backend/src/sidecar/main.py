@@ -66,7 +66,11 @@ except ModuleNotFoundError:
 from src.observability import configure_logging, configure_otel, get_logger
 
 from .bot_supervisor import BotSupervisor
-from .heartbeat import read_bot_state, read_heartbeat_age_seconds
+from .heartbeat import (
+    read_bot_state,
+    read_heartbeat_age_seconds,
+    reset_bot_state_files,
+)
 from .models import (
     AbortRequest,
     AbortResponse,
@@ -349,9 +353,14 @@ async def configure(request: ConfigureRequest) -> ConfigureResponse:
     request can't trash an in-progress meeting.
     """
     snapshot = await state_manager.snapshot()
-    if snapshot.meeting_state != MeetingState.WARM:
+    # Accept a new meeting when the worker is WARM (fresh) OR ENDED (previous
+    # meeting finished, bot already exited) — this makes the compose worker
+    # REUSABLE across meetings. Reject only while a bot is actively
+    # assigned/running (CONFIGURING/JOINING/IN_MEETING/STUCK) so we never trash
+    # an in-progress meeting.
+    if snapshot.meeting_state not in (MeetingState.WARM, MeetingState.ENDED):
         logger.warning(
-            "sidecar.configure.rejected_not_warm",
+            "sidecar.configure.rejected_busy",
             current_state=snapshot.meeting_state.value,
             requested_meeting_id=request.meeting_id,
         )
@@ -362,10 +371,15 @@ async def configure(request: ConfigureRequest) -> ConfigureResponse:
                 "meeting_id": request.meeting_id,
                 "current_state": snapshot.meeting_state.value,
                 "detail": (
-                    "pod is not warm; refusing to start a second bot in this pod"
+                    "worker is busy with an active meeting; refusing to start "
+                    "a second bot"
                 ),
             },
         )
+    # Reusing an ENDED worker: clear the previous meeting's heartbeat/state
+    # files so /health reflects the NEW meeting, not the finished one.
+    if snapshot.meeting_state == MeetingState.ENDED:
+        reset_bot_state_files()
 
     try:
         validation_config = config_for_configure_request(

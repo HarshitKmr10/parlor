@@ -23,13 +23,17 @@ for u in urls:
     try:
         with urllib.request.urlopen(u + "/health", timeout=4) as r:
             d = json.load(r)
-        active = bool(d.get("current_meeting_id")) or bool(d.get("bot_subprocess_alive"))
+        # Busy only while a bot is live or the meeting_state is active; 'warm'
+        # and 'ended' are available (current_meeting_id persists after 'ended').
+        active_states = {"configuring", "joining", "in_meeting", "stuck"}
+        state = str(d.get("meeting_state") or "").lower()
+        active = bool(d.get("bot_subprocess_alive")) or state in active_states
         if active:
             busy += 1
-            print(f"  BUSY        {u}  meeting={d.get('current_meeting_id')}  state={d.get('meeting_state')}")
+            print(f"  BUSY        {u}  meeting={d.get('current_meeting_id')}  state={state}")
         else:
             idle += 1
-            print(f"  idle        {u}  state={d.get('meeting_state')}")
+            print(f"  idle        {u}  state={state}")
     except Exception as e:  # noqa: BLE001
         busy += 1
         print(f"  UNREACHABLE {u}  ({e})")
