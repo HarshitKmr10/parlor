@@ -123,6 +123,16 @@ services:
       MS_CLIENT_ID: ${MS_CLIENT_ID:-}
       MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
       CALENDAR_OAUTH_REDIRECT_BASE: ${CALENDAR_OAUTH_REDIRECT_BASE:-http://localhost:8001}
+      # Org-wide Google Workspace / Meet capture (domain-wide delegation + Meet
+      # events). CALENDAR_TOKEN_KEY (Fernet) encrypts the service-account JSON at
+      # rest — set it so a configured org survives restarts. Pub/Sub vars enable
+      # the ad-hoc Meet-conference webhook; the notetaker account auto-admits.
+      GOOGLE_WORKSPACE_ENABLED: ${GOOGLE_WORKSPACE_ENABLED:-true}
+      CALENDAR_TOKEN_KEY: ${CALENDAR_TOKEN_KEY:-}
+      MEET_NOTETAKER_EMAIL: ${MEET_NOTETAKER_EMAIL:-}
+      GOOGLE_PUBSUB_TOPIC: ${GOOGLE_PUBSUB_TOPIC:-}
+      GOOGLE_PUBSUB_VERIFICATION_TOKEN: ${GOOGLE_PUBSUB_VERIFICATION_TOKEN:-}
+      GOOGLE_PUBSUB_OIDC_AUDIENCE: ${GOOGLE_PUBSUB_OIDC_AUDIENCE:-}
     ports:
       - "${API_PORT:-8001}:8000"
     healthcheck:
