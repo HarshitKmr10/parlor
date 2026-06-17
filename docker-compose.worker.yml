@@ -102,9 +102,12 @@ services:
       MEETING_JOINER_ENABLED_PLATFORMS: googlemeet
       GOOGLEMEET_TRANSCRIPT_SOURCE: gmeet_captions
       MEETING_JOINER_STORAGE_REQUIRED: "false"
-    # Expose the sidecar port on the host for debugging (optional).
-    ports:
-      - "${MEETING_WORKER_PORT:-9000}:9000"
+    # Internal-only: the backend reaches the sidecar at meeting-worker:9000 over
+    # the compose network — no host port is published (avoids host :9000 clashes,
+    # e.g. an ssh tunnel). To debug from the host, run:
+    #   docker compose exec meeting-worker curl -s localhost:9000/health
+    expose:
+      - "9000"
     healthcheck:
       # The sidecar's "/" identity probe returns 200 once it's up.
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:9000/').status==200 else 1)\""]
