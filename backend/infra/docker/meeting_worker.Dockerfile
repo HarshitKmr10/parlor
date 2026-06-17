@@ -113,7 +113,10 @@ RUN poetry install --no-interaction --no-ansi --without=dev --with=zoom || \
 # Copy Node.js dependencies manifests
 COPY meeting-joiner/package.json /app/meeting-joiner/
 COPY meeting-joiner/pnpm-lock.yaml /app/meeting-joiner/
-RUN pnpm install
+# Skip puppeteer's chrome-headless-shell download (never used; the bot uses the
+# Playwright chromium / system Chrome installed below). Avoids wasted disk/ENOSPC.
+RUN PUPPETEER_SKIP_DOWNLOAD=true PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 pnpm install
 
 # Install Playwright browser for Google Meet support
 # Using system Chrome as fallback, but also install Playwright chromium for best compatibility.
