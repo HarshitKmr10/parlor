@@ -19,6 +19,15 @@ export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ??
   "http://localhost:8000";
 
+/**
+ * Backend base URL for BROWSER-followed links (OAuth redirects like the
+ * calendar connect endpoint). The browser cannot resolve the internal Docker
+ * DNS (`http://backend:8000`), so these must use the public, browser-reachable
+ * URL — never `API_INTERNAL_URL`.
+ */
+export const PUBLIC_API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+
 export const API_PREFIX = "/api/v1";
 
 /** Cookie names for the httpOnly session tokens set by the auth route handlers. */
