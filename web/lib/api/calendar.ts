@@ -1,7 +1,7 @@
 import "server-only";
 
 import { apiFetch } from "./client";
-import { API_BASE_URL, API_PREFIX } from "./config";
+import { API_PREFIX, PUBLIC_API_BASE_URL } from "./config";
 import type { CalendarAccount, CalendarProvider } from "./types";
 
 export function listCalendarAccounts(): Promise<CalendarAccount[]> {
@@ -25,5 +25,5 @@ export function updateCalendarAccount(
  * must navigate to them directly rather than fetch them. This builds the URL.
  */
 export function calendarConnectUrl(provider: CalendarProvider): string {
-  return `${API_BASE_URL}${API_PREFIX}/calendar/connect/${provider}`;
+  return `${PUBLIC_API_BASE_URL}${API_PREFIX}/calendar/connect/${provider}`;
 }

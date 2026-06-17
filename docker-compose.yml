@@ -113,6 +113,14 @@ services:
       MEETING_JOINER_ENABLED_PLATFORMS: googlemeet
       GOOGLEMEET_TRANSCRIPT_SOURCE: gmeet_captions
       MEETING_JOINER_STORAGE_REQUIRED: "false"
+      # Calendar OAuth (per-user connect). Set GOOGLE_CLIENT_ID/SECRET in .env to
+      # enable; the redirect base MUST be browser/Google-reachable (the public
+      # URL), and the exact callback URL must be registered in Google Cloud.
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      MS_CLIENT_ID: ${MS_CLIENT_ID:-}
+      MS_CLIENT_SECRET: ${MS_CLIENT_SECRET:-}
+      CALENDAR_OAUTH_REDIRECT_BASE: ${CALENDAR_OAUTH_REDIRECT_BASE:-http://localhost:8001}
     ports:
       - "${API_PORT:-8001}:8000"
     healthcheck:
