@@ -105,8 +105,26 @@ def _is_standalone() -> bool:
 
     Gates the warm-pool, ghost-pod reaper, and selector-canary machinery — all
     of which require K8s — so the app boots cleanly against a plain Postgres.
+    Both ``standalone`` and ``compose`` are K8s-free.
     """
     return os.environ.get("RUNTIME_MODE", "").lower() in ("standalone", "compose")
+
+
+def _is_compose_worker_mode() -> bool:
+    """True when meetings should be dispatched to a SEPARATE worker container.
+
+    ``RUNTIME_MODE=compose`` with ``MEETING_WORKER_SIDECAR_URL`` set routes the
+    bot to its own ``meeting-worker`` container's sidecar over HTTP (mirroring
+    prod's API↔pod separation) instead of spawning the bot in-process. When the
+    URL is unset, ``compose`` falls back to the in-process LocalBotRunner so a
+    bare ``RUNTIME_MODE=compose`` still boots a working single-container dev box.
+    """
+    from .services.compose_worker_dispatcher import is_configured  # noqa: PLC0415
+
+    return (
+        os.environ.get("RUNTIME_MODE", "").lower() == "compose"
+        and is_configured()
+    )
 
 _TEAMS_CAPTIONS_TRANSCRIPT_SOURCE_ALIASES = {
     "teams_captions",
@@ -607,6 +625,68 @@ async def dispatch_meeting(
     """
     dispatched = False
     dispatch_message: Optional[str] = None
+
+    # Compose mode: separate meeting-worker container. The API does NOT spawn
+    # the bot in-process — it POSTs the SidecarConfigurePayload to the worker's
+    # sidecar /configure (same wire contract as the K8s warm pool, fixed
+    # compose URL instead of a claimed pod). The worker spawns the real
+    # Playwright/Chromium bot, drives heartbeats, writes transcripts to the
+    # shared DB, and reports session-ended back. This mirrors prod's API↔pod
+    # split. Checked BEFORE _is_standalone() (which also matches "compose") so
+    # this third mode takes precedence when a worker URL is configured.
+    if _is_compose_worker_mode():
+        from .services.compose_worker_dispatcher import (  # noqa: PLC0415
+            dispatch_to_compose_worker,
+        )
+
+        payload = SidecarConfigurePayload(
+            meeting_id=meeting_id,
+            meeting_url=meeting_url,
+            org_id=str(org_id) if org_id else "",
+            platform=platform,
+            bot_name=bot_name or settings.BOT_NAME,
+            session_number=session_number,
+            transcript_source=transcript_source,
+            notetaker_email=notetaker_email,
+        )
+        result = await dispatch_to_compose_worker(payload)
+        if result.success:
+            # Transition not_joined → joining; the worker/bot drives the rest.
+            try:
+                await meeting_service.update_meeting_status(
+                    meeting_id, MeetingStatus.JOINING
+                )
+            except Exception as _e:  # noqa: BLE001
+                logger.warning(
+                    "Failed to transition meeting %s to joining: %s",
+                    meeting_id,
+                    _e,
+                )
+            logger.info(
+                "Meeting %s dispatched to compose worker %s",
+                meeting_id,
+                result.worker_url,
+            )
+            return True, f"Dispatched to meeting-worker {result.worker_url}"
+
+        # Terminal failure (no worker / busy / unreachable / rejected): mark
+        # the meeting failed with a clear exit_reason. Never crash the API.
+        if result.mark_meeting_failed:
+            try:
+                await meeting_service.update_meeting_status(
+                    meeting_id,
+                    MeetingStatus.FAILED,
+                    exit_reason=result.error,
+                )
+            except Exception as _e:  # noqa: BLE001
+                logger.warning(
+                    "Failed to mark meeting %s failed after compose dispatch "
+                    "error (%s): %s",
+                    meeting_id,
+                    result.error,
+                    _e,
+                )
+        return False, f"Bot dispatch to meeting-worker failed: {result.error}"
 
     # Standalone mode: no K8s warm pool. Spawn the bot as a local subprocess
     # (mirroring the sidecar's bot_supervisor) and let the LocalBotRunner drive

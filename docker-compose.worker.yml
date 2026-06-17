@@ -1,0 +1,118 @@
+# =============================================================================
+# Verdant separated meeting-worker override — mirrors production.
+# =============================================================================
+# Decouples the bot from the backend API. The backend stays the lightweight
+# Dockerfile.dev API image; the bot runs in its OWN `meeting-worker` container
+# (the heavy bot-runtime image) whose entrypoint is the SIDECAR control plane
+# (src.sidecar.main), not the API. The API dispatches a meeting by POSTing the
+# SidecarConfigurePayload to the worker's /configure over the compose network
+# — the same wire contract the K8s warm pool uses, just a fixed compose URL.
+#
+# This is the THIRD dispatch mode (RUNTIME_MODE=compose + MEETING_WORKER_SIDECAR_URL):
+#   - standalone : API spawns the bot in-process (Dockerfile.botruntime + LocalBotRunner)
+#   - compose    : API → separate meeting-worker container's sidecar /configure  (THIS)
+#   - k8s        : API → warm-pool pod's sidecar /configure (Helm)
+#
+# Usage (layered on the base compose):
+#   docker compose -f docker-compose.yml -f docker-compose.worker.yml up -d --build
+# or simply: `make up`.  Validate with:
+#   docker compose -f docker-compose.yml -f docker-compose.worker.yml config
+# =============================================================================
+
+services:
+  # ── Backend API → dispatches to the separate worker over HTTP ──────────────
+  backend:
+    environment:
+      # Third dispatch mode: route meetings to the meeting-worker container's
+      # sidecar instead of spawning the bot in-process.
+      RUNTIME_MODE: compose
+      MEETING_JOINER_USE_WARM_POOL: "false"
+      # Worker sidecar base URL(s) over compose DNS. Comma-separated for a small
+      # local pool; single worker = one concurrent meeting locally (concurrency
+      # at scale is the K8s warm pool via Helm).
+      MEETING_WORKER_SIDECAR_URL: ${MEETING_WORKER_SIDECAR_URL:-http://meeting-worker:9000}
+      # Shared secret the worker uses to authenticate its /internal/sessions/ended
+      # callback to this API. Optional in dev; accepted-all when unset.
+      SIDECAR_CALLBACK_TOKEN: ${SIDECAR_CALLBACK_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+      meeting-worker:
+        condition: service_healthy
+
+  # ── Meeting-worker: the bot runs HERE, in its own container ────────────────
+  meeting-worker:
+    build:
+      context: ./backend
+      # Heavy bot-runtime image: Python + Node + pnpm node_modules + Playwright
+      # Chromium + Xvfb/pulseaudio/ffmpeg + local whisper cache.
+      dockerfile: Dockerfile.botruntime
+    container_name: verdant-meeting-worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Override the image's API entrypoint/command with the sidecar entrypoint:
+    # bring up Xvfb :99 + pulseaudio, then exec the sidecar FastAPI app.
+    entrypoint: ["/usr/local/bin/worker-sidecar-entrypoint.sh"]
+    command:
+      - python
+      - -m
+      - uvicorn
+      - src.sidecar.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "9000"
+    environment:
+      # The bot writes transcripts directly to the SHARED database.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-meeting}:${POSTGRES_PASSWORD:-meeting}@postgres:5432/${POSTGRES_DB:-meeting}
+      MEETING_JOINER_DB_DRIVER: pg
+      MEETING_JOINER_SCHEMA: public
+      RUNTIME_MODE: compose
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+
+      # Sidecar HTTP listen port (matches the command + healthcheck below).
+      SIDECAR_PORT: "9000"
+
+      # Reach the backend API to report /internal/sessions/ended on bot exit.
+      MEETING_JOINER_API_URL: ${MEETING_JOINER_API_URL:-http://backend:8000}
+      SIDECAR_CALLBACK_TOKEN: ${SIDECAR_CALLBACK_TOKEN:-}
+
+      # Bot tree lives at /app/src/... in this standalone layout (not the
+      # monorepo /app/meeting-joiner/... default the sidecar assumes).
+      NODE_BOT_ENTRYPOINT: /app/src/bot/bot_scripts/sidecar_launcher.js
+
+      # Virtual display the bot's headful Chromium renders onto.
+      DISPLAY: ":99"
+      RUNNING_IN_DOCKER: "true"
+      PLAYWRIGHT_BROWSERS_PATH: /opt/ms-playwright
+      CHROMIUM_PATH: /usr/local/bin/chromium
+      PLAYWRIGHT_CHROMIUM_PATH: /usr/local/bin/chromium
+
+      # Keyless STT — local whisper, no cloud keys (cache baked into the image).
+      LLM_PROVIDER: local_whisper
+      WHISPER_MODEL: tiny.en
+      HF_HOME: /opt/hf-cache
+      TRANSFORMERS_CACHE: /opt/hf-cache
+
+      # Bot identity / platform config (no secrets).
+      BOT_NAME: ${BOT_NAME:-Verdant Notetaker}
+      MEETING_JOINER_ENABLED_PLATFORMS: googlemeet
+      GOOGLEMEET_TRANSCRIPT_SOURCE: gmeet_captions
+      MEETING_JOINER_STORAGE_REQUIRED: "false"
+    # Expose the sidecar port on the host for debugging (optional).
+    ports:
+      - "${MEETING_WORKER_PORT:-9000}:9000"
+    healthcheck:
+      # The sidecar's "/" identity probe returns 200 once it's up.
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:9000/').status==200 else 1)\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    # shm too small (default 64MB) makes Chromium crash with renderer OOM.
+    shm_size: "1gb"
+    networks:
+      - verdant
