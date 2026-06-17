@@ -52,6 +52,8 @@ export default async function MeetingDetailPage({
   }
 
   const hasTranscript = segments.length > 0;
+  const isOngoing =
+    meeting.status === "ongoing" || meeting.status === "joining";
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -68,7 +70,13 @@ export default async function MeetingDetailPage({
               <GenerateSummary meetingId={meeting.id} canSummarize={hasTranscript} />
             )
           }
-          transcript={<TranscriptTab segments={segments} />}
+          transcript={
+            <TranscriptTab
+              meetingId={meeting.id}
+              initialSegments={segments}
+              isOngoing={isOngoing}
+            />
+          }
           ask={<AskTab meetingId={meeting.id} />}
         />
       </div>

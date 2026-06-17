@@ -49,7 +49,15 @@ export function MeetingTabs({
     () => null,
   );
   const active = override ?? hashTab ?? defaultTab;
-  const setActive = setOverride;
+
+  // Persist the active tab in the URL hash so a reload (or a shared link)
+  // restores it instead of snapping back to the default (Summary).
+  const setActive = (key: TabKey) => {
+    setOverride(key);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(null, "", `#${key}`);
+    }
+  };
 
   const panel =
     active === "summary" ? summary : active === "transcript" ? transcript : ask;
