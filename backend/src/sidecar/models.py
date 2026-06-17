@@ -48,6 +48,15 @@ class ConfigureRequest(BaseModel):
     session_number: int = Field(default=1, ge=1)
     webhook_url: Optional[HttpUrl] = None
     max_duration_seconds: Optional[int] = Field(default=None, ge=1)
+    # The Google Workspace account the bot signs in as for auto-admission to
+    # internal Meet meetings. Selects the per-account storageState from the
+    # pooled auth dir (<GOOGLE_AUTH_STATE_DIR>/<email>.json). Mirrors the
+    # standalone LocalBotRunner.notetaker_email plumbing. None → anonymous guest.
+    notetaker_email: Optional[str] = None
+    # Optional explicit storageState (auth) file path. When set it wins over the
+    # pooled <DIR>/<email>.json resolution. Holds live session cookies — mount
+    # read-only and keep it out of source control.
+    google_auth_state_path: Optional[str] = None
 
 
 class ConfigureResponse(BaseModel):

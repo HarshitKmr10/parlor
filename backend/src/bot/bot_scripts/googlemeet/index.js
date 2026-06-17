@@ -157,6 +157,15 @@ async function joinMeeting(meetingUrl, credentials = {}, options = {}) {
   // selection via options.transcriptSource (primary, matches Teams);
   // options.captureMode kept as a deprecated alias.
   const transcriptSource = normalizeTranscriptSource(options.transcriptSource || options.captureMode);
+  // Signed-in (authenticated) join support. The storageState path may be passed
+  // explicitly by the launcher (options.googleAuthStatePath) or resolved from
+  // GOOGLE_AUTH_STATE_PATH inside browser.js. `authenticated` is the caller's
+  // hint (the launcher knows whether it resolved a file); browser.js returns
+  // the authoritative value after confirming the file exists.
+  const googleAuthStatePath = options.googleAuthStatePath || process.env.GOOGLE_AUTH_STATE_PATH || null;
+  const authRequested = options.authenticated !== undefined
+    ? !!options.authenticated
+    : (process.env.GOOGLE_MEET_USE_AUTH === 'true');
   // Internal mode flag — kept as a separate name so the rest of the
   // function reads naturally ('audio' / 'captions' is more readable
   // than the longer enum at every branch).
@@ -225,10 +234,17 @@ async function joinMeeting(meetingUrl, credentials = {}, options = {}) {
   let alonenessPromise = Promise.resolve();
 
   try {
-    const browserResult = await launchBrowser();
+    const browserResult = await launchBrowser({
+      storageStatePath: googleAuthStatePath,
+      useAuth: authRequested,
+    });
     browser = browserResult.browser;
     context = browserResult.context;
     page = browserResult.page;
+    // browser.js returns the authoritative flag (true only when a storageState
+    // file actually existed and was attached). Anonymous guest otherwise.
+    const authenticated = !!browserResult.authenticated;
+    logger.info?.('[gmeet.bot] auth mode', { authenticated, googleAuthStatePath });
 
     const roster = new RosterWatcher({ logger, botName });
     bridge = new CaptureBridge({
@@ -354,6 +370,7 @@ async function joinMeeting(meetingUrl, credentials = {}, options = {}) {
     await joinGoogleMeetMeeting(page, meetingUrl, botName, {
       screenshotPath: savePath,
       takeScreenshots: true,
+      authenticated,
     });
 
     const admissionTimeout = parseInt(process.env.GOOGLE_MEET_ADMISSION_TIMEOUT_MS || '120000', 10);
