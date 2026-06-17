@@ -1,16 +1,20 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getMeeting } from "@/lib/api/meetings";
 import { ApiError } from "@/lib/api/error";
+import { BACKEND_UNAVAILABLE_CODE } from "@/lib/api/client";
 import type {
+  ActionItem,
   MeetingMeta,
   Speaker,
   SpeakerTint,
 } from "@/components/live-transcript/types";
-import {
-  MOCK_ACTION_ITEMS,
-  MOCK_SUMMARY_BULLETS,
-} from "@/components/live-transcript/mockData";
-import type { MeetingDetail, Participant } from "@/lib/api/types";
+import type {
+  MeetingDetail,
+  MeetingInsights,
+  Participant,
+} from "@/lib/api/types";
+import { BackendDownState } from "@/components/ui/BackendDownState";
 import { LiveContainer } from "./LiveContainer";
 
 export const metadata: Metadata = {
@@ -39,6 +43,40 @@ function toSpeakers(participants: Participant[]): Speaker[] {
   }));
 }
 
+/**
+ * Build the summary bullets + action items from the meeting's real insights.
+ * Prefers the model's key points, falling back to splitting the summary prose.
+ * When the meeting has not been summarized yet (typical mid-meeting), both are
+ * empty and the view shows a tasteful placeholder instead of fabricated data.
+ */
+function toInsightProps(insights: MeetingInsights | undefined): {
+  summaryBullets: string[];
+  actionItems: ActionItem[];
+} {
+  if (!insights) return { summaryBullets: [], actionItems: [] };
+
+  const summaryBullets =
+    insights.keyPoints.length > 0
+      ? insights.keyPoints
+      : insights.summary
+        ? insights.summary
+            .split(/\n+/)
+            .map((line) => line.trim())
+            .filter(Boolean)
+        : [];
+
+  const actionItems: ActionItem[] = insights.actionItems.map((item) => ({
+    id: item.id,
+    text: item.text,
+    // The contract assigns by name; the live components key owners by speaker
+    // id, which we don't have here, so we leave the owner unattributed.
+    ownerId: undefined,
+    tSec: 0,
+  }));
+
+  return { summaryBullets, actionItems };
+}
+
 export default async function LiveMeetingPage({
   params,
 }: {
@@ -46,45 +84,39 @@ export default async function LiveMeetingPage({
 }) {
   const { id } = await params;
 
-  let meta: MeetingMeta;
+  let meeting: MeetingDetail;
   try {
-    const meeting: MeetingDetail = await getMeeting(id);
-    const speakers = toSpeakers(meeting.participants);
-    meta = {
-      id: meeting.id,
-      title: meeting.title,
-      startedAt: meeting.startedAt ?? new Date().toISOString(),
-      participants: speakers,
-    };
+    meeting = await getMeeting(id);
   } catch (error: unknown) {
-    // Backend down or meeting missing: render a placeholder room so the live
-    // view (with its mock fallback) still works for demos.
-    if (
-      ApiError.isApiError(error) &&
-      (error.code === "backend_unavailable" || error.status === 404)
-    ) {
-      meta = {
-        id,
-        title: "Live meeting",
-        startedAt: new Date().toISOString(),
-        participants: [
-          { id: "s1", name: "Maya Okonkwo", initials: "MO", sageTint: "sage-500" },
-          { id: "s2", name: "Devin Reyes", initials: "DR", sageTint: "sage-400" },
-          { id: "s3", name: "Priya Nair", initials: "PN", sageTint: "sage-300" },
-          { id: "s4", name: "Tom Albrecht", initials: "TA", sageTint: "sage-500" },
-        ],
-      };
-    } else {
-      throw error;
+    if (ApiError.isApiError(error)) {
+      if (error.code === BACKEND_UNAVAILABLE_CODE) {
+        return (
+          <div className="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
+            <BackendDownState resource="this live meeting" />
+          </div>
+        );
+      }
+      if (error.status === 404) notFound();
     }
+    throw error;
   }
+
+  const meta: MeetingMeta = {
+    id: meeting.id,
+    title: meeting.title,
+    startedAt: meeting.startedAt ?? new Date().toISOString(),
+    participants: toSpeakers(meeting.participants),
+  };
+
+  const { summaryBullets, actionItems } = toInsightProps(meeting.insights);
 
   return (
     <LiveContainer
       meetingId={id}
       meeting={meta}
-      summaryBullets={MOCK_SUMMARY_BULLETS}
-      actionItems={MOCK_ACTION_ITEMS}
+      initialStatus={meeting.status}
+      summaryBullets={summaryBullets}
+      actionItems={actionItems}
     />
   );
 }

@@ -56,9 +56,17 @@ services:
         condition: service_healthy
     environment:
       AI_MODE: ${AI_MODE:-mock}
-      AI_PROVIDER_ORDER: ${AI_PROVIDER_ORDER:-anthropic,openai}
+      AI_PROVIDER_ORDER: ${AI_PROVIDER_ORDER:-azure,anthropic,openai}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Azure OpenAI (live LLM provider; routes by deployment name). Values are
+      # passed through from the gitignored root .env. The chat deployment maps
+      # to the "5.4 mini" deployment in the Azure resource.
+      AZURE_OPENAI_ENDPOINT: ${AZURE_OPENAI_ENDPOINT:-}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}
+      AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-gpt-5.4-mini}
+      AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:-}
       AI_SERVICE_PORT: "8100"
       # Same shared DB, via service-name DNS + internal port.
       DATABASE_URL: postgresql://${POSTGRES_USER:-meeting}:${POSTGRES_PASSWORD:-meeting}@postgres:5432/${POSTGRES_DB:-meeting}

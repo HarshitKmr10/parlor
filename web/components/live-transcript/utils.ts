@@ -40,3 +40,34 @@ export function formatClock(totalSec: number): string {
 export function indexSpeakers(speakers: readonly Speaker[]): Map<string, Speaker> {
   return new Map(speakers.map((speaker) => [speaker.id, speaker]));
 }
+
+/** Sage tints assigned to derived speakers in first-seen order, cycling. */
+export const SPEAKER_TINTS: SpeakerTint[] = ["sage-500", "sage-400", "sage-300"];
+
+/** Fallback label when a segment carries no speaker name. */
+export const UNKNOWN_SPEAKER_NAME = "Speaker";
+
+/**
+ * Derive a stable speaker id from a (possibly empty) name. Lowercased and
+ * slugified so the same name always maps to the same rail entry across polls.
+ */
+export function speakerIdFromName(name: string): string {
+  const trimmed = name.trim() || UNKNOWN_SPEAKER_NAME;
+  const slug = trimmed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `spk_${slug || "unknown"}`;
+}
+
+/** Two-letter initials from a display name, e.g. "Maya Okonkwo" → "MO". */
+export function initialsFromName(name: string): string {
+  const initials = name
+    .trim()
+    .split(/\s+/)
+    .map((part) => part.charAt(0))
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+  return initials || "?";
+}

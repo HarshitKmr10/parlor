@@ -151,8 +151,10 @@ class ActionItem(CamelModel):
 class Chapter(CamelModel):
     id: str
     title: str
-    t_start_sec: float
-    t_end_sec: float
+    # LLMs frequently null the final chapter's end (runs to end-of-meeting) and
+    # occasionally omit a start. Tolerate it instead of 500-ing the whole summary.
+    t_start_sec: Optional[float] = None
+    t_end_sec: Optional[float] = None
 
 
 class MeetingInsights(CamelModel):

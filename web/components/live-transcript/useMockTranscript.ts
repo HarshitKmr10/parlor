@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { TranscriptSegment } from "./types";
-import { SCRIPTED_SEGMENTS } from "./mockData";
+import type { Speaker, TranscriptSegment } from "./types";
+import { MOCK_SPEAKERS, SCRIPTED_SEGMENTS } from "./mockData";
 
 type Options = {
   /** Milliseconds between emitted segments. */
@@ -11,6 +11,8 @@ type Options = {
 
 type MockTranscriptState = {
   segments: TranscriptSegment[];
+  /** The four seeded mock participants. */
+  speakers: Speaker[];
   activeSpeakerId: string | null;
   elapsedSec: number;
 };
@@ -73,5 +75,5 @@ export function useMockTranscript({
     };
   }, [intervalMs]);
 
-  return { segments, activeSpeakerId, elapsedSec };
+  return { segments, speakers: MOCK_SPEAKERS, activeSpeakerId, elapsedSec };
 }

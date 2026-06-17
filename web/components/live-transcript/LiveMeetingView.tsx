@@ -1,10 +1,17 @@
 "use client";
 
 import { useMemo } from "react";
-import type { ActionItem, MeetingMeta, TranscriptSegment } from "./types";
+import Link from "next/link";
+import type {
+  ActionItem,
+  MeetingMeta,
+  Speaker,
+  TranscriptSegment,
+} from "./types";
 import { formatClock, indexSpeakers } from "./utils";
 import { useMockTranscript } from "./useMockTranscript";
 import { useLiveTranscript } from "./useLiveTranscript";
+import type { MeetingStatus } from "@/lib/api/types";
 import { SpeakerRail } from "./SpeakerRail";
 import { TranscriptStream } from "./TranscriptStream";
 import { AskBar } from "./AskBar";
@@ -14,11 +21,13 @@ type Props = {
   summaryBullets: readonly string[];
   actionItems: readonly ActionItem[];
   /**
-   * When provided, the view subscribes to the real meeting WebSocket and
-   * falls back to the mock simulation if the socket is unavailable. When
-   * omitted (e.g. the marketing `/live` demo), it always uses the mock.
+   * When provided, the view polls the real meeting transcript + status and
+   * renders real data only (no mock). When omitted (the marketing `/live`
+   * demo), it always uses the scripted mock simulation.
    */
   meetingId?: string;
+  /** Initial meeting status from the server render (live route only). */
+  initialStatus?: MeetingStatus;
   /** Custom "ask" resolver wired to the real /ask endpoint when available. */
   onAsk?: (question: string) => Promise<import("./types").AskAnswer>;
 };
@@ -29,6 +38,7 @@ export function LiveMeetingView({
   summaryBullets,
   actionItems,
   meetingId,
+  initialStatus,
   onAsk,
 }: Props) {
   if (meetingId) {
@@ -38,6 +48,7 @@ export function LiveMeetingView({
         summaryBullets={summaryBullets}
         actionItems={actionItems}
         meetingId={meetingId}
+        initialStatus={initialStatus ?? "ongoing"}
         onAsk={onAsk}
       />
     );
@@ -57,17 +68,20 @@ function MockView({
   summaryBullets,
   actionItems,
   onAsk,
-}: Omit<Props, "meetingId">) {
-  const { segments, activeSpeakerId, elapsedSec } = useMockTranscript();
+}: Omit<Props, "meetingId" | "initialStatus">) {
+  const { segments, speakers, activeSpeakerId, elapsedSec } =
+    useMockTranscript();
   return (
     <LiveLayout
       meeting={meeting}
       summaryBullets={summaryBullets}
       actionItems={actionItems}
       segments={segments}
+      speakers={speakers}
       activeSpeakerId={activeSpeakerId}
       elapsedSec={elapsedSec}
-      isLive={false}
+      isOngoing
+      hasRealInsights
       onAsk={onAsk}
     />
   );
@@ -78,19 +92,24 @@ function LiveSocketView({
   summaryBullets,
   actionItems,
   meetingId,
+  initialStatus,
   onAsk,
-}: Props & { meetingId: string }) {
-  const { segments, activeSpeakerId, elapsedSec, isLive } =
-    useLiveTranscript(meetingId);
+}: Props & { meetingId: string; initialStatus: MeetingStatus }) {
+  const { segments, speakers, activeSpeakerId, elapsedSec, isOngoing } =
+    useLiveTranscript(meetingId, initialStatus);
+  const hasRealInsights = summaryBullets.length > 0 || actionItems.length > 0;
   return (
     <LiveLayout
       meeting={meeting}
+      detailHref={`/meetings/${meetingId}`}
       summaryBullets={summaryBullets}
       actionItems={actionItems}
       segments={segments}
+      speakers={speakers}
       activeSpeakerId={activeSpeakerId}
       elapsedSec={elapsedSec}
-      isLive={isLive}
+      isOngoing={isOngoing}
+      hasRealInsights={hasRealInsights}
       onAsk={onAsk}
     />
   );
@@ -98,26 +117,35 @@ function LiveSocketView({
 
 type LayoutProps = {
   meeting: MeetingMeta;
+  /** Link back to the meeting detail page (live route only). */
+  detailHref?: string;
   summaryBullets: readonly string[];
   actionItems: readonly ActionItem[];
   segments: TranscriptSegment[];
+  /** Speakers to render in the rail/stream — derived from live data or mock. */
+  speakers: Speaker[];
   activeSpeakerId: string | null;
   elapsedSec: number;
-  isLive: boolean;
+  /** While true, the meeting is live: REC pulses and the clock runs. */
+  isOngoing: boolean;
+  /** True when real summary/action-item data exists (hides the placeholder). */
+  hasRealInsights: boolean;
   onAsk?: Props["onAsk"];
 };
 
 function LiveLayout({
   meeting,
+  detailHref,
   summaryBullets,
   actionItems,
   segments,
+  speakers,
   activeSpeakerId,
   elapsedSec,
-  isLive,
+  isOngoing,
+  hasRealInsights,
   onAsk,
 }: LayoutProps) {
-  const speakers = meeting.participants;
   const speakerById = useMemo(() => indexSpeakers(speakers), [speakers]);
 
   const talkTimeSec = useMemo(() => {
@@ -129,20 +157,17 @@ function LiveLayout({
     return totals;
   }, [segments]);
 
-  const visibleBulletCount = Math.min(
-    summaryBullets.length,
-    1 + Math.floor(segments.length / 2),
-  );
-  const visibleBullets = summaryBullets.slice(0, visibleBulletCount);
-
   return (
     <main className="grain relative mx-auto flex min-h-dvh w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
       <MeetingHeader
         title={meeting.title}
+        detailHref={detailHref}
         elapsedSec={elapsedSec}
         participantCount={speakers.length}
-        isLive={isLive}
+        isOngoing={isOngoing}
       />
+
+      {!isOngoing && detailHref && <EndedBanner detailHref={detailHref} />}
 
       <div className="mt-5 grid min-h-0 flex-1 grid-cols-1 gap-5 lg:grid-cols-[200px_minmax(0,1fr)_320px]">
         <aside className="lg:order-1">
@@ -163,13 +188,23 @@ function LiveLayout({
           <div className="min-h-0 flex-1">
             <TranscriptStream segments={segments} speakers={speakers} />
           </div>
-          <div className="divider-gold my-3" />
-          <AskBar speakers={speakers} onAsk={onAsk} />
+          {isOngoing && (
+            <>
+              <div className="divider-gold my-3" />
+              <AskBar speakers={speakers} onAsk={onAsk} />
+            </>
+          )}
         </section>
 
         <aside className="flex flex-col gap-4 lg:order-3">
-          <SummaryCard bullets={visibleBullets} />
-          <ActionItemsList items={actionItems} speakerById={speakerById} />
+          {hasRealInsights ? (
+            <>
+              <SummaryCard bullets={summaryBullets} />
+              <ActionItemsList items={actionItems} speakerById={speakerById} />
+            </>
+          ) : (
+            <RecapPlaceholder detailHref={detailHref} />
+          )}
         </aside>
       </div>
     </main>
@@ -178,25 +213,41 @@ function LiveLayout({
 
 type HeaderProps = {
   title: string;
+  detailHref?: string;
   elapsedSec: number;
   participantCount: number;
-  isLive: boolean;
+  isOngoing: boolean;
 };
 
 function MeetingHeader({
   title,
+  detailHref,
   elapsedSec,
   participantCount,
-  isLive,
+  isOngoing,
 }: HeaderProps) {
   return (
     <header className="flex flex-col gap-3 border-b border-border-subtle pb-4 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <p className="eyebrow mb-1">{isLive ? "Live meeting" : "Live preview"}</p>
+        {detailHref ? (
+          <nav aria-label="Breadcrumb" className="mb-1.5">
+            <Link
+              href={detailHref}
+              className="inline-flex items-center gap-1 text-xs font-semibold tracking-wide text-sage-700 uppercase transition-colors hover:text-sage-800"
+            >
+              <ChevronLeftIcon />
+              Meeting overview
+            </Link>
+          </nav>
+        ) : (
+          <p className="eyebrow mb-1">
+            {isOngoing ? "Live meeting" : "Live preview"}
+          </p>
+        )}
         <h1 className="font-display text-2xl text-ink">{title}</h1>
       </div>
       <div className="flex shrink-0 items-center gap-4">
-        <RecIndicator />
+        {isOngoing ? <RecIndicator /> : <EndedPill />}
         <div className="flex items-center gap-1.5 text-ink-muted">
           <ClockIcon />
           <span className="font-mono text-sm tabular-nums">
@@ -211,6 +262,61 @@ function MeetingHeader({
         </div>
       </div>
     </header>
+  );
+}
+
+function EndedBanner({ detailHref }: { detailHref: string }) {
+  return (
+    <section
+      aria-label="Meeting ended"
+      className="mt-4 flex flex-col gap-3 rounded-lg border border-gold-300 bg-gold-50 p-4 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div className="min-w-0">
+        <h2 className="font-display text-base text-ink">
+          This meeting has ended
+        </h2>
+        <p className="mt-0.5 text-sm leading-relaxed text-ink-muted">
+          The transcript below is the final capture. The full recap — Summary,
+          Transcript &amp; Ask — lives on the meeting page.
+        </p>
+      </div>
+      <Link
+        href={detailHref}
+        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-md bg-sage-600 px-4 py-2 text-sm font-semibold text-surface-cream shadow-soft-sm transition-colors hover:bg-sage-700 focus-visible:ring-2 focus-visible:ring-sage-500 focus-visible:ring-offset-2 focus-visible:outline-none"
+      >
+        View full recap
+        <ArrowRightIcon />
+      </Link>
+    </section>
+  );
+}
+
+function RecapPlaceholder({ detailHref }: { detailHref?: string }) {
+  return (
+    <section
+      aria-label="Summary and action items"
+      className="rounded-lg border border-dashed border-border-subtle bg-surface-1 p-4"
+    >
+      <h2 className="eyebrow mb-3">Live notes &amp; summary</h2>
+      <p className="text-sm leading-relaxed text-ink-muted">
+        Live notes &amp; summary will appear here — the full recap is generated
+        when the meeting ends.
+      </p>
+      {detailHref && (
+        <Link
+          href={detailHref}
+          className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-sage-700 transition-colors hover:text-sage-800"
+        >
+          Open the meeting page
+          <ArrowRightIcon />
+        </Link>
+      )}
+      {detailHref && (
+        <p className="mt-2 text-xs leading-relaxed text-ink-muted">
+          Summary, Transcript &amp; Ask are on the meeting page.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -244,13 +350,31 @@ function RecIndicator() {
   );
 }
 
+function EndedPill() {
+  return (
+    <span
+      role="status"
+      aria-label="Meeting ended"
+      className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1"
+    >
+      <span
+        aria-hidden="true"
+        className="block h-2 w-2 rounded-full bg-ink-muted"
+      />
+      <span className="font-sans text-xs font-semibold tracking-wider text-ink-muted uppercase">
+        Ended
+      </span>
+    </span>
+  );
+}
+
 function SummaryCard({ bullets }: { bullets: readonly string[] }) {
   return (
     <section
-      aria-label="Live AI summary"
+      aria-label="AI summary"
       className="rounded-lg border border-border-subtle bg-surface-1 p-4"
     >
-      <h2 className="eyebrow mb-3">Live summary</h2>
+      <h2 className="eyebrow mb-3">Summary</h2>
       <ul aria-live="polite" className="flex flex-col gap-2.5">
         {bullets.map((bullet, index) => (
           <li
@@ -275,6 +399,7 @@ type ActionItemsProps = {
 };
 
 function ActionItemsList({ items, speakerById }: ActionItemsProps) {
+  if (items.length === 0) return null;
   return (
     <section
       aria-label="Action items"
@@ -328,6 +453,34 @@ function PeopleIcon() {
         d="M16 19v-1a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v1M9.5 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM21 19v-1a4 4 0 0 0-3-3.87M16 4.13A4 4 0 0 1 16 11.87"
         stroke="currentColor"
         strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ChevronLeftIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5">
+      <path
+        d="M15 18l-6-6 6-6"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ArrowRightIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-4 w-4">
+      <path
+        d="M5 12h14M13 6l6 6-6 6"
+        stroke="currentColor"
+        strokeWidth="1.75"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

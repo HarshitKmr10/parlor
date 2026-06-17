@@ -135,6 +135,14 @@ export interface TranscriptResponse {
   lastSegmentAt: string | null;
 }
 
+/** Lightweight status payload polled by the live view. */
+export interface MeetingStatusResponse {
+  id: string;
+  status: MeetingStatus;
+  hasSummary: boolean;
+  endedAt: string | null;
+}
+
 export interface AskResponse {
   answer: string;
   citations: Citation[];

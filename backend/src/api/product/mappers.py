@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from typing import Any, Optional
 
@@ -132,8 +133,20 @@ def segments_from_transcript(
 
 
 def insights_from_row(raw: Any) -> Optional[MeetingInsights]:
-    """Parse a stored ``insights`` JSON blob into the typed model."""
-    if not raw or not isinstance(raw, dict):
+    """Parse a stored ``insights`` JSON blob into the typed model.
+
+    asyncpg returns a ``jsonb`` column as a JSON *string*, so decode it before
+    treating it as a dict (otherwise this always returned None and the stored
+    summary never surfaced on GET).
+    """
+    if not raw:
+        return None
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (ValueError, TypeError):
+            return None
+    if not isinstance(raw, dict):
         return None
     return MeetingInsights(
         summary=raw.get("summary", "") or "",

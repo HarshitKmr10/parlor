@@ -10,6 +10,7 @@ import { SummaryTab } from "@/components/meetings/detail/SummaryTab";
 import { TranscriptTab } from "@/components/meetings/detail/TranscriptTab";
 import { AskTab } from "@/components/meetings/detail/AskTab";
 import { GenerateSummary } from "@/components/meetings/detail/GenerateSummary";
+import { RegenerateSummary } from "@/components/meetings/detail/RegenerateSummary";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
@@ -59,7 +60,10 @@ export default async function MeetingDetailPage({
         <MeetingTabs
           summary={
             meeting.insights ? (
-              <SummaryTab insights={meeting.insights} />
+              <div className="flex flex-col gap-4">
+                <RegenerateSummary meetingId={meeting.id} />
+                <SummaryTab insights={meeting.insights} />
+              </div>
             ) : (
               <GenerateSummary meetingId={meeting.id} canSummarize={hasTranscript} />
             )
