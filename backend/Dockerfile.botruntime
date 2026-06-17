@@ -150,6 +150,14 @@ COPY . /app
 COPY docker/botruntime-entrypoint.sh /usr/local/bin/botruntime-entrypoint.sh
 RUN chmod +x /usr/local/bin/botruntime-entrypoint.sh
 
+# meeting-worker entrypoint: same Xvfb/pulse bring-up, but execs the SIDECAR
+# control-plane (src.sidecar.main) instead of the API. The compose worker
+# service overrides ENTRYPOINT/CMD to use this so the SAME heavy image serves
+# both the in-process standalone API (botruntime-entrypoint) and the separated
+# meeting-worker (this script). See docker-compose.worker.yml.
+COPY docker/worker-sidecar-entrypoint.sh /usr/local/bin/worker-sidecar-entrypoint.sh
+RUN chmod +x /usr/local/bin/worker-sidecar-entrypoint.sh
+
 ENV PYTHONPATH=/app \
     DISPLAY=:99 \
     RUNNING_IN_DOCKER=true \

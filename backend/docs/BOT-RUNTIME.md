@@ -1,53 +1,98 @@
 # Bot runtime: launching real meeting bots locally
 
-By default the standalone dev stack runs an **API-only** backend image
-(`backend/Dockerfile.dev`). That image has Python but **no Node, no Chromium,
-no virtual display or audio**, so the standalone `LocalBotRunner`
-(`src/services/local_bot_runner.py`) cannot spawn a bot — its
-`_runtime_check()` returns `bot_runtime_unavailable_no_node` /
-`_no_chromium` and the meeting is marked `failed` with
-`exit_reason=bot_runtime_unavailable`.
+## The three dispatch modes
 
-The **bot-runtime image** (`backend/Dockerfile.botruntime`) fixes that: one
-container that serves the FastAPI API *and* can fork the real Playwright/Node
-bot that drives Chromium into the meeting.
+Every meeting funnels through `dispatch_meeting(...)` in `src/main.py`. Which
+path it takes is decided by `RUNTIME_MODE` (and, for compose, whether a worker
+URL is configured):
+
+| Mode | `RUNTIME_MODE` | Where the bot runs | How the API hands it off |
+|---|---|---|---|
+| **standalone** (in-process) | `standalone` (or `compose` with no worker URL) | a subprocess of the **API container** | `LocalBotRunner` forks `node …/sidecar_launcher.js` directly |
+| **compose** (separate worker) | `compose` **+** `MEETING_WORKER_SIDECAR_URL` set | a **separate `meeting-worker` container** | API POSTs `SidecarConfigurePayload` to the worker's sidecar `POST /configure` over HTTP |
+| **k8s** (warm pool) | anything else (e.g. `k8s`) | a **warm-pool pod** claimed per meeting | API claims a pod and POSTs the same payload to that pod's sidecar `/configure` (Helm) |
+
+The **compose** and **k8s** modes share the exact same wire contract
+(`SidecarConfigurePayload` → sidecar `/configure`); the only difference is the
+target URL (a fixed compose service name vs. a claimed pod IP). That is the
+point: **`make up` locally now mirrors prod** — the API and the bot run in
+SEPARATE containers, and the API dispatches over HTTP rather than spawning the
+bot in-process.
+
+`local_bot_runner.py` (standalone) and `compose_worker_dispatcher.py` (compose)
+are the two seams; `warm_pool_dispatcher.py` is the k8s seam. None of them
+breaks the others — the branch order in `dispatch_meeting` is compose → standalone
+→ k8s/warm-pool.
+
+### `make up` (default) = compose separate-worker mode
+
+```bash
+make up           # web + backend(API) + meeting-worker(bot) + ai-service + postgres
+make logs-worker  # follow ONLY the bot container — proof the bot runs separately
+make up-api       # API-only, fast iteration (standalone in-process degrade)
+make up-bots      # alias for `make up`
+make down         # tear down the whole separated stack
+```
+
+`make up` is equivalent to:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.worker.yml up -d --build
+```
+
+The override (`docker-compose.worker.yml`):
+- flips `backend` to `RUNTIME_MODE=compose` and sets
+  `MEETING_WORKER_SIDECAR_URL=http://meeting-worker:9000`;
+- adds the `meeting-worker` service — the **same** heavy bot-runtime image, but
+  its entrypoint (`docker/worker-sidecar-entrypoint.sh`) brings up Xvfb/pulse
+  and execs the **sidecar** (`uvicorn src.sidecar.main:app --port 9000`) instead
+  of the API.
 
 ---
 
-## Two images, two commands
+## The bot-runtime image (shared by standalone + compose worker)
 
-| | API-only (default) | Bot runtime |
+The **API-only** backend image (`backend/Dockerfile.dev`) has Python but **no
+Node, no Chromium, no virtual display or audio**, so it cannot spawn a bot — the
+runtime check returns `bot_runtime_unavailable_no_node` / `_no_chromium`.
+
+The **bot-runtime image** (`backend/Dockerfile.botruntime`) fixes that. It is
+used two ways:
+- **standalone (`make up-api` is API-only; the legacy in-process bot path used
+  this image as the `backend`)** — one container serves the API *and* forks the
+  bot.
+- **compose worker (`make up`)** — the same image runs as the `meeting-worker`
+  container with the **sidecar** entrypoint; the bot is forked by the sidecar's
+  `bot_supervisor` on `POST /configure`.
+
+---
+
+## Two images
+
+| | API-only | Bot runtime |
 |---|---|---|
 | Dockerfile | `backend/Dockerfile.dev` | `backend/Dockerfile.botruntime` |
 | Contents | Python + API deps | Python + API deps **+ Node 18 + pnpm node_modules + Playwright Chromium + Xvfb + pulseaudio + ffmpeg + local whisper cache** |
 | Bots | degrade to `bot_runtime_unavailable` | **really launch** Chromium and attempt to join |
 | Build | fast, small | large/slow (browser + node_modules) |
-| Command | `make up` | `make up-bots` |
+| Used as | `backend` in `make up-api` | `meeting-worker` in `make up` (sidecar entrypoint) |
 
 ```bash
-# Fast API-only iteration (auth, workspaces, product endpoints):
-make up
-
-# Full bot runtime — backend actually launches meeting bots:
-make up-bots
-
-# Tear down (either stack):
-make down          # if started with `make up`
-make down-bots     # if started with `make up-bots`
+make up        # separated stack: API (Dockerfile.dev) + meeting-worker (Dockerfile.botruntime, sidecar)
+make up-api    # API-only fast iteration (no worker; in-process standalone degrade)
+make down      # tear down the separated stack (one merged project)
 ```
 
-`make up-bots` is equivalent to:
+`make up` is `docker compose -f docker-compose.yml -f docker-compose.worker.yml up -d --build`.
+The override (`docker-compose.worker.yml`) flips `backend` to `RUNTIME_MODE=compose`,
+sets `MEETING_WORKER_SIDECAR_URL`, and adds the `meeting-worker` service (the
+bot-runtime image with the **sidecar** entrypoint). postgres / ai-service / web
+are unchanged.
 
-```bash
-docker compose \
-  -f docker-compose.yml \
-  -f docker-compose.botruntime.yml \
-  up -d --build
-```
-
-The override (`docker-compose.botruntime.yml`) swaps **only** the `backend`
-service to the bot-runtime image and sets the env it needs (see below).
-postgres / ai-service / web are unchanged.
+> The legacy `docker-compose.botruntime.yml` (which ran the bot-runtime image as
+> a single `backend` container with the in-process LocalBotRunner) is retained
+> for that single-container mode but is no longer the default; `make up` now uses
+> the separated worker.
 
 ---
 
@@ -80,7 +125,36 @@ the same virtual display — exactly what `browser.js` expects (it appends
 
 ---
 
-## How a local bot join works
+## How a compose separate-worker join works (`make up` default)
+
+1. `POST /api/v1/meetings` (or calendar / Meet-events dispatch) creates the
+   meeting row and calls `dispatch_meeting(...)`.
+2. In compose mode `dispatch_meeting` builds a `SidecarConfigurePayload` and
+   `dispatch_to_compose_worker(...)` POSTs it to
+   `http://meeting-worker:9000/configure` over the compose network.
+3. The **meeting-worker** container's sidecar (`src/sidecar/main.py`) accepts the
+   request (HTTP 202) and `bot_supervisor.spawn(...)` forks
+   `node /app/src/bot/bot_scripts/sidecar_launcher.js googlemeet` **inside the
+   worker container**, which launches headful Chromium on `DISPLAY=:99`.
+4. The API marks the meeting `joining` and returns; the worker/bot drives the
+   rest (heartbeats, transcript writes to the **shared DB**, and
+   `/internal/sessions/ended` back to the API on exit).
+5. The bot's exit reason (e.g. `admission_timeout` for a non-live URL) is the
+   terminal `exit_reason` — a **real** join failure, proving the bot ran in the
+   separate container.
+
+If the worker is unreachable / busy / rejects, the API marks the meeting
+`failed` with a clear `exit_reason` (`meeting_worker_unreachable`,
+`meeting_worker_all_busy`, `meeting_worker_rejected_<code>`) and never crashes.
+
+**Concurrency:** one `meeting-worker` handles one meeting at a time (the sidecar
+rejects a second `/configure` until it's `warm` again). Set
+`MEETING_WORKER_SIDECAR_URL` to a comma-separated list of worker URLs for a
+small local pool; real concurrency at scale is the K8s warm pool via Helm.
+
+---
+
+## How a standalone in-process bot join works
 
 1. `POST /api/v1/meetings` with a meeting URL creates the meeting row and, in
    `RUNTIME_MODE=standalone`, calls `dispatch_local_bot(...)`.
@@ -137,9 +211,10 @@ local-whisper transcript fills in with no cloud keys.
 
 ## Troubleshooting
 
-- `bot_runtime_unavailable_no_chromium` while using this image → the override
-  isn't applied (you ran `make up`, not `make up-bots`), or
-  `PLAYWRIGHT_BROWSERS_PATH` was overridden.
+- `meeting_worker_unreachable` / meeting stuck never joining → the
+  `meeting-worker` container isn't healthy; check `make logs-worker`.
+- `bot_runtime_unavailable_no_chromium` in the worker → `PLAYWRIGHT_BROWSERS_PATH`
+  / `CHROMIUM_PATH` was overridden, or you're on `make up-api` (no worker, API-only).
 - Chromium crashes with renderer OOM → bump `shm_size` (already `1gb` in the
   override).
 - First transcription is slow → the whisper model is downloading because the
