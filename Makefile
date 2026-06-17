@@ -34,7 +34,7 @@ COMPOSE_SEP := docker compose -f docker-compose.yml -f docker-compose.worker.yml
 # API-only stack uses the base compose alone (backend = standalone in-process).
 COMPOSE_API := docker compose
 
-.PHONY: up up-bots up-api down reset logs logs-worker worker-health smoke smoke-botless ps psql build env
+.PHONY: up up-bots up-api down reset logs logs-worker worker-health workers free-workers smoke smoke-botless ps psql build env
 
 # Create .env from the example on first run, then build + start the SEPARATED
 # stack detached (web + backend API + meeting-worker bot + ai-service + postgres).
@@ -87,6 +87,17 @@ logs-worker:
 worker-health:
 	$(COMPOSE_SEP) exec meeting-worker sh -lc 'curl -s localhost:9000/health' || \
 	  echo "(worker not running — try 'make up')"
+
+# Show the worker pool: how many workers, how many idle vs busy (capacity).
+workers:
+	@bash scripts/workers.sh
+
+# Free workers: restart the meeting-worker container(s), killing any stuck/hung
+# bot and releasing the slot. (Claiming is also health-authoritative, so a
+# leaked slot self-heals — this is the hard reset for a genuinely hung bot.)
+free-workers:
+	$(COMPOSE_SEP) restart meeting-worker
+	@echo "meeting-worker restarted — any in-flight bot killed, slot freed."
 
 ps:
 	$(COMPOSE_SEP) ps
