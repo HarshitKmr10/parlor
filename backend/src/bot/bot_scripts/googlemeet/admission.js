@@ -46,19 +46,30 @@ async function countRealParticipantTiles(page) {
  */
 async function hasRecaptchaChallenge(page) {
   try {
-    // A visible recaptcha iframe is the real challenge surface. The invisible
-    // background scoring frame (present on every join) is NOT visible, so
-    // isVisible() filters it out — avoiding the false positive 64d3470 caught.
+    // The normal "waiting for the host to admit you" lobby is NEVER a block.
+    // Google loads a benign reCAPTCHA-Enterprise anchor frame on that screen,
+    // which previously false-fired and made the bot bail before it could be
+    // admitted. If we're in the waiting room, keep waiting — full stop.
+    if (await isInWaitingRoom(page)) {
+      return false;
+    }
+
+    // Only the actual interactive CHALLENGE popup counts as a block — the
+    // "select all images" bframe. The anchor / invisible Enterprise scoring
+    // frame (present on every join + the lobby) must NOT trip this, so we
+    // intentionally do NOT match `recaptcha/api2/anchor` or a bare
+    // `iframe[src*="recaptcha"]`. We also require a real, sizeable surface
+    // (the challenge popup is large; anchor/score frames are ~0x0).
     const challengeSelectors = [
       'iframe[title*="recaptcha challenge" i]',
       'iframe[src*="recaptcha"][src*="bframe"]',
-      'iframe[src*="recaptcha/api2/anchor"]',
-      'iframe[src*="recaptcha"]',
     ];
     for (const sel of challengeSelectors) {
       const frameEl = page.locator(sel).first();
       const visible = await frameEl.isVisible({ timeout: 100 }).catch(() => false);
-      if (visible) {
+      if (!visible) continue;
+      const box = await frameEl.boundingBox().catch(() => null);
+      if (box && box.width >= 100 && box.height >= 100) {
         return true;
       }
     }
