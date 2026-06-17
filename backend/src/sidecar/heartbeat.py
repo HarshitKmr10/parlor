@@ -22,6 +22,21 @@ HEARTBEAT_PATH = Path(os.environ.get("BOT_HEARTBEAT_PATH", "/tmp/bot.heartbeat")
 BOT_STATE_PATH = Path(os.environ.get("BOT_STATE_PATH", "/tmp/bot-state.json"))
 
 
+def reset_bot_state_files() -> None:
+    """Remove stale heartbeat + bot-state files between meetings.
+
+    A reusable worker (compose single-worker) reconfigures from ENDED for the
+    next meeting; without this, /health would briefly derive the PREVIOUS
+    meeting's state from leftover files. Safe to call before every spawn — the
+    files simply don't exist on a fresh (WARM) worker.
+    """
+    for path in (HEARTBEAT_PATH, BOT_STATE_PATH):
+        try:
+            path.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def read_heartbeat_age_seconds() -> Optional[float]:
     """Return seconds since the heartbeat file was last touched.
 

@@ -96,9 +96,14 @@ async def _worker_is_busy(url: str) -> bool:
             resp = await client.get(f"{url}/health")
             resp.raise_for_status()
             data = resp.json()
-        return bool(data.get("current_meeting_id")) or bool(
-            data.get("bot_subprocess_alive")
-        )
+        # A worker is busy only while a bot is actually assigned/running. The
+        # sidecar RETAINS current_meeting_id after a meeting ends (state
+        # 'ended'), so keying on it would pin the worker busy forever after one
+        # meeting. Key on a live subprocess OR an active meeting_state instead;
+        # 'warm' (ready) and 'ended' (last meeting done) are available.
+        active_states = {"configuring", "joining", "in_meeting", "stuck"}
+        state = str(data.get("meeting_state") or "").lower()
+        return bool(data.get("bot_subprocess_alive")) or state in active_states
     except Exception as exc:  # noqa: BLE001 — unreachable worker = unavailable
         logger.warning("compose_worker.health_check_failed", worker=url, error=str(exc))
         return True
