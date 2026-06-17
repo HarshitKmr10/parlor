@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Reveal } from "./Reveal";
 import { MeetingMock } from "./MeetingMock";
 import { PlayIcon } from "./icons";
@@ -36,12 +37,12 @@ export function Hero() {
 
           <Reveal delay={180}>
             <div className="mt-9 flex flex-wrap items-center gap-3">
-              <a
-                href="#start"
+              <Link
+                href="/signup"
                 className="rounded-md bg-sage-600 px-6 py-3 text-base font-medium text-surface-0 shadow-soft-md transition-[background-color,transform] duration-200 hover:bg-sage-700 active:translate-y-px"
               >
                 Start free
-              </a>
+              </Link>
               <a
                 href="#demo"
                 className="group inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0/70 px-5 py-3 text-base font-medium text-ink transition-colors duration-200 hover:border-border-strong hover:bg-surface-0"
