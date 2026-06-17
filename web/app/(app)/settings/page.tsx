@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { getMe } from "@/lib/api/auth";
 import { listApiKeys } from "@/lib/api/workspaces";
 import { listCalendarAccounts, calendarConnectUrl } from "@/lib/api/calendar";
@@ -84,6 +85,19 @@ export default async function SettingsPage() {
                 microsoft: calendarConnectUrl("microsoft"),
               }}
             />
+          </SettingsSection>
+
+          <SettingsSection
+            title="Org-wide Google Meet capture"
+            description="Admin-only. Capture every Meet across your Workspace via a single domain-authorized service account."
+          >
+            <Link
+              href="/settings/google-workspace"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage org-wide capture
+              <span aria-hidden="true">→</span>
+            </Link>
           </SettingsSection>
         </div>
       )}

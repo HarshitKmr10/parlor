@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { listCalendarAccounts, calendarConnectUrl } from "@/lib/api/calendar";
 import { ApiError } from "@/lib/api/error";
 import { BACKEND_UNAVAILABLE_CODE } from "@/lib/api/client";
@@ -52,8 +53,8 @@ export default async function IntegrationsPage() {
           className="grid grid-cols-1 gap-4 sm:grid-cols-2"
         >
           <IntegrationCard
-            name="Calendar"
-            description="Connect Google or Microsoft so Verdant joins scheduled meetings automatically."
+            name="Connect my calendar"
+            description="Per-user. Connect your own Google or Microsoft calendar so Verdant joins the meetings on it automatically."
             logo={<CalendarGlyph className="h-6 w-6 text-sage-600" />}
           >
             <CalendarConnections
@@ -63,6 +64,27 @@ export default async function IntegrationsPage() {
                 microsoft: calendarConnectUrl("microsoft"),
               }}
             />
+          </IntegrationCard>
+
+          <IntegrationCard
+            name="Org-wide Google Meet capture"
+            description="Admin-only. Capture every Meet across the whole Workspace — including ad-hoc and instant calls — via one domain-authorized service account."
+            logo={<CalendarGlyph className="h-6 w-6 text-sage-600" />}
+          >
+            <div className="flex flex-col gap-3">
+              <p className="rounded-md border border-dashed border-border-default bg-surface-1 px-3 py-2 text-xs text-ink-muted">
+                This is different from &ldquo;Connect my calendar&rdquo;: that
+                covers only your own meetings, while org-wide capture is set up
+                once by a Workspace admin and covers everyone.
+              </p>
+              <Link
+                href="/settings/google-workspace"
+                className="inline-flex w-fit items-center gap-2 rounded-md bg-sage-600 px-4 py-2 text-sm font-medium text-surface-cream shadow-soft-sm transition-colors hover:bg-sage-700"
+              >
+                Set up org-wide capture
+                <span aria-hidden="true">→</span>
+              </Link>
+            </div>
           </IntegrationCard>
 
           <IntegrationCard

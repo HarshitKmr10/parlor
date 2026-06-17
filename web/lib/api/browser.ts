@@ -47,6 +47,44 @@ export async function getJson<T>(
   return data as T;
 }
 
+/**
+ * Browser-side PUT against a same-origin route handler. Same error-envelope
+ * handling as `postJson`.
+ */
+export async function putJson<T>(url: string, body: unknown): Promise<T> {
+  const response = await fetch(url, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const text = await response.text();
+  const data: unknown = text ? safeParse(text) : null;
+
+  if (!response.ok) {
+    if (isApiErrorBody(data)) throw new Error(data.error.message);
+    throw new Error("Request failed. Please try again.");
+  }
+  return data as T;
+}
+
+/**
+ * Browser-side DELETE against a same-origin route handler. Same error-envelope
+ * handling as `postJson`. Returns the parsed body (or `undefined` on 204).
+ */
+export async function del<T>(url: string): Promise<T> {
+  const response = await fetch(url, { method: "DELETE" });
+
+  const text = await response.text();
+  const data: unknown = text ? safeParse(text) : null;
+
+  if (!response.ok) {
+    if (isApiErrorBody(data)) throw new Error(data.error.message);
+    throw new Error("Request failed. Please try again.");
+  }
+  return data as T;
+}
+
 function safeParse(text: string): unknown {
   try {
     return JSON.parse(text);
