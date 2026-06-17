@@ -37,6 +37,9 @@ logger = get_logger(__name__)
 CONFIGURE_TIMEOUT_S = float(
     os.environ.get("MEETING_WORKER_CONFIGURE_TIMEOUT_S", "10")
 )
+HEALTH_TIMEOUT_S = float(
+    os.environ.get("MEETING_WORKER_HEALTH_TIMEOUT_S", "4")
+)
 
 # Module-level in-flight tracking so repeat dispatches in the same API process
 # spread across the configured workers instead of hammering the first one.
@@ -78,17 +81,42 @@ def is_configured() -> bool:
     return len(_worker_urls()) > 0
 
 
-def _claim_idle_worker() -> Optional[str]:
-    """Pick an idle worker (not in the in-flight set) and mark it busy.
+async def _worker_is_busy(url: str) -> bool:
+    """Authoritative busy check via the worker sidecar's REAL state.
 
-    Returns ``None`` when every configured worker is already handling a
-    meeting. Thread-safe so concurrent dispatches don't double-claim.
+    The in-memory ``_inflight`` set leaks if a bot exits without a
+    session-ended callback (and is wiped on every API restart), which left the
+    single worker wrongly stuck "busy" forever → ``meeting_worker_all_busy``.
+    The sidecar's ``/health`` is the source of truth: a worker is busy only
+    when it actually has an active meeting / live bot subprocess. Unreachable
+    → treated as busy (fail-safe: never double-book a worker we can't see).
     """
-    with _inflight_lock:
-        for url in _worker_urls():
-            if url not in _inflight:
+    try:
+        async with httpx.AsyncClient(timeout=HEALTH_TIMEOUT_S) as client:
+            resp = await client.get(f"{url}/health")
+            resp.raise_for_status()
+            data = resp.json()
+        return bool(data.get("current_meeting_id")) or bool(
+            data.get("bot_subprocess_alive")
+        )
+    except Exception as exc:  # noqa: BLE001 — unreachable worker = unavailable
+        logger.warning("compose_worker.health_check_failed", worker=url, error=str(exc))
+        return True
+
+
+async def _claim_idle_worker() -> Optional[str]:
+    """Pick a worker whose sidecar reports no active meeting and mark it busy.
+
+    Health-authoritative so a leaked in-flight slot (bot exited without a
+    session-ended callback, or an API restart) self-heals instead of pinning
+    the worker as permanently busy. Returns ``None`` only when every worker is
+    genuinely handling a meeting (or unreachable).
+    """
+    for url in _worker_urls():
+        if not await _worker_is_busy(url):
+            with _inflight_lock:
                 _inflight.add(url)
-                return url
+            return url
     return None
 
 
@@ -130,7 +158,7 @@ async def dispatch_to_compose_worker(
             mark_meeting_failed=True,
         )
 
-    worker_url = _claim_idle_worker()
+    worker_url = await _claim_idle_worker()
     if worker_url is None:
         logger.warning(
             "compose_worker.all_busy",
