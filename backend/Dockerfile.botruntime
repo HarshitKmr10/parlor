@@ -83,10 +83,22 @@ COPY package.json pnpm-lock.yaml ./
 # regardless of HOME (LocalBotRunner._chromium_present also probes ~/.cache,
 # but PLAYWRIGHT_BROWSERS_PATH is the canonical location).
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
-# pnpm postinstall scripts (playwright) are not run with --ignore-scripts; we
-# install the browser explicitly below for determinism.
-RUN pnpm install --frozen-lockfile --prod=false \
- || pnpm install --no-frozen-lockfile --prod=false
+# Skip puppeteer's chrome-headless-shell download — the bot uses Playwright
+# Chromium (installed explicitly below), and the puppeteer download wastes
+# ~300MB and was filling the build disk (ENOSPC). Both env names cover old +
+# new puppeteer. Also skip Playwright's auto-download during install for the
+# same reason (we run `playwright install chromium` deterministically below).
+# Skip browser auto-downloads DURING install only (scoped to this RUN, so the
+# deterministic explicit chromium install below is unaffected):
+#  - puppeteer's chrome-headless-shell is never used by the bot and its ~300MB
+#    download was filling the build disk (ENOSPC). Skip it.
+#  - playwright's postinstall chromium is redundant — we install the exact
+#    playwright-extra-core revision explicitly below. Skip the postinstall one.
+RUN PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    sh -c 'pnpm install --frozen-lockfile --prod=false \
+      || pnpm install --no-frozen-lockfile --prod=false'
 
 # ── Playwright Chromium + OS deps ────────────────────────────────────────────
 # CRITICAL: the bot drives `require('playwright-extra')`, which loads a
