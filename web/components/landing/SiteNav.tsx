@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 const NAV_LINKS = [
@@ -53,18 +54,18 @@ export function SiteNav() {
           </ul>
 
           <div className="flex items-center gap-1.5 sm:gap-3">
-            <a
-              href="#signin"
+            <Link
+              href="/login"
               className="rounded-md px-3 py-2 text-sm font-medium text-ink-soft transition-colors hover:text-ink"
             >
               Sign in
-            </a>
-            <a
-              href="#start"
+            </Link>
+            <Link
+              href="/signup"
               className="rounded-md bg-sage-600 px-4 py-2 text-sm font-medium text-surface-0 shadow-soft-sm transition-[background-color,transform] duration-200 hover:bg-sage-700 active:translate-y-px"
             >
               Start free
-            </a>
+            </Link>
           </div>
         </div>
 
