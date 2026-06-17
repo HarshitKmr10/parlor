@@ -595,7 +595,12 @@ async function joinMeeting(meetingUrl, credentials = {}, options = {}) {
     if (!joinConfirmed && dbIntegration && meetingDbId) {
       const msg = String(err?.message || '');
       let failReason = 'admission_failed';
-      if (msg.includes('admission_unverified')) failReason = 'admission_unverified';
+      // A bot-detection block (visible reCAPTCHA challenge) is a distinct,
+      // honest state — surface it as blocked_recaptcha rather than a generic
+      // timeout/rejection so it isn't mislabeled. Ported from Vexa 391f661.
+      // Checked first: its outcome tag is authoritative.
+      if (err?.outcome === 'blocked' || msg.includes('blocked_recaptcha')) failReason = 'blocked_recaptcha';
+      else if (msg.includes('admission_unverified')) failReason = 'admission_unverified';
       else if (/rejected/i.test(msg)) failReason = 'admission_rejected';
       else if (/timeout/i.test(msg)) failReason = 'admission_timeout';
       try {
