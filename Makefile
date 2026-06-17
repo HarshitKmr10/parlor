@@ -34,7 +34,7 @@ COMPOSE_SEP := docker compose -f docker-compose.yml -f docker-compose.worker.yml
 # API-only stack uses the base compose alone (backend = standalone in-process).
 COMPOSE_API := docker compose
 
-.PHONY: up up-bots up-api down reset logs logs-worker smoke smoke-botless ps psql build env
+.PHONY: up up-bots up-api down reset logs logs-worker worker-health smoke smoke-botless ps psql build env
 
 # Create .env from the example on first run, then build + start the SEPARATED
 # stack detached (web + backend API + meeting-worker bot + ai-service + postgres).
@@ -43,14 +43,16 @@ up: env
 	@echo ""
 	@echo "Separated stack starting (API and bot in DISTINCT containers)."
 	@echo "Waiting for services to report healthy..."
-	@echo "  web            -> http://localhost:$${WEB_PORT:-3001}"
+	@echo "  web            -> http://localhost:$${WEB_PORT:-3001}   (track meetings here)"
 	@echo "  backend (API)  -> http://localhost:$${API_PORT:-8001}   (RUNTIME_MODE=compose)"
-	@echo "  meeting-worker -> http://localhost:$${MEETING_WORKER_PORT:-9000}/   (sidecar; Node + Chromium + Xvfb)"
 	@echo "  ai-service     -> http://localhost:$${AI_PORT:-8101}/health"
+	@echo "  meeting-worker -> INTERNAL only (meeting-worker:9000 on the compose net;"
+	@echo "                    NOT published to localhost). Track it with:"
+	@echo "                      make logs-worker     # live bot: join/admission/transcript"
+	@echo "                      make worker-health   # sidecar state (idle / in-meeting)"
 	@echo ""
 	@echo "Create a meeting via POST /api/v1/meetings — the API dispatches it to"
-	@echo "the meeting-worker container, which spawns the real bot. Watch the bot"
-	@echo "with: make logs-worker"
+	@echo "the meeting-worker container, which spawns the real bot."
 
 # Back-compat alias: the old name for the bot-capable stack now IS the default.
 up-bots: up
@@ -79,6 +81,12 @@ logs:
 # Follow ONLY the meeting-worker logs — this is where the bot actually runs.
 logs-worker:
 	$(COMPOSE_SEP) logs -f meeting-worker
+
+# Query the meeting-worker sidecar's live state (internal-only port 9000):
+# meeting_state warm/idle vs joining/in_meeting, current_meeting_id, bot alive.
+worker-health:
+	$(COMPOSE_SEP) exec meeting-worker sh -lc 'curl -s localhost:9000/health' || \
+	  echo "(worker not running — try 'make up')"
 
 ps:
 	$(COMPOSE_SEP) ps
