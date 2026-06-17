@@ -6,6 +6,80 @@
 const selectors = require('./selectors');
 const { waitForAnySelector } = require('./join');
 
+// The self "Backgrounds and effects" preview panel carries a [data-participant-id]
+// too (its label leads with the "visual_effects" ligature / "Backgrounds and
+// effects" text), so the raw tile count is >=1 even in the LOBBY. Excluding this
+// phantom lets admission key on >=1 REAL participant tile — a positive admitted
+// signal, not merely "a tile exists". Ported from Vexa 6f0f6e9. See
+// countRealParticipantTiles().
+const EFFECTS_TILE = /visual_effects|backgrounds and effects/i;
+
+/**
+ * Count REAL participant tiles, excluding the self effects-panel phantom.
+ * A real tile (self once in-call, or any remote) has a human-name label; the
+ * effects-panel phantom's label matches EFFECTS_TILE. Presence of >=1 real tile
+ * is a positive admitted signal independent of the waiting-room negative guard.
+ * @param {Page} page - Playwright page
+ * @returns {Promise<number>} - Number of real participant tiles
+ */
+async function countRealParticipantTiles(page) {
+  try {
+    const labels = await page.locator('[data-participant-id]').evaluateAll(
+      (els) => els.map((e) => e.getAttribute('aria-label') || (e.textContent || '').trim())
+    );
+    return labels.filter((l) => l && !EFFECTS_TILE.test(l)).length;
+  } catch (e) {
+    return 0;
+  }
+}
+
+/**
+ * Detect a GENUINE reCAPTCHA challenge (Google bot-detection block), NOT the
+ * invisible background reCAPTCHA Enterprise frame that Google loads on EVERY
+ * normal join. Matching a mere "/recaptcha/" frame URL false-fires on clean
+ * joins (verified live by Vexa 2026-06-12; commit 64d3470 reverted exactly that
+ * loose emit). We therefore require a VISIBLE challenge surface: a visible
+ * recaptcha iframe (the anchor/challenge widget actually rendered on screen),
+ * not just a frame existing in the page.
+ * @param {Page} page - Playwright page
+ * @returns {Promise<boolean>} - Whether a visible reCAPTCHA challenge is present
+ */
+async function hasRecaptchaChallenge(page) {
+  try {
+    // A visible recaptcha iframe is the real challenge surface. The invisible
+    // background scoring frame (present on every join) is NOT visible, so
+    // isVisible() filters it out — avoiding the false positive 64d3470 caught.
+    const challengeSelectors = [
+      'iframe[title*="recaptcha challenge" i]',
+      'iframe[src*="recaptcha"][src*="bframe"]',
+      'iframe[src*="recaptcha/api2/anchor"]',
+      'iframe[src*="recaptcha"]',
+    ];
+    for (const sel of challengeSelectors) {
+      const frameEl = page.locator(sel).first();
+      const visible = await frameEl.isVisible({ timeout: 100 }).catch(() => false);
+      if (visible) {
+        return true;
+      }
+    }
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Check whether the bot is currently BLOCKED by Google bot-detection (a visible
+ * reCAPTCHA challenge). Distinct from rejection (host denial) and timeout. Kept
+ * as a named helper so the exit reason ("blocked_recaptcha") has one source of
+ * truth and so the detector can be extended (e.g. a blank block page) later.
+ * @param {Page} page - Playwright page
+ * @returns {Promise<boolean>} - Whether a bot-detection block is present
+ */
+async function checkForBlocked(page) {
+  return hasRecaptchaChallenge(page);
+}
+
 /**
  * Check if bot has been rejected from the meeting
  * @param {Page} page - Playwright page
@@ -17,6 +91,15 @@ async function checkForRejection(page) {
       const element = page.locator(selector).first();
       const isVisible = await element.isVisible({ timeout: 100 }).catch(() => false);
       if (isVisible) {
+        // A reCAPTCHA challenge renders the SAME "Return to home screen"
+        // affordance as an admin rejection. If a VISIBLE captcha challenge is on
+        // screen, this is Google bot-detection — NOT a host denial — so don't
+        // classify it as a rejection (that would make the bot bail before the
+        // 'blocked' state can be surfaced). Ported from Vexa 64d3470.
+        if (await hasRecaptchaChallenge(page)) {
+          console.log(`[GoogleMeet Admission] reCAPTCHA challenge present alongside rejection indicator "${selector}" — treating as bot-detection block, NOT admin rejection`);
+          return false;
+        }
         console.log(`[GoogleMeet Admission] Rejection detected: ${selector}`);
         return true;
       }
@@ -55,6 +138,19 @@ async function isInWaitingRoom(page) {
 async function checkForAdmission(page) {
   for (const selector of selectors.googleInitialAdmissionIndicators) {
     try {
+      // [data-participant-id] exists in the LOBBY too via the self effects-panel
+      // phantom, so a raw visibility match there is a false positive. Key on >=1
+      // REAL participant tile instead (effects phantom excluded). Ported from
+      // Vexa 6f0f6e9.
+      if (selector === '[data-participant-id]') {
+        const real = await countRealParticipantTiles(page);
+        if (real > 0) {
+          console.log(`[GoogleMeet Admission] Admitted: ${real} real participant tile(s) present (effects-panel phantom excluded)`);
+          return true;
+        }
+        continue;
+      }
+
       const element = page.locator(selector).first();
       const isVisible = await element.isVisible({ timeout: 200 }).catch(() => false);
 
@@ -97,6 +193,23 @@ async function waitForAdmission(page, timeout = 120000, options = {}) {
 
   // Poll for admission
   while (Date.now() - startTime < timeout) {
+    // Check for a genuine reCAPTCHA challenge (Google bot-detection block) BEFORE
+    // rejection: the challenge screen shares the "Return to home screen" affordance
+    // with admin rejection, so we classify it as a distinct 'blocked' state rather
+    // than a generic timeout/rejection. Ported from Vexa 391f661 (#444). A VISIBLE
+    // challenge only — the invisible background reCAPTCHA frame present on every
+    // join does NOT trip this (see hasRecaptchaChallenge / Vexa 64d3470).
+    if (await checkForBlocked(page)) {
+      console.log('[GoogleMeet Admission] BLOCKED: visible reCAPTCHA challenge detected — Google bot-detection block');
+      if (screenshotPath) {
+        const { takeScreenshot } = require('./browser');
+        await takeScreenshot(page, screenshotPath, 'blocked_recaptcha');
+      }
+      const err = new Error('blocked_recaptcha: Google bot-detection reCAPTCHA challenge during admission');
+      err.outcome = 'blocked';
+      throw err;
+    }
+
     // Check for rejection first
     if (await checkForRejection(page)) {
       throw new Error('Bot admission rejected by meeting admin or meeting ended');
@@ -163,7 +276,20 @@ async function waitForAdmission(page, timeout = 120000, options = {}) {
     }
   }
 
-  // Timeout reached
+  // Timeout reached. One last blocked-check so a challenge that surfaced late in
+  // the window is reported as the honest 'blocked' state rather than a generic
+  // timeout (ported from Vexa 391f661 — name the state instead of polling blind).
+  if (await checkForBlocked(page)) {
+    console.log('[GoogleMeet Admission] BLOCKED at timeout: visible reCAPTCHA challenge — Google bot-detection block');
+    if (screenshotPath) {
+      const { takeScreenshot } = require('./browser');
+      await takeScreenshot(page, screenshotPath, 'blocked_recaptcha');
+    }
+    const err = new Error('blocked_recaptcha: Google bot-detection reCAPTCHA challenge during admission');
+    err.outcome = 'blocked';
+    throw err;
+  }
+
   console.log('[GoogleMeet Admission] Admission timeout reached');
 
   if (screenshotPath) {
@@ -186,7 +312,8 @@ async function waitForAdmissionWithCallbacks(page, callbacks = {}, timeout = 120
     onAdmitted = null,
     onWaitingRoom = null,
     onRejected = null,
-    onTimeout = null
+    onTimeout = null,
+    onBlocked = null
   } = callbacks;
 
   try {
@@ -200,7 +327,13 @@ async function waitForAdmissionWithCallbacks(page, callbacks = {}, timeout = 120
 
     return admitted;
   } catch (error) {
-    if (error.message.includes('rejected')) {
+    // Order matters: a bot-detection block carries outcome:'blocked' and its
+    // message also contains "blocked" — surface it as blocked, not rejected.
+    if (error.outcome === 'blocked' || error.message.includes('blocked_recaptcha')) {
+      if (onBlocked) {
+        onBlocked(error.message);
+      }
+    } else if (error.message.includes('rejected')) {
       if (onRejected) {
         onRejected(error.message);
       }
@@ -248,6 +381,9 @@ module.exports = {
   waitForAdmissionWithCallbacks,
   checkForAdmission,
   checkForRejection,
+  checkForBlocked,
+  hasRecaptchaChallenge,
+  countRealParticipantTiles,
   isInWaitingRoom,
   checkMeetingStatus
 };

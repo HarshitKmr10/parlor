@@ -23,6 +23,10 @@ RUN apt-get update && apt-get install -y \
     libasound2-plugins alsa-utils \
     # Virtual display
     xvfb xauth \
+    # XTEST OS-level input for the humanized Google Meet join layer
+    # (isTrusted:true clicks). Without these the bot falls back to synthetic
+    # clicks (isTrusted:false) — the exact signal Google's bot detection flags.
+    xdotool xclip \
     # PulseAudio for virtual audio capture
     pulseaudio pulseaudio-utils libdbus-1-3 \
     # PyGObject/GLib dependencies for Zoom SDK (CRITICAL for gi module)
