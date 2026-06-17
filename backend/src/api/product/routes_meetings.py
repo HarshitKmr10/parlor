@@ -412,6 +412,19 @@ async def summarize_meeting(
     await repo.store_insights(
         meeting_id, json.dumps(insights.model_dump(by_alias=True))
     )
+    # Embed the transcript so chat-with-meeting (/ask) has vectors to retrieve.
+    # Best-effort: a failed embed must not fail summary generation.
+    if segments:
+        try:
+            await ai_client.embed(
+                {
+                    "workspaceId": workspace.id,
+                    "meetingId": meeting_id,
+                    "segments": segments,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 — embed is best-effort
+            logger.warning("summarize embed failed for %s: %s", meeting_id, exc)
     return insights
 
 
@@ -423,7 +436,24 @@ async def ask_meeting(
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> AskResponse:
-    await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
+    record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
+    # Ensure the transcript is embedded so RAG has vectors even if the user
+    # never clicked "Generate summary". /embed upserts, so this is idempotent.
+    segments = [
+        s.model_dump(by_alias=True)
+        for s in segments_from_transcript(record.transcript)
+    ]
+    if segments:
+        try:
+            await ai_client.embed(
+                {
+                    "workspaceId": workspace.id,
+                    "meetingId": meeting_id,
+                    "segments": segments,
+                }
+            )
+        except Exception as exc:  # noqa: BLE001 — embed is best-effort
+            logger.warning("ask embed failed for %s: %s", meeting_id, exc)
     payload = {
         "workspaceId": workspace.id,
         "meetingId": meeting_id,

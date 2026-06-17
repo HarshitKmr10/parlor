@@ -17,10 +17,31 @@ ANTHROPIC_CHEAP_MODEL = "claude-haiku-4-5-20251001"
 OPENAI_PREMIUM_MODEL = "gpt-4o"
 OPENAI_CHEAP_MODEL = "gpt-4o-mini"
 
+# Azure OpenAI routes by *deployment name*, not model id. The default chat
+# deployment maps to the user's "5.4 mini" (deployment id ``gpt-5.4-mini`` in
+# their resource). Overridable via AZURE_OPENAI_DEPLOYMENT.
+AZURE_OPENAI_DEFAULT_DEPLOYMENT = "gpt-5.4-mini"
+AZURE_OPENAI_DEFAULT_API_VERSION = "2024-02-15-preview"
+
 # OpenAI embedding model + dimensionality. The mock provider mirrors this
 # dimension so the pgvector column width is identical across modes.
 OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIM = 1536
+
+# Azure config resolved from the environment at import time (mirrors the other
+# provider settings). The chat deployment defaults to the "5.4 mini" deployment;
+# the embedding deployment is optional (falls through to mock when unset).
+AZURE_OPENAI_ENDPOINT = os.environ.get("AZURE_OPENAI_ENDPOINT") or None
+AZURE_OPENAI_API_KEY = os.environ.get("AZURE_OPENAI_API_KEY") or None
+AZURE_OPENAI_API_VERSION = (
+    os.environ.get("AZURE_OPENAI_API_VERSION") or AZURE_OPENAI_DEFAULT_API_VERSION
+)
+AZURE_OPENAI_DEPLOYMENT = (
+    os.environ.get("AZURE_OPENAI_DEPLOYMENT") or AZURE_OPENAI_DEFAULT_DEPLOYMENT
+)
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT = (
+    os.environ.get("AZURE_OPENAI_EMBEDDING_DEPLOYMENT") or None
+)
 
 # Vector index tuning.
 IVFFLAT_LISTS = 100
@@ -43,14 +64,25 @@ class Settings:
 
     anthropic_api_key: str | None
     openai_api_key: str | None
+    azure_openai_endpoint: str | None
+    azure_openai_api_key: str | None
+    azure_openai_api_version: str
+    azure_openai_deployment: str
+    azure_openai_embedding_deployment: str | None
     provider_order: list[str]
     database_url: str | None
     mode: str = field(default="mock")
     port: int = 8100
 
     @property
+    def azure_configured(self) -> bool:
+        return bool(self.azure_openai_endpoint and self.azure_openai_api_key)
+
+    @property
     def has_any_key(self) -> bool:
-        return bool(self.anthropic_api_key or self.openai_api_key)
+        return bool(
+            self.anthropic_api_key or self.openai_api_key or self.azure_configured
+        )
 
     @property
     def is_mock(self) -> bool:
@@ -62,11 +94,16 @@ def load_settings() -> Settings:
 
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or None
     openai_key = os.environ.get("OPENAI_API_KEY") or None
-    order = _split_csv(os.environ.get("AI_PROVIDER_ORDER", "anthropic,openai"))
+    azure_endpoint = AZURE_OPENAI_ENDPOINT
+    azure_key = AZURE_OPENAI_API_KEY
+    order = _split_csv(
+        os.environ.get("AI_PROVIDER_ORDER", "azure,anthropic,openai")
+    )
     database_url = os.environ.get("DATABASE_URL") or None
 
     requested_mode = os.environ.get("AI_MODE", "").strip().lower()
-    has_key = bool(anthropic_key or openai_key)
+    azure_configured = bool(azure_endpoint and azure_key)
+    has_key = bool(anthropic_key or openai_key or azure_configured)
     if requested_mode in {"mock", "live"}:
         mode = requested_mode
     else:
@@ -83,7 +120,12 @@ def load_settings() -> Settings:
     return Settings(
         anthropic_api_key=anthropic_key,
         openai_api_key=openai_key,
-        provider_order=order or ["anthropic", "openai"],
+        azure_openai_endpoint=azure_endpoint,
+        azure_openai_api_key=azure_key,
+        azure_openai_api_version=AZURE_OPENAI_API_VERSION,
+        azure_openai_deployment=AZURE_OPENAI_DEPLOYMENT,
+        azure_openai_embedding_deployment=AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
+        provider_order=order or ["azure", "anthropic", "openai"],
         database_url=database_url,
         mode=mode,
         port=port,

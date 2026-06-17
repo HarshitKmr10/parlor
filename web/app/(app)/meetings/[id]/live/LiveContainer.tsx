@@ -8,23 +8,25 @@ import type {
   MeetingMeta,
 } from "@/components/live-transcript/types";
 import { postJson } from "@/lib/api/browser";
-import type { AskResponse } from "@/lib/api/types";
+import type { AskResponse, MeetingStatus } from "@/lib/api/types";
 
 type Props = {
   meetingId: string;
   meeting: MeetingMeta;
+  initialStatus: MeetingStatus;
   summaryBullets: readonly string[];
   actionItems: readonly ActionItem[];
 };
 
 /**
- * Client bridge for the live page: wires the meeting's real WebSocket and the
- * real /ask endpoint into the shared LiveMeetingView. The view itself falls
- * back to the scripted mock when the socket can't be reached.
+ * Client bridge for the live page: wires the meeting's real transcript poll,
+ * status, and the real /ask endpoint into the shared LiveMeetingView. Shows
+ * real data only — no mock fallback on the authenticated route.
  */
 export function LiveContainer({
   meetingId,
   meeting,
+  initialStatus,
   summaryBullets,
   actionItems,
 }: Props) {
@@ -56,6 +58,7 @@ export function LiveContainer({
       summaryBullets={summaryBullets}
       actionItems={actionItems}
       meetingId={meetingId}
+      initialStatus={initialStatus}
       onAsk={handleAsk}
     />
   );

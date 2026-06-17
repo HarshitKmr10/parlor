@@ -22,6 +22,31 @@ export async function postJson<T>(url: string, body: unknown): Promise<T> {
   return data as T;
 }
 
+/**
+ * Browser-side GET against a same-origin route handler. Same error-envelope
+ * handling as `postJson`. Supports an `AbortSignal` so callers (e.g. polling
+ * loops) can cancel in-flight requests on unmount.
+ */
+export async function getJson<T>(
+  url: string,
+  signal?: AbortSignal,
+): Promise<T> {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { Accept: "application/json" },
+    signal,
+  });
+
+  const text = await response.text();
+  const data: unknown = text ? safeParse(text) : null;
+
+  if (!response.ok) {
+    if (isApiErrorBody(data)) throw new Error(data.error.message);
+    throw new Error("Request failed. Please try again.");
+  }
+  return data as T;
+}
+
 function safeParse(text: string): unknown {
   try {
     return JSON.parse(text);

@@ -15,6 +15,7 @@ from typing import Any
 
 from ..config import Settings
 from .anthropic_provider import AnthropicProvider
+from .azure_openai_provider import AzureOpenAIProvider
 from .base import LLMProvider, ProviderError
 from .mock_provider import MockProvider
 from .openai_provider import OpenAIProvider
@@ -30,6 +31,15 @@ class ProviderRouter:
 
         if not settings.is_mock:
             builders = {
+                "azure": lambda: AzureOpenAIProvider(
+                    endpoint=settings.azure_openai_endpoint,
+                    api_key=settings.azure_openai_api_key,
+                    api_version=settings.azure_openai_api_version,
+                    deployment=settings.azure_openai_deployment,
+                    embedding_deployment=settings.azure_openai_embedding_deployment,
+                )
+                if settings.azure_configured
+                else None,
                 "anthropic": lambda: AnthropicProvider(settings.anthropic_api_key)
                 if settings.anthropic_api_key
                 else None,

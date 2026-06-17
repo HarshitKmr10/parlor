@@ -1,144 +1,242 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import type { TranscriptSegment } from "./types";
-import { useMockTranscript } from "./useMockTranscript";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Speaker, TranscriptSegment } from "./types";
+import type {
+  MeetingStatus,
+  MeetingStatusResponse,
+  TranscriptResponse,
+} from "@/lib/api/types";
+import { getJson } from "@/lib/api/browser";
+import {
+  initialsFromName,
+  speakerIdFromName,
+  SPEAKER_TINTS,
+  UNKNOWN_SPEAKER_NAME,
+} from "./utils";
 
 type LiveTranscriptState = {
   segments: TranscriptSegment[];
+  /** Speakers derived from the polled segments (real participants). */
+  speakers: Speaker[];
   activeSpeakerId: string | null;
   elapsedSec: number;
-  /** True once a real socket is connected; false while on the mock fallback. */
-  isLive: boolean;
+  /** Current meeting status (kept fresh by the status poll). */
+  status: MeetingStatus;
+  /** True while the meeting is `joining`/`ongoing` (REC + clock running). */
+  isOngoing: boolean;
 };
 
+/** How often to poll the transcript + status route handlers. */
+const POLL_INTERVAL_MS = 2500;
+
+/** Statuses for which the meeting is still being captured live. */
+function isOngoingStatus(status: MeetingStatus): boolean {
+  return status === "joining" || status === "ongoing";
+}
+
 /**
- * Server WebSocket event shapes (per API-CONTRACT.md). The contract
- * `TranscriptSegment` carries `speakerName`, which the live components don't
- * use (they index speakers by id), so we map to the local segment shape.
+ * Backend transcript segment shape (per API-CONTRACT.md) as returned by the
+ * same-origin `/api/meetings/{id}/transcript` route handler.
  */
-type WsSegment = {
+type BackendSegment = {
   id: string;
-  speakerId: string;
+  speakerId?: string;
+  speakerName?: string;
   text: string;
   tStartSec: number;
   tEndSec: number;
+  createdAt: string;
 };
 
-type WsEvent =
-  | { type: "segment"; segment: WsSegment }
-  | { type: "active_speaker"; speakerId: string }
-  | { type: "status"; status: string };
-
-const RECONNECT_DELAY_MS = 2000;
-const MAX_RECONNECTS = 3;
-
-function buildSocketUrl(meetingId: string): string | null {
-  const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-  try {
-    const url = new URL(base);
-    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-    url.pathname = `/api/v1/meetings/${meetingId}/live`;
-    return url.toString();
-  } catch {
-    return null;
-  }
-}
-
-function parseEvent(data: unknown): WsEvent | null {
-  if (typeof data !== "string") return null;
-  try {
-    const parsed = JSON.parse(data) as WsEvent;
-    if (parsed && typeof parsed.type === "string") return parsed;
-  } catch {
-    return null;
-  }
-  return null;
+/**
+ * Map a backend segment to the local view-model segment. The local components
+ * index speakers by id, so we synthesize a stable id from the speaker name
+ * (grouping all of a speaker's lines onto one rail entry).
+ */
+function toViewSegment(segment: BackendSegment): TranscriptSegment {
+  const name = segment.speakerName?.trim() || UNKNOWN_SPEAKER_NAME;
+  return {
+    id: segment.id,
+    speakerId: speakerIdFromName(name),
+    text: segment.text,
+    tStartSec: segment.tStartSec,
+    tEndSec: segment.tEndSec,
+  };
 }
 
 /**
- * Subscribes to the live meeting WebSocket and accumulates segments. When the
- * socket cannot be established (backend down, dev with no WS), it transparently
- * falls back to the scripted mock simulation so the view always animates.
+ * Derive the speaker list from accumulated segments. Speakers are surfaced in
+ * first-seen order and assigned sage tints by that order (cycling). Each
+ * speaker's id is stable across polls so the rail does not reshuffle.
  */
-export function useLiveTranscript(meetingId: string): LiveTranscriptState {
-  const socketUrl = useMemo(() => buildSocketUrl(meetingId), [meetingId]);
+function deriveSpeakers(rawByName: Map<string, string>): Speaker[] {
+  let index = 0;
+  const speakers: Speaker[] = [];
+  for (const [id, name] of rawByName) {
+    speakers.push({
+      id,
+      name,
+      initials: initialsFromName(name),
+      sageTint: SPEAKER_TINTS[index % SPEAKER_TINTS.length],
+    });
+    index += 1;
+  }
+  return speakers;
+}
 
+/**
+ * Polls the authenticated transcript + status route handlers and accumulates
+ * real segments. Speakers are derived dynamically from the segments
+ * themselves, so the rail and stream show the real participants — there is no
+ * mock fallback (the authenticated live view shows real data or an empty
+ * state, never fabricated people).
+ *
+ * Status awareness: the status poll keeps `status`/`isOngoing` fresh. While
+ * the meeting is `joining`/`ongoing` the elapsed clock ticks and both polls
+ * continue. Once the meeting flips to `completed`/`failed`, the clock freezes,
+ * transcript polling stops (captured segments stay visible, read-only), and
+ * the view switches to its "meeting ended" state.
+ */
+export function useLiveTranscript(
+  meetingId: string,
+  initialStatus: MeetingStatus,
+): LiveTranscriptState {
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [activeSpeakerId, setActiveSpeakerId] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
-  // Start on the fallback when no socket URL can be built; the socket flips
-  // this off on open and back on after exhausting reconnects.
-  const [useFallback, setUseFallback] = useState(socketUrl === null);
+  // First-seen order of speakers: id -> display name. State so renders update.
+  const [speakerNames, setSpeakerNames] = useState<Map<string, string>>(
+    () => new Map(),
+  );
+  const [status, setStatus] = useState<MeetingStatus>(initialStatus);
 
-  const mock = useMockTranscript();
+  const ongoing = isOngoingStatus(status);
 
+  // Refs the polling loop reads without re-arming the interval each render.
+  const sinceRef = useRef<string | undefined>(undefined);
+  const inFlightRef = useRef(false);
+  const seenIdsRef = useRef<Set<string>>(new Set());
+  // Mirror of `ongoing` for the polling closures so they can self-terminate
+  // without re-arming the interval. Kept in sync via an effect (writing a ref
+  // during render is disallowed).
+  const ongoingRef = useRef(ongoing);
   useEffect(() => {
-    if (!socketUrl) return;
+    ongoingRef.current = ongoing;
+  }, [ongoing]);
 
-    let socket: WebSocket | null = null;
-    let reconnects = 0;
-    let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
-    let cancelled = false;
-
+  // 1Hz wall clock for the elapsed-time readout — only while ongoing so the
+  // "live" timer freezes the moment the meeting ends.
+  useEffect(() => {
+    if (!ongoing) return;
     const clockId = setInterval(() => {
       setElapsedSec((prev) => prev + 1);
     }, 1000);
+    return () => clearInterval(clockId);
+  }, [ongoing]);
 
-    const connect = () => {
-      if (cancelled) return;
-      // socketUrl is validated by buildSocketUrl, so the constructor won't
-      // throw synchronously; transport failures surface via onerror/onclose.
-      socket = new WebSocket(socketUrl);
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
 
-      socket.onopen = () => {
-        reconnects = 0;
-        setUseFallback(false);
-      };
+    const pollTranscript = async () => {
+      if (cancelled || inFlightRef.current) return;
+      inFlightRef.current = true;
 
-      socket.onmessage = (event) => {
-        const parsed = parseEvent(event.data);
-        if (!parsed) return;
-        if (parsed.type === "segment") {
-          setSegments((prev) => [...prev, parsed.segment]);
-          setActiveSpeakerId(parsed.segment.speakerId);
-        } else if (parsed.type === "active_speaker") {
-          setActiveSpeakerId(parsed.speakerId);
-        }
-      };
+      const query = sinceRef.current
+        ? `?since=${encodeURIComponent(sinceRef.current)}`
+        : "";
+      const url = `/api/meetings/${meetingId}/transcript${query}`;
 
-      socket.onerror = () => {
-        socket?.close();
-      };
-
-      socket.onclose = () => {
+      try {
+        const data = await getJson<TranscriptResponse>(url, controller.signal);
         if (cancelled) return;
-        if (reconnects < MAX_RECONNECTS) {
-          reconnects += 1;
-          reconnectTimer = setTimeout(connect, RECONNECT_DELAY_MS);
-        } else {
-          // Give up on the socket and animate the mock instead.
-          setUseFallback(true);
+
+        const incoming = (data.items ?? []) as unknown as BackendSegment[];
+        const fresh = incoming.filter((s) => !seenIdsRef.current.has(s.id));
+
+        if (fresh.length > 0) {
+          for (const s of fresh) seenIdsRef.current.add(s.id);
+          const mapped = fresh.map(toViewSegment);
+
+          setSegments((prev) => [...prev, ...mapped]);
+          setActiveSpeakerId(mapped[mapped.length - 1].speakerId);
+
+          setSpeakerNames((prev) => {
+            let changed = false;
+            const next = new Map(prev);
+            for (const s of fresh) {
+              const name = s.speakerName?.trim() || UNKNOWN_SPEAKER_NAME;
+              const id = speakerIdFromName(name);
+              if (!next.has(id)) {
+                next.set(id, name);
+                changed = true;
+              }
+            }
+            return changed ? next : prev;
+          });
         }
-      };
+
+        // Advance the cursor so the next poll only fetches newer segments.
+        if (data.lastSegmentAt) sinceRef.current = data.lastSegmentAt;
+      } catch (error: unknown) {
+        if (cancelled) return;
+        // Ignore aborts and transient errors; the next tick retries. No mock
+        // fallback — the empty/ended states cover the no-data case honestly.
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      } finally {
+        inFlightRef.current = false;
+      }
     };
 
-    connect();
+    const pollStatus = async () => {
+      if (cancelled) return;
+      try {
+        const data = await getJson<MeetingStatusResponse>(
+          `/api/meetings/${meetingId}`,
+          controller.signal,
+        );
+        if (cancelled || !data.status) return;
+        setStatus(data.status);
+      } catch (error: unknown) {
+        if (cancelled) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        // Status poll failures are non-fatal; keep the last known status.
+      }
+    };
+
+    const tick = () => {
+      void pollStatus();
+      // Stop fetching new segments once the meeting is no longer live; the
+      // already-captured transcript stays on screen (read-only).
+      if (ongoingRef.current) void pollTranscript();
+    };
+
+    // Always do an initial fetch so a meeting that ended before mount still
+    // shows its captured transcript.
+    void pollStatus();
+    void pollTranscript();
+
+    const pollId = setInterval(tick, POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      clearInterval(clockId);
-      if (reconnectTimer) clearTimeout(reconnectTimer);
-      if (socket) {
-        socket.onclose = null;
-        socket.close();
-      }
+      controller.abort();
+      clearInterval(pollId);
     };
-  }, [socketUrl]);
+  }, [meetingId]);
 
-  if (useFallback) {
-    return { ...mock, isLive: false };
-  }
+  const speakers = useMemo(
+    () => deriveSpeakers(speakerNames),
+    [speakerNames],
+  );
 
-  return { segments, activeSpeakerId, elapsedSec, isLive: true };
+  return {
+    segments,
+    speakers,
+    activeSpeakerId,
+    elapsedSec,
+    status,
+    isOngoing: ongoing,
+  };
 }
