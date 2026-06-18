@@ -294,6 +294,21 @@ async def lifespan(app: FastAPI):
         else:
             logger.info("Calendar poller disabled (not standalone)")
 
+        # Start the compose session finalizer — in compose mode the worker bot
+        # runs detached and the sidecar doesn't call back on exit, so finished
+        # meetings would stay 'ongoing' forever. This poller completes them and
+        # fires the summary pipeline once the bot is gone.
+        if _is_compose_worker_mode():
+            try:
+                from .services.compose_session_finalizer import (
+                    get_compose_session_finalizer,
+                )
+
+                await get_compose_session_finalizer().start()
+                logger.info("Compose session finalizer started")
+            except Exception as e:  # noqa: BLE001
+                logger.warning("Compose session finalizer start failed: %s", e)
+
         # Start the org-wide Google Workspace calendar sync — in standalone,
         # for each enabled Workspace org it reads every org user's calendar
         # (via domain-wide delegation) and dispatches a local bot for imminent
@@ -377,6 +392,16 @@ async def lifespan(app: FastAPI):
             logger.info("Meeting scheduler stopped")
         except Exception as e:
             logger.warning("Meeting scheduler stop error: %s", e)
+
+        try:
+            from .services.compose_session_finalizer import (
+                get_compose_session_finalizer,
+            )
+
+            await get_compose_session_finalizer().stop()
+            logger.info("Compose session finalizer stopped")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Compose session finalizer stop error: %s", e)
 
         try:
             from .services.calendar_poller import close_calendar_poller
