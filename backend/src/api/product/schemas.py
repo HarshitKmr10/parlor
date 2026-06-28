@@ -164,6 +164,48 @@ class MeetingInsights(CamelModel):
     chapters: List[Chapter] = Field(default_factory=list)
 
 
+class SpeakerStat(CamelModel):
+    """Per-speaker conversation metrics, mirroring Read.ai / Fathom analytics."""
+
+    speaker_name: str
+    talk_time_sec: float = 0.0
+    talk_ratio: float = 0.0  # share of total speaking time, 0..1
+    word_count: int = 0
+    words_per_minute: float = 0.0
+    turns: int = 0  # number of distinct speaking turns
+    longest_monologue_sec: float = 0.0
+    questions_asked: int = 0
+    filler_word_count: int = 0
+    sentiment: str = "neutral"  # positive | neutral | negative
+    sentiment_score: float = 0.0  # -1..1
+
+
+class MeetingAnalytics(CamelModel):
+    """Conversation analytics computed from the diarized transcript.
+
+    All values are derived deterministically from transcript segments — no LLM
+    call — so this endpoint works even when the AI service is unavailable.
+    """
+
+    meeting_id: str
+    duration_sec: float = 0.0
+    total_words: int = 0
+    words_per_minute: float = 0.0
+    num_speakers: int = 0
+    num_turns: int = 0
+    turns_per_minute: float = 0.0  # interactivity: higher = more back-and-forth
+    interactivity_score: float = 0.0  # 0..100, normalized turn density
+    balance_score: float = 0.0  # 0..100, 100 = perfectly even talk-time
+    longest_monologue_sec: float = 0.0
+    longest_monologue_speaker: Optional[str] = None
+    question_count: int = 0
+    filler_word_count: int = 0
+    overall_sentiment: str = "neutral"
+    overall_sentiment_score: float = 0.0
+    speakers: List[SpeakerStat] = Field(default_factory=list)
+    computed_at: datetime
+
+
 class Meeting(CamelModel):
     id: str
     workspace_id: Optional[str] = None

@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 
 from shared.exceptions import InvalidMeetingURLError
 
+from ...analytics import compute_meeting_analytics
 from ...services.meeting_service import MeetingService
 from ...shared.platformDetector import PlatformDetector
 from ..database.connection import DatabaseConnection, get_db_connection
@@ -30,6 +31,7 @@ from .schemas import (
     BotlessCreateRequest,
     Citation,
     Meeting,
+    MeetingAnalytics,
     MeetingCreateRequest,
     MeetingInsights,
     MeetingListResponse,
@@ -363,6 +365,24 @@ async def get_transcript(
 
     last_at = segments[-1].created_at if segments else None
     return TranscriptResponse(items=segments, last_segment_at=last_at)
+
+
+@router.get("/{meeting_id}/analytics", response_model=MeetingAnalytics)
+async def get_meeting_analytics(
+    meeting_id: str,
+    workspace: Workspace = Depends(get_current_workspace),
+    service: MeetingService = Depends(_service),
+    repo: ProductMeetingsRepo = Depends(_repo),
+) -> MeetingAnalytics:
+    """Conversation analytics (talk-time, interactivity, sentiment) for a meeting.
+
+    Computed deterministically from the diarized transcript — no LLM call — so it
+    works even when the AI service is unavailable. Returns zeroed metrics for a
+    meeting with no transcript yet.
+    """
+    record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
+    segments = segments_from_transcript(record.transcript)
+    return compute_meeting_analytics(meeting_id, segments)
 
 
 @router.delete("/{meeting_id}", response_model=Meeting)
