@@ -288,6 +288,45 @@ class SearchResponse(CamelModel):
     total: int = 0
 
 
+class CommentAuthor(CamelModel):
+    id: Optional[str] = None
+    name: str = "Unknown"
+
+
+class CommentCreate(CamelModel):
+    body: str = Field(..., min_length=1, max_length=5000)
+    anchor_t_sec: Optional[float] = Field(None, ge=0)
+    anchor_segment_id: Optional[str] = Field(None, max_length=200)
+    parent_id: Optional[str] = None
+    mentions: List[str] = Field(default_factory=list)  # user IDs
+
+
+class CommentUpdate(CamelModel):
+    body: Optional[str] = Field(None, min_length=1, max_length=5000)
+    mentions: Optional[List[str]] = None
+    resolved: Optional[bool] = None
+
+
+class Comment(CamelModel):
+    id: str
+    meeting_id: str
+    parent_id: Optional[str] = None
+    author: CommentAuthor
+    body: str
+    anchor_t_sec: Optional[float] = None
+    anchor_segment_id: Optional[str] = None
+    mentions: List[CommentAuthor] = Field(default_factory=list)
+    resolved: bool = False
+    edited: bool = False
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class CommentListResponse(CamelModel):
+    items: List[Comment] = Field(default_factory=list)
+    total: int = 0
+
+
 class ShareCreateRequest(CamelModel):
     """Create/rotate a public share link for a meeting."""
 
