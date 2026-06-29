@@ -288,6 +288,62 @@ class SearchResponse(CamelModel):
     total: int = 0
 
 
+class ShareCreateRequest(CamelModel):
+    """Create/rotate a public share link for a meeting."""
+
+    include_transcript: bool = False
+    include_highlights: bool = True
+    include_analytics: bool = False
+    expires_in_days: Optional[int] = Field(None, ge=1, le=365)
+
+
+class ShareLink(CamelModel):
+    """Owner-facing view of a meeting's share link."""
+
+    meeting_id: str
+    token: str
+    path: str  # relative app path, e.g. /share/{token}
+    url: Optional[str] = None  # absolute, only when a public base URL is configured
+    include_transcript: bool = False
+    include_highlights: bool = True
+    include_analytics: bool = False
+    revoked: bool = False
+    expires_at: Optional[datetime] = None
+    view_count: int = 0
+    last_viewed_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class PublicHighlight(CamelModel):
+    """A highlight projected for public viewing — no workspace/owner IDs."""
+
+    t_start_sec: float
+    t_end_sec: float
+    label: Optional[str] = None
+    note: Optional[str] = None
+    color: Optional[str] = None
+    excerpt: Optional[str] = None
+
+
+class PublicMeetingView(CamelModel):
+    """Read-only recap returned to anyone holding a valid share token.
+
+    Deliberately minimal — no workspace, owner, IDs or platform internals leak.
+    Optional sections are populated only when the share's scope flags allow.
+    """
+
+    title: Optional[str] = None
+    summary: str = ""
+    key_points: List[str] = Field(default_factory=list)
+    action_items: List[ActionItem] = Field(default_factory=list)
+    chapters: List[Chapter] = Field(default_factory=list)
+    duration_sec: Optional[int] = None
+    transcript: Optional[List[TranscriptSegment]] = None
+    highlights: Optional[List[PublicHighlight]] = None
+    analytics: Optional[MeetingAnalytics] = None
+    shared_at: datetime
+
+
 class Meeting(CamelModel):
     id: str
     workspace_id: Optional[str] = None
