@@ -616,6 +616,22 @@ class AskResponse(CamelModel):
         return v or []
 
 
+class Notification(CamelModel):
+    id: str
+    type: str
+    title: str
+    body: Optional[str] = None
+    link: Optional[str] = None
+    meeting_id: Optional[str] = None
+    read: bool = False
+    created_at: datetime
+
+
+class NotificationListResponse(CamelModel):
+    items: List[Notification] = Field(default_factory=list)
+    unread: int = 0
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 

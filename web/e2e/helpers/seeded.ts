@@ -10,6 +10,7 @@ export interface SeedArtifact {
   email: string;
   password: string;
   workspaceId: string;
+  userId: string;
   meetings: SeededMeeting[];
 }
 

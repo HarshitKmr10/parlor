@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SidebarNav } from "./SidebarNav";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { UserMenu } from "./UserMenu";
+import { NotificationBell } from "./NotificationBell";
 import { NewMeetingButton } from "@/components/meetings/NewMeetingButton";
 import { CloseIcon, MenuIcon } from "@/components/ui/icons";
 
@@ -102,6 +103,7 @@ export function AppShell({ children }: Props) {
           <WorkspaceSwitcher />
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
+            <NotificationBell />
             <NewMeetingButton />
             <UserMenu />
           </div>

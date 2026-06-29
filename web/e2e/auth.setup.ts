@@ -47,6 +47,10 @@ setup("authenticate and seed workspace", async ({ page }) => {
   mkdirSync(dirname(ARTIFACT), { recursive: true });
   writeFileSync(
     ARTIFACT,
-    JSON.stringify({ email, password, workspaceId: acct.workspaceId, meetings }, null, 2),
+    JSON.stringify(
+      { email, password, workspaceId: acct.workspaceId, userId: acct.userId, meetings },
+      null,
+      2,
+    ),
   );
 });

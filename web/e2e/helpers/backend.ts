@@ -138,6 +138,28 @@ export function seedTranscript(
   }
 }
 
+/**
+ * Insert a notification row directly (a real bot/pipeline would emit these).
+ * Used to give the inbox + bell content in E2E without a second member.
+ */
+export function seedNotification(
+  acct: Account,
+  input: { type: string; title: string; body?: string; link?: string; meetingId?: string },
+): void {
+  const body = input.body ? `'${input.body.replace(/'/g, "''")}'` : "NULL";
+  const link = input.link ? `'${input.link.replace(/'/g, "''")}'` : "NULL";
+  const meeting = input.meetingId ? `'${input.meetingId}'::uuid` : "NULL";
+  const sql = `INSERT INTO notifications
+     (workspace_id, user_id, type, title, body, link, meeting_id)
+     VALUES ('${acct.workspaceId}'::uuid, '${acct.userId}'::uuid,
+             '${input.type}', '${input.title.replace(/'/g, "''")}',
+             ${body}, ${link}, ${meeting});`;
+  const dir = mkdtempSync(join(tmpdir(), "seed-notif-"));
+  const file = join(dir, "n.sql");
+  writeFileSync(file, sql);
+  execFileSync("psql", [DB_DSN, "-v", "ON_ERROR_STOP=1", "-f", file], { encoding: "utf8" });
+}
+
 /** Generate summary/insights (backend -> ai-service mock). */
 export async function summarize(acct: Account, meetingId: string): Promise<unknown> {
   return req(`/meetings/${meetingId}/summarize`, {

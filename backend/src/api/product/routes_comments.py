@@ -113,6 +113,24 @@ async def create_comment(
         mentioned_user_ids=mentions,
     )
     names = await repo.names_for(_name_ids([row]))
+
+    # Notify each mentioned member (best-effort; never blocks the comment).
+    if mentions:
+        from ...notifications import notify
+
+        author_name = names.get(author_id, "Someone")
+        await notify(
+            meetings._db if hasattr(meetings, "_db") else repo._db,
+            workspace_id=ctx.workspace.id,
+            user_ids=mentions,
+            type="mention",
+            title=f"{author_name} mentioned you",
+            body=body.body[:200],
+            link=f"/meetings/{meeting_id}#comments",
+            meeting_id=meeting_id,
+            actor_id=author_id,
+        )
+
     return _to_comment(row, names)
 
 

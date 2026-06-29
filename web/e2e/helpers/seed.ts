@@ -15,6 +15,7 @@ import {
   createMeeting,
   createShare,
   embed,
+  seedNotification,
   seedTranscript,
   summarize,
 } from "./backend";
@@ -135,7 +136,16 @@ async function seedOne(acct: Account, s: MeetingSeed): Promise<SeededMeeting> {
 
 export async function seedWorkspace(acct: Account): Promise<SeededMeeting[]> {
   // Seed the meetings concurrently — they're independent.
-  return Promise.all(SEEDS.map((s) => seedOne(acct, s)));
+  const meetings = await Promise.all(SEEDS.map((s) => seedOne(acct, s)));
+  // Give the inbox content (a real pipeline would emit these on completion).
+  seedNotification(acct, {
+    type: "recap_ready",
+    title: "Your recap is ready",
+    body: `"${meetings[0].title}" has been summarized.`,
+    link: `/meetings/${meetings[0].id}`,
+    meetingId: meetings[0].id,
+  });
+  return meetings;
 }
 
 function hash(str: string): number {
