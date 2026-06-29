@@ -466,6 +466,16 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- NLP settings (redaction + custom vocab) ---- */
+
+export interface NlpSettings {
+  redactionEnabled: boolean;
+  redactEmails: boolean;
+  redactPhones: boolean;
+  redactCards: boolean;
+  customVocab: string[];
+}
+
 /* ---- Outbound integrations ---- */
 
 export type IntegrationKind = "slack" | "email" | "notion" | "hubspot" | "salesforce";

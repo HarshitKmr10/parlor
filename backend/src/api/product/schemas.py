@@ -731,6 +731,22 @@ class TrackerHitListResponse(CamelModel):
     total: int = 0
 
 
+class NlpSettings(CamelModel):
+    redaction_enabled: bool = False
+    redact_emails: bool = True
+    redact_phones: bool = True
+    redact_cards: bool = True
+    custom_vocab: List[str] = Field(default_factory=list)
+
+
+class NlpSettingsUpdate(CamelModel):
+    redaction_enabled: bool = False
+    redact_emails: bool = True
+    redact_phones: bool = True
+    redact_cards: bool = True
+    custom_vocab: List[str] = Field(default_factory=list)
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 

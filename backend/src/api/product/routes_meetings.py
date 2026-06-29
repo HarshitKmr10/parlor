@@ -486,12 +486,27 @@ async def summarize_meeting(
     segments = [
         s.model_dump(by_alias=True) for s in segments_from_transcript(record.transcript)
     ]
+    # Apply per-workspace PII redaction + custom vocabulary before the
+    # transcript reaches the AI service and embeddings (best-effort).
+    custom_vocab: list[str] = []
+    try:
+        from ...redaction import NlpSettingsRepo, redact_segments
+
+        nlp = await NlpSettingsRepo(db).get(workspace.id)
+        custom_vocab = list(nlp.get("custom_vocab") or [])
+        if nlp.get("redaction_enabled"):
+            segments = redact_segments(segments, nlp)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("redaction skipped for %s: %s", meeting_id, exc)
+
     meta = {
         "title": scoped.get("title") or "",
         "participants": [
             p.model_dump(by_alias=True) for p in to_meeting(record).participants
         ],
     }
+    if custom_vocab:
+        meta["customVocabulary"] = custom_vocab
     # Apply the chosen template, or the workspace default. Best-effort: a missing
     # template never blocks summarization.
     template_meta = await _resolve_template_meta(db, workspace.id, template_id)
