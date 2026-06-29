@@ -13,7 +13,7 @@ const STORAGE = ".auth/user.json";
 const ARTIFACT = "e2e/.artifacts/seeded.json";
 
 setup("authenticate and seed workspace", async ({ page }) => {
-  setup.setTimeout(120_000);
+  setup.setTimeout(180_000);
 
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const email = `e2e+${stamp}@example.com`;

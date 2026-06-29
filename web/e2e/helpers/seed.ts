@@ -111,26 +111,31 @@ export interface SeededMeeting {
 }
 
 /** Full pipeline: create → transcript → summarize → embed → highlights/comments/actions/share. */
+async function seedOne(acct: Account, s: MeetingSeed): Promise<SeededMeeting> {
+  const stamp = Math.abs(hash(s.urlSlug)) % 9000;
+  const meeting: Meeting = await createMeeting(acct, {
+    meetingUrl: `https://meet.google.com/${s.urlSlug}-${stamp}`,
+    title: s.title,
+    botName: "Verdant Bot",
+  });
+  // Transcript must land before summarize/highlight-excerpt read it.
+  seedTranscript(meeting.id, s.segments);
+  // Everything downstream of the transcript is independent — run concurrently.
+  await Promise.all([
+    summarize(acct, meeting.id),
+    embed(acct, meeting.id, s.segments),
+    ...s.highlights.map((h) => createHighlight(acct, meeting.id, h)),
+    ...s.comments.map((c) => createComment(acct, meeting.id, c)),
+    ...s.actionItems.map((a) => createActionItem(acct, meeting.id, a)),
+  ]);
+  let shareToken: string | undefined;
+  if (s.share) shareToken = (await createShare(acct, meeting.id, s.share)).token;
+  return { id: meeting.id, title: s.title, shareToken };
+}
+
 export async function seedWorkspace(acct: Account): Promise<SeededMeeting[]> {
-  const out: SeededMeeting[] = [];
-  for (const s of SEEDS) {
-    const stamp = Math.abs(hash(s.urlSlug)) % 9000;
-    const meeting: Meeting = await createMeeting(acct, {
-      meetingUrl: `https://meet.google.com/${s.urlSlug}-${stamp}`,
-      title: s.title,
-      botName: "Verdant Bot",
-    });
-    seedTranscript(meeting.id, s.segments);
-    await summarize(acct, meeting.id);
-    await embed(acct, meeting.id, s.segments);
-    for (const h of s.highlights) await createHighlight(acct, meeting.id, h);
-    for (const c of s.comments) await createComment(acct, meeting.id, c);
-    for (const a of s.actionItems) await createActionItem(acct, meeting.id, a);
-    let shareToken: string | undefined;
-    if (s.share) shareToken = (await createShare(acct, meeting.id, s.share)).token;
-    out.push({ id: meeting.id, title: s.title, shareToken });
-  }
-  return out;
+  // Seed the meetings concurrently — they're independent.
+  return Promise.all(SEEDS.map((s) => seedOne(acct, s)));
 }
 
 function hash(str: string): number {
