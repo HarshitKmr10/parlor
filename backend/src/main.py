@@ -511,6 +511,16 @@ app.add_middleware(
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
 
+# Rate limiting (token bucket): per API-key/user/IP, stricter for the public
+# share surface. Tunable via RATE_LIMIT_* env; no-ops when RATE_LIMIT_ENABLED
+# is false. Health/readiness probes and CORS preflights are exempt.
+try:
+    from .ratelimit.middleware import RateLimitMiddleware
+
+    app.add_middleware(RateLimitMiddleware)
+except Exception as _rl_exc:  # noqa: BLE001
+    logger.warning("Rate-limit middleware not installed: %s", _rl_exc)
+
 
 # Product-layer error envelope: ApiError -> { "error": { code, message, ... } }
 @app.exception_handler(ApiError)
