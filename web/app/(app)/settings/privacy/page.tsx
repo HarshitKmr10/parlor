@@ -17,6 +17,7 @@ const DEFAULTS: NlpSettings = {
   redactPhones: true,
   redactCards: true,
   customVocab: [],
+  summaryLanguage: "en",
 };
 
 export default async function PrivacyPage() {

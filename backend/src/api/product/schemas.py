@@ -737,6 +737,7 @@ class NlpSettings(CamelModel):
     redact_phones: bool = True
     redact_cards: bool = True
     custom_vocab: List[str] = Field(default_factory=list)
+    summary_language: str = "en"
 
 
 class NlpSettingsUpdate(CamelModel):
@@ -745,6 +746,7 @@ class NlpSettingsUpdate(CamelModel):
     redact_phones: bool = True
     redact_cards: bool = True
     custom_vocab: List[str] = Field(default_factory=list)
+    summary_language: str = Field("en", max_length=10)
 
 
 class AuditEvent(CamelModel):

@@ -76,6 +76,9 @@ class ChatMessage(CamelModel):
 class MeetingMeta(CamelModel):
     title: str
     participants: list[str] = Field(default_factory=list)
+    # Optional summarization controls threaded from the product layer.
+    target_language: str | None = None
+    custom_vocabulary: list[str] = Field(default_factory=list)
 
 
 # --- Request / response payloads -------------------------------------------

@@ -526,6 +526,7 @@ export interface NlpSettings {
   redactPhones: boolean;
   redactCards: boolean;
   customVocab: string[];
+  summaryLanguage: string;
 }
 
 /* ---- Outbound integrations ---- */

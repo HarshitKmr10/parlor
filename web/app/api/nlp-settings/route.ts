@@ -38,6 +38,7 @@ export async function PUT(request: Request) {
       redactPhones: b.redactPhones !== false,
       redactCards: b.redactCards !== false,
       customVocab: Array.isArray(b.customVocab) ? b.customVocab : [],
+      summaryLanguage: typeof b.summaryLanguage === "string" ? b.summaryLanguage : "en",
     });
     return NextResponse.json(saved);
   } catch (error: unknown) {

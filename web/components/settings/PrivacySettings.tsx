@@ -21,6 +21,7 @@ export function PrivacySettings({ initial }: { initial: NlpSettings }) {
       const saved = await putJson<NlpSettings>("/api/nlp-settings", {
         ...s,
         customVocab: vocab.split(",").map((v) => v.trim()).filter(Boolean),
+        summaryLanguage: s.summaryLanguage,
       });
       setS(saved);
       setVocab(saved.customVocab.join(", "));
@@ -65,6 +66,30 @@ export function PrivacySettings({ initial }: { initial: NlpSettings }) {
           ))}
         </div>
       )}
+
+      <label className="flex flex-col gap-1.5 text-sm">
+        <span className="text-ink-muted">Summary language</span>
+        <select
+          value={s.summaryLanguage}
+          onChange={(e) => patch({ summaryLanguage: e.target.value })}
+          className="w-56 rounded-md border border-border-default bg-surface-0 px-3 py-2 text-sm text-ink"
+        >
+          {[
+            ["en", "English"],
+            ["es", "Spanish"],
+            ["fr", "French"],
+            ["de", "German"],
+            ["pt", "Portuguese"],
+            ["ja", "Japanese"],
+            ["hi", "Hindi"],
+          ].map(([code, label]) => (
+            <option key={code} value={code}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-ink-faint">Summaries will be written in this language.</span>
+      </label>
 
       <label className="flex flex-col gap-1.5 text-sm">
         <span className="text-ink-muted">Custom vocabulary (comma-separated)</span>
