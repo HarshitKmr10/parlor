@@ -1,17 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { listCalendarAccounts, calendarConnectUrl } from "@/lib/api/calendar";
+import { listIntegrations } from "@/lib/api/integrations";
 import { ApiError } from "@/lib/api/error";
 import { BACKEND_UNAVAILABLE_CODE } from "@/lib/api/client";
-import type { CalendarAccount } from "@/lib/api/types";
+import type { CalendarAccount, Integration } from "@/lib/api/types";
 import { IntegrationCard } from "@/components/integrations/IntegrationCard";
+import { RecapDestinations } from "@/components/integrations/RecapDestinations";
 import { CalendarConnections } from "@/components/integrations/CalendarConnections";
-import {
-  CalendarGlyph,
-  CrmGlyph,
-  NotionGlyph,
-  SlackGlyph,
-} from "@/components/integrations/logos";
+import { CalendarGlyph } from "@/components/integrations/logos";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
@@ -20,9 +17,11 @@ export const metadata: Metadata = {
 
 export default async function IntegrationsPage() {
   let accounts: CalendarAccount[] = [];
+  let integrations: Integration[] = [];
   let backendDown = false;
   try {
     accounts = await listCalendarAccounts();
+    integrations = await listIntegrations().catch(() => []);
   } catch (error: unknown) {
     if (ApiError.isApiError(error) && error.code === BACKEND_UNAVAILABLE_CODE) {
       backendDown = true;
@@ -48,6 +47,7 @@ export default async function IntegrationsPage() {
       {backendDown ? (
         <BackendDownState resource="your integrations" />
       ) : (
+        <>
         <section
           aria-label="Available integrations"
           className="grid grid-cols-1 gap-4 sm:grid-cols-2"
@@ -87,43 +87,12 @@ export default async function IntegrationsPage() {
             </div>
           </IntegrationCard>
 
-          <IntegrationCard
-            name="Slack"
-            description="Post meeting summaries and action items straight into a channel."
-            logo={<SlackGlyph className="h-6 w-6 text-sage-600" />}
-            comingSoon
-          >
-            <ComingSoonNote />
-          </IntegrationCard>
+          </section>
 
-          <IntegrationCard
-            name="Notion"
-            description="Sync transcripts and summaries into a Notion database per meeting."
-            logo={<NotionGlyph className="h-6 w-6 text-sage-600" />}
-            comingSoon
-          >
-            <ComingSoonNote />
-          </IntegrationCard>
-
-          <IntegrationCard
-            name="HubSpot & Salesforce"
-            description="Attach call notes and follow-ups to the right deal or contact."
-            logo={<CrmGlyph className="h-6 w-6 text-sage-600" />}
-            comingSoon
-          >
-            <ComingSoonNote />
-          </IntegrationCard>
-        </section>
+          <RecapDestinations integrations={integrations} />
+        </>
       )}
     </div>
   );
 }
 
-function ComingSoonNote() {
-  return (
-    <p className="rounded-md border border-dashed border-border-default bg-surface-1 px-3 py-2 text-xs text-ink-muted">
-      We&rsquo;re polishing this connector. Want early access? Reach out from
-      Settings.
-    </p>
-  );
-}
