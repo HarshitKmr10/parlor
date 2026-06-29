@@ -466,6 +466,13 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- Retention & compliance ---- */
+
+export interface RetentionSettings {
+  retentionDays: number | null;
+  legalHold: boolean;
+}
+
 /* ---- Audit log ---- */
 
 export interface AuditEvent {
