@@ -466,6 +466,31 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- Trackers ---- */
+
+export interface Tracker {
+  id: string;
+  name: string;
+  keywords: string[];
+  enabled: boolean;
+}
+
+export interface TrackerHit {
+  id: string;
+  trackerId: string;
+  meetingId: string;
+  matchedKeyword: string;
+  snippet: string;
+  segmentId?: string;
+  tStartSec: number;
+  createdAt: string;
+}
+
+export interface TrackerHitListResponse {
+  items: TrackerHit[];
+  total: number;
+}
+
 /* ---- Coaching ---- */
 
 export interface CoachingSpeaker {

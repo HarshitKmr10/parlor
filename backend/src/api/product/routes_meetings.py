@@ -518,6 +518,19 @@ async def summarize_meeting(
             )
         except Exception as exc:  # noqa: BLE001 — embed is best-effort
             logger.warning("summarize embed failed for %s: %s", meeting_id, exc)
+    # Run topic/keyword trackers over the transcript (best-effort).
+    try:
+        from ...trackers.service import run_trackers
+
+        await run_trackers(
+            repo._db,
+            workspace_id=workspace.id,
+            meeting_id=meeting_id,
+            segments=segments,
+            owner_id=None,  # summarize may run headless; hits recorded regardless
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("tracker scan failed for %s: %s", meeting_id, exc)
     return insights
 
 
