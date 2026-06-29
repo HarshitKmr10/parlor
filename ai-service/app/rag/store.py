@@ -62,6 +62,7 @@ class RetrievedSegment:
     text: str
     t_start_sec: float
     distance: float
+    meeting_id: str = ""
 
 
 class EmbeddingStore:
@@ -161,7 +162,7 @@ class EmbeddingStore:
 
         if meeting_id is not None:
             query = """
-                SELECT segment_id, speaker_name, text, t_start_sec,
+                SELECT meeting_id, segment_id, speaker_name, text, t_start_sec,
                        embedding <=> $2::vector AS distance
                 FROM meeting_embeddings
                 WHERE workspace_id = $1 AND meeting_id = $3
@@ -171,7 +172,7 @@ class EmbeddingStore:
             args = [workspace_id, vector_literal, meeting_id, top_k]
         else:
             query = """
-                SELECT segment_id, speaker_name, text, t_start_sec,
+                SELECT meeting_id, segment_id, speaker_name, text, t_start_sec,
                        embedding <=> $2::vector AS distance
                 FROM meeting_embeddings
                 WHERE workspace_id = $1
@@ -185,6 +186,7 @@ class EmbeddingStore:
 
         return [
             RetrievedSegment(
+                meeting_id=r["meeting_id"],
                 segment_id=r["segment_id"],
                 speaker_name=r["speaker_name"],
                 text=r["text"],
@@ -224,7 +226,7 @@ class EmbeddingStore:
 
         if meeting_id is not None:
             query = f"""
-                SELECT segment_id, speaker_name, text, t_start_sec,
+                SELECT meeting_id, segment_id, speaker_name, text, t_start_sec,
                        ({score_terms}) AS score
                 FROM meeting_embeddings
                 WHERE workspace_id = $1 AND meeting_id = ${len(keywords) + 2}
@@ -234,7 +236,7 @@ class EmbeddingStore:
             args = [workspace_id, *like_params, meeting_id, top_k]
         else:
             query = f"""
-                SELECT segment_id, speaker_name, text, t_start_sec,
+                SELECT meeting_id, segment_id, speaker_name, text, t_start_sec,
                        ({score_terms}) AS score
                 FROM meeting_embeddings
                 WHERE workspace_id = $1
@@ -249,6 +251,7 @@ class EmbeddingStore:
         # distance proxy: lower is better, so invert the score.
         return [
             RetrievedSegment(
+                meeting_id=r["meeting_id"],
                 segment_id=r["segment_id"],
                 speaker_name=r["speaker_name"],
                 text=r["text"],
