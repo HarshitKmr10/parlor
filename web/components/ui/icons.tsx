@@ -151,3 +151,37 @@ export function CalendarIcon(props: IconProps) {
     </Svg>
   );
 }
+
+export function SearchIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
+    </Svg>
+  );
+}
+
+export function HighlightIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M12 3l2.4 5.5L20 9l-4 4 1 6-5-2.8L7 19l1-6-4-4 5.6-.5L12 3Z" />
+    </Svg>
+  );
+}
+
+export function TasksIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M3.5 6l2 2 3-3.5M3.5 13l2 2 3-3.5M3.5 20l2 2 3-3.5M13 6h8M13 13h8M13 20h8" />
+    </Svg>
+  );
+}
+
+export function ReportIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M4 20V4M4 20h16" />
+      <path d="M8 16v-4M12.5 16V8M17 16v-6" />
+    </Svg>
+  );
+}
