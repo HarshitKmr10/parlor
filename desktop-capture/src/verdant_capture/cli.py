@@ -103,6 +103,34 @@ def main(
 
 
 @app.command()
+def gui(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host."),
+    port: int = typer.Option(8787, "--port", help="Bind port."),
+    open_browser: bool = typer.Option(
+        True, "--open/--no-open", help="Open the panel in a browser."
+    ),
+) -> None:
+    """Launch the local desktop capture control panel in a browser."""
+    from .gui.server import serve  # noqa: PLC0415
+
+    server = serve(host=host, port=port)
+    url = f"http://{host}:{port}/"
+    console.print(f"[green]Verdant Capture panel:[/] {url}")
+    if open_browser:
+        import webbrowser  # noqa: PLC0415
+
+        try:
+            webbrowser.open(url)
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Stopping panel.[/]")
+        server.shutdown()
+
+
+@app.command()
 def capture(
     meeting_url: Optional[str] = typer.Option(
         None,
