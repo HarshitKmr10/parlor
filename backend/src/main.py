@@ -56,6 +56,7 @@ from .api.product.routes_public import router as product_public_router
 from .api.product.routes_pubsub import router as product_pubsub_router
 from .api.product.routes_search import router as product_search_router
 from .api.product.routes_shares import router as product_shares_router
+from .api.product.routes_webhooks import router as product_webhooks_router
 from .services.ghost_pod_reaper import close_ghost_pod_reaper, get_ghost_pod_reaper
 from .services.meeting_scheduler import (
     close_meeting_scheduler,
@@ -285,6 +286,17 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning("Meeting scheduler start failed: %s", e)
 
+        # Start the webhook dispatcher — drains the outbound delivery queue and
+        # retries failed deliveries with exponential backoff. Safe everywhere
+        # (no-ops when no endpoints are registered).
+        try:
+            from .webhooks.dispatcher import get_webhook_dispatcher
+
+            await get_webhook_dispatcher().start()
+            logger.info("Webhook dispatcher started")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Webhook dispatcher start failed: %s", e)
+
         # Start the calendar poller — in standalone, periodically scans
         # auto-join calendar accounts for imminent meetings and dispatches a
         # local bot. No-ops quietly when no OAuth creds are configured.
@@ -392,6 +404,13 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning("Ghost-pod reaper stop error: %s", e)
 
+        try:
+            from .webhooks.dispatcher import close_webhook_dispatcher
+
+            await close_webhook_dispatcher()
+            logger.info("Webhook dispatcher stopped")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Webhook dispatcher stop error: %s", e)
         try:
             await close_meeting_scheduler()
             logger.info("Meeting scheduler stopped")
@@ -513,6 +532,7 @@ app.include_router(product_highlights_router)
 app.include_router(product_search_router)
 app.include_router(product_comments_router)
 app.include_router(product_shares_router)
+app.include_router(product_webhooks_router)
 # Public, UNAUTHENTICATED read-only recap via share token (capability URL).
 app.include_router(product_public_router)
 app.include_router(product_calendar_router)

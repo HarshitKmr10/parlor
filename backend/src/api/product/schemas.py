@@ -288,6 +288,55 @@ class SearchResponse(CamelModel):
     total: int = 0
 
 
+class WebhookEndpointCreate(CamelModel):
+    url: str = Field(..., min_length=1, max_length=2000)
+    description: Optional[str] = Field(None, max_length=500)
+    event_types: List[str] = Field(default_factory=list)  # empty = all events
+
+
+class WebhookEndpointUpdate(CamelModel):
+    url: Optional[str] = Field(None, min_length=1, max_length=2000)
+    description: Optional[str] = Field(None, max_length=500)
+    event_types: Optional[List[str]] = None
+    enabled: Optional[bool] = None
+
+
+class WebhookEndpoint(CamelModel):
+    id: str
+    url: str
+    description: Optional[str] = None
+    event_types: List[str] = Field(default_factory=list)
+    secret: str  # shown so the consumer can verify signatures
+    enabled: bool = True
+    consecutive_failures: int = 0
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class WebhookDelivery(CamelModel):
+    id: str
+    endpoint_id: str
+    event_id: str
+    event_type: str
+    status: str
+    attempts: int = 0
+    max_attempts: int = 6
+    response_status: Optional[int] = None
+    error: Optional[str] = None
+    next_attempt_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class WebhookDeliveryListResponse(CamelModel):
+    items: List[WebhookDelivery] = Field(default_factory=list)
+    total: int = 0
+
+
+class WebhookEventCatalog(CamelModel):
+    event_types: List[str] = Field(default_factory=list)
+
+
 class CommentAuthor(CamelModel):
     id: Optional[str] = None
     name: str = "Unknown"

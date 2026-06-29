@@ -52,9 +52,7 @@ async def run_completion_pipeline(meeting_id: str) -> None:
 
         record = await service.get_meeting_by_id(meeting_id)
         if record is None:
-            logger.warning(
-                "completion_pipeline.meeting_missing", meeting_id=meeting_id
-            )
+            logger.warning("completion_pipeline.meeting_missing", meeting_id=meeting_id)
             return
 
         workspace_id = await _workspace_id_for(db, meeting_id)
@@ -67,9 +65,7 @@ async def run_completion_pipeline(meeting_id: str) -> None:
         segments = [s.model_dump(by_alias=True, mode="json") for s in segments_models]
 
         if not segments:
-            logger.info(
-                "completion_pipeline.no_segments", meeting_id=meeting_id
-            )
+            logger.info("completion_pipeline.no_segments", meeting_id=meeting_id)
             return
 
         # 1. Embed (for cross-meeting RAG). Tolerate failure.
@@ -120,9 +116,38 @@ async def run_completion_pipeline(meeting_id: str) -> None:
         if insights is not None and workspace_id:
             await _deliver_recap(db, workspace_id, meeting_id, title, insights)
 
+        # 4. Fan out developer webhooks (best-effort, never fails the pipeline).
+        if workspace_id:
+            await _emit_webhooks(db, workspace_id, meeting_id, title, insights)
+
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "completion_pipeline.error", meeting_id=meeting_id, error=str(exc)
+        )
+
+
+async def _emit_webhooks(
+    db, workspace_id: str, meeting_id: str, title: str, insights
+) -> None:
+    """Emit transcript.ready, summary.ready and meeting.completed events."""
+    try:
+        from ..webhooks import emit_event
+
+        base = {"meetingId": meeting_id, "title": title or ""}
+        await emit_event(db, workspace_id, "transcript.ready", dict(base))
+        if insights is not None:
+            await emit_event(
+                db,
+                workspace_id,
+                "summary.ready",
+                {**base, "summary": insights.summary},
+            )
+        await emit_event(db, workspace_id, "meeting.completed", dict(base))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "completion_pipeline.webhook_emit_failed",
+            meeting_id=meeting_id,
+            error=str(exc),
         )
 
 
