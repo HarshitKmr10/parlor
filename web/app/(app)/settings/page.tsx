@@ -88,6 +88,32 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Summary templates"
+            description="Tailor how Verdant summarizes each kind of meeting — sales calls, standups, interviews."
+          >
+            <Link
+              href="/settings/templates"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage summary templates
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Webhooks"
+            description="Stream meeting events to your own systems with HMAC-signed, auto-retrying webhooks."
+          >
+            <Link
+              href="/settings/webhooks"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage webhooks
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Org-wide Google Meet capture"
             description="Admin-only. Capture every Meet across your Workspace via a single domain-authorized service account."
           >

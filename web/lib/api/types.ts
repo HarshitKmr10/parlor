@@ -463,6 +463,50 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- Webhooks (developer) ---- */
+
+export interface WebhookEndpoint {
+  id: string;
+  url: string;
+  description?: string;
+  eventTypes: string[];
+  secret: string;
+  enabled: boolean;
+  consecutiveFailures: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface WebhookEventCatalog {
+  eventTypes: string[];
+}
+
+export interface WebhookDelivery {
+  id: string;
+  endpointId: string;
+  eventId: string;
+  eventType: string;
+  status: string;
+  attempts: number;
+  maxAttempts: number;
+  responseStatus?: number;
+  error?: string;
+  nextAttemptAt?: string;
+  deliveredAt?: string;
+  createdAt?: string;
+}
+
+export interface WebhookDeliveryListResponse {
+  items: WebhookDelivery[];
+  total: number;
+}
+
+export interface CreateWebhookInput {
+  url: string;
+  description?: string;
+  eventTypes?: string[];
+}
+
 /* ---- Live WebSocket events ---- */
 
 export type LiveEvent =
