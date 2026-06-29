@@ -114,6 +114,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Developers"
+            description="REST API, webhooks, OpenAPI spec, and SDK generation."
+          >
+            <Link
+              href="/developers"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Open developer docs
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Webhooks"
             description="Stream meeting events to your own systems with HMAC-signed, auto-retrying webhooks."
           >

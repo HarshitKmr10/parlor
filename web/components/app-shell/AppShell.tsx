@@ -7,6 +7,7 @@ import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { UserMenu } from "./UserMenu";
 import { NotificationBell } from "./NotificationBell";
 import { NewMeetingButton } from "@/components/meetings/NewMeetingButton";
+import { SearchBox } from "@/components/search/SearchBox";
 import { CloseIcon, MenuIcon } from "@/components/ui/icons";
 
 type Props = {
@@ -101,6 +102,10 @@ export function AppShell({ children }: Props) {
           </button>
 
           <WorkspaceSwitcher />
+
+          <div className="mx-auto hidden w-full max-w-md md:block">
+            <SearchBox ariaLabel="Global search" placeholder="Search meetings…" />
+          </div>
 
           <div className="ml-auto flex items-center gap-2 sm:gap-3">
             <NotificationBell />
