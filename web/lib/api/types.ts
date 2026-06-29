@@ -466,6 +466,24 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- Notifications ---- */
+
+export interface Notification {
+  id: string;
+  type: string;
+  title: string;
+  body?: string;
+  link?: string;
+  meetingId?: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface NotificationListResponse {
+  items: Notification[];
+  unread: number;
+}
+
 /* ---- Webhooks (developer) ---- */
 
 export interface WebhookEndpoint {
