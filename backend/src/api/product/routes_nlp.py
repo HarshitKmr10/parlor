@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends
 from ...redaction import NlpSettingsRepo
 from ..database.connection import DatabaseConnection
 from .deps import AuthContext, get_current_context, get_db
+from .rbac import require_role
 from .schemas import NlpSettings, NlpSettingsUpdate
 
 router = APIRouter(prefix="/api/v1/nlp-settings", tags=["nlp"])
@@ -44,7 +45,7 @@ async def get_settings(
 @router.put("", response_model=NlpSettings)
 async def put_settings(
     body: NlpSettingsUpdate,
-    ctx: AuthContext = Depends(get_current_context),
+    ctx: AuthContext = Depends(require_role("admin")),
     repo: NlpSettingsRepo = Depends(_repo),
 ) -> NlpSettings:
     row = await repo.upsert(

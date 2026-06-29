@@ -18,6 +18,7 @@ from ...audit import record_audit
 from ...compliance import RetentionRepo
 from ..database.connection import DatabaseConnection
 from .deps import AuthContext, get_current_context, get_db
+from .rbac import require_role
 from .schemas import RetentionSettings, RetentionSettingsUpdate
 
 router = APIRouter(prefix="/api/v1", tags=["compliance"])
@@ -45,7 +46,7 @@ async def get_retention(
 @router.put("/retention-settings", response_model=RetentionSettings)
 async def put_retention(
     body: RetentionSettingsUpdate,
-    ctx: AuthContext = Depends(get_current_context),
+    ctx: AuthContext = Depends(require_role("admin")),
     repo: RetentionRepo = Depends(_repo),
     db: DatabaseConnection = Depends(get_db),
 ) -> RetentionSettings:

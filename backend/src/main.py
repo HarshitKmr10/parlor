@@ -64,6 +64,7 @@ from .api.product.routes_nlp import router as product_nlp_router
 from .api.product.routes_audit import router as product_audit_router
 from .api.product.routes_sso import router as product_sso_router
 from .api.product.routes_compliance import router as product_compliance_router
+from .api.product.routes_usage import router as product_usage_router
 from .api.product.routes_pubsub import router as product_pubsub_router
 from .api.product.routes_search import router as product_search_router
 from .api.product.routes_shares import router as product_shares_router
@@ -623,6 +624,7 @@ app.include_router(product_nlp_router)
 app.include_router(product_audit_router)
 app.include_router(product_sso_router)
 app.include_router(product_compliance_router)
+app.include_router(product_usage_router)
 # Public, UNAUTHENTICATED read-only recap via share token (capability URL).
 app.include_router(product_public_router)
 app.include_router(product_calendar_router)
