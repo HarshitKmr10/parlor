@@ -288,6 +288,42 @@ class SearchResponse(CamelModel):
     total: int = 0
 
 
+class DigestMeeting(CamelModel):
+    id: str
+    title: Optional[str] = None
+    status: Optional[str] = None
+    duration_sec: Optional[float] = None
+    created_at: Optional[datetime] = None
+
+
+class DigestAssignee(CamelModel):
+    assignee: str
+    open: int = 0
+    done: int = 0
+
+
+class DigestActionItems(CamelModel):
+    total: int = 0
+    open: int = 0
+    done: int = 0
+    by_assignee: List[DigestAssignee] = Field(default_factory=list)
+
+
+class DigestReport(CamelModel):
+    """A workspace activity rollup over a time window."""
+
+    period_from: datetime
+    period_to: datetime
+    meeting_count: int = 0
+    completed_count: int = 0
+    total_duration_sec: float = 0.0
+    avg_duration_sec: float = 0.0
+    busiest_day: Optional[str] = None
+    action_items: DigestActionItems = Field(default_factory=DigestActionItems)
+    meetings: List[DigestMeeting] = Field(default_factory=list)
+    generated_at: datetime
+
+
 class ActionItemRecord(CamelModel):
     """A trackable action item promoted out of insights into its own row."""
 
