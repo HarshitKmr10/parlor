@@ -25,7 +25,12 @@ curl -s -X POST $API/api/v1/ask \\
 curl -s -X POST $API/api/v1/webhooks \\
   -H "Authorization: Bearer $TOKEN" -H "X-Workspace-Id: $WORKSPACE_ID" \\
   -H 'Content-Type: application/json' \\
-  -d '{"url":"https://you.example.com/hooks","eventTypes":["summary.ready"]}'`;
+  -d '{"url":"https://you.example.com/hooks","eventTypes":["summary.ready"]}'
+
+# 5. Botless native capture — ingest a Zoom/Teams/WebVTT transcript (no bot)
+curl -s -X POST $API/api/v1/meetings/$MEETING_ID/capture/vtt \\
+  -H "Authorization: Bearer $TOKEN" -H "X-Workspace-Id: $WORKSPACE_ID" \\
+  -H 'Content-Type: text/plain' --data-binary @captions.vtt`;
 
 function CardLink({
   href,

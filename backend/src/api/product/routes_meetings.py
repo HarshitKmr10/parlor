@@ -7,7 +7,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect
 
 from shared.exceptions import InvalidMeetingURLError
 
@@ -335,6 +335,55 @@ async def ingest_transcript(
         raise ApiError(500, "ingest_failed", "No transcript segments could be appended")
 
     return TranscriptIngestResponse(appended=appended, last_segment_at=last_at)
+
+
+@router.post("/{meeting_id}/capture/{provider}", response_model=TranscriptIngestResponse)
+async def capture_native(
+    meeting_id: str,
+    provider: str,
+    request: Request,
+    workspace: Workspace = Depends(get_current_workspace),
+    service: MeetingService = Depends(_service),
+    repo: ProductMeetingsRepo = Depends(_repo),
+) -> TranscriptIngestResponse:
+    """Botless native capture: ingest a platform-native transcript (Zoom/Teams
+    cloud recording, or WebVTT) without a bot joining. The payload is normalized
+    to internal segments and appended via the same path as bot/botless capture.
+    """
+    from ...capture import normalize  # noqa: PLC0415
+
+    raw = await request.body()
+    p = provider.lower()
+    if p == "vtt":
+        payload: Any = raw.decode("utf-8", errors="replace")
+    else:
+        try:
+            payload = json.loads(raw or b"{}")
+        except ValueError:
+            raise ApiError(400, "invalid_payload", "Body must be valid JSON")
+    try:
+        normalized = normalize(p, payload)
+    except ValueError as exc:
+        raise ApiError(400, "unsupported_provider", str(exc))
+    if not normalized:
+        raise ApiError(400, "empty_transcript", "No segments found in the payload")
+
+    from .schemas import TranscriptSegment as _TS  # noqa: PLC0415
+
+    segments = [
+        _TS(
+            id=s["id"],
+            speaker_id=s.get("speakerId"),
+            speaker_name=s["speakerName"],
+            text=s["text"],
+            t_start_sec=s["tStartSec"],
+            t_end_sec=s["tEndSec"],
+        )
+        for s in normalized
+    ]
+    return await ingest_transcript(
+        meeting_id, TranscriptIngestRequest(segments=segments), workspace, service, repo
+    )
 
 
 @router.post("/{meeting_id}/complete", response_model=Meeting)
