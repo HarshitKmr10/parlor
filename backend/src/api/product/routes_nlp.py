@@ -31,6 +31,7 @@ def _to_model(row: dict) -> NlpSettings:
         redact_phones=bool(row.get("redact_phones", True)),
         redact_cards=bool(row.get("redact_cards", True)),
         custom_vocab=list(row.get("custom_vocab") or []),
+        summary_language=row.get("summary_language") or "en",
     )
 
 
@@ -55,5 +56,6 @@ async def put_settings(
         redact_phones=body.redact_phones,
         redact_cards=body.redact_cards,
         custom_vocab=[v.strip() for v in body.custom_vocab if v.strip()],
+        summary_language=body.summary_language or "en",
     )
     return _to_model(row)

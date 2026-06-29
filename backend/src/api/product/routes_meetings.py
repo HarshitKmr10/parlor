@@ -509,11 +509,13 @@ async def summarize_meeting(
     # Apply per-workspace PII redaction + custom vocabulary before the
     # transcript reaches the AI service and embeddings (best-effort).
     custom_vocab: list[str] = []
+    summary_language = "en"
     try:
         from ...redaction import NlpSettingsRepo, redact_segments
 
         nlp = await NlpSettingsRepo(db).get(workspace.id)
         custom_vocab = list(nlp.get("custom_vocab") or [])
+        summary_language = nlp.get("summary_language") or "en"
         if nlp.get("redaction_enabled"):
             segments = redact_segments(segments, nlp)
     except Exception as exc:  # noqa: BLE001
@@ -527,6 +529,8 @@ async def summarize_meeting(
     }
     if custom_vocab:
         meta["customVocabulary"] = custom_vocab
+    if summary_language and summary_language != "en":
+        meta["targetLanguage"] = summary_language
     # Apply the chosen template, or the workspace default. Best-effort: a missing
     # template never blocks summarization.
     template_meta = await _resolve_template_meta(db, workspace.id, template_id)

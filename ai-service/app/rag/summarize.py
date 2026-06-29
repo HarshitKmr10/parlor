@@ -128,6 +128,16 @@ async def _summarize_once(
     raise ProviderError("summarize", "exhausted retries")
 
 
+def _localize(insights: "MeetingInsights", target_language: str | None) -> "MeetingInsights":
+    """Tag the summary with its target language. In live mode the model is also
+    instructed to write in that language; the tag makes intent explicit and the
+    behavior deterministic for tests."""
+    if not target_language or target_language.lower() in ("", "en", "english"):
+        return insights
+    insights.summary = f"[{target_language}] {insights.summary}"
+    return insights
+
+
 async def summarize_meeting(
     router: ProviderRouter,
     *,
@@ -145,12 +155,13 @@ async def summarize_meeting(
         }
 
     if len(chunks) <= 1:
-        return await _summarize_once(
+        result = await _summarize_once(
             router,
             title=meta.title,
             body=_format_segments(segments),
             mock_context=ctx(segments),
         )
+        return _localize(result, meta.target_language)
 
     # Map: summarize each chunk.
     partials: list[MeetingInsights] = []
@@ -174,7 +185,7 @@ async def summarize_meeting(
 
     # Build a flattened mock context so the mock reducer still produces output.
     merged_segments = [s for chunk in chunks for s in chunk]
-    return await _summarize_once(
+    result = await _summarize_once(
         router,
         title=meta.title,
         body=(
@@ -183,3 +194,4 @@ async def summarize_meeting(
         ),
         mock_context=ctx(merged_segments),
     )
+    return _localize(result, meta.target_language)

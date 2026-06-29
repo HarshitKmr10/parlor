@@ -52,6 +52,7 @@ services:
       - ./backend/db/0018_audit_events.sql:/docker-entrypoint-initdb.d/17_audit_events.sql:ro
       - ./backend/db/0019_retention.sql:/docker-entrypoint-initdb.d/18_retention.sql:ro
       - ./backend/db/0020_billing.sql:/docker-entrypoint-initdb.d/19_billing.sql:ro
+      - ./backend/db/0021_summary_language.sql:/docker-entrypoint-initdb.d/20_summary_language.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meeting} -d ${POSTGRES_DB:-meeting}"]
       interval: 3s
