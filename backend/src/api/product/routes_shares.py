@@ -80,6 +80,17 @@ async def create_share(
         include_analytics=body.include_analytics,
         expires_at=expires_at,
     )
+    from ...audit import record_audit
+
+    await record_audit(
+        repo._db,
+        workspace_id=ctx.workspace.id,
+        actor_id=ctx.user.id if ctx.user else None,
+        action="share.created",
+        resource_type="meeting",
+        resource_id=meeting_id,
+        metadata={"includeTranscript": body.include_transcript},
+    )
     return _share_link(row)
 
 
@@ -103,3 +114,13 @@ async def revoke_share(
 ) -> None:
     if not await repo.revoke(meeting_id, ctx.workspace.id):
         raise ApiError(404, "not_found", "This meeting has no share link")
+    from ...audit import record_audit
+
+    await record_audit(
+        repo._db,
+        workspace_id=ctx.workspace.id,
+        actor_id=ctx.user.id if ctx.user else None,
+        action="share.revoked",
+        resource_type="meeting",
+        resource_id=meeting_id,
+    )

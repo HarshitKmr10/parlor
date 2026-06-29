@@ -747,6 +747,21 @@ class NlpSettingsUpdate(CamelModel):
     custom_vocab: List[str] = Field(default_factory=list)
 
 
+class AuditEvent(CamelModel):
+    id: str
+    actor_id: Optional[str] = None
+    action: str
+    resource_type: str
+    resource_id: Optional[str] = None
+    metadata: dict = Field(default_factory=dict)
+    created_at: datetime
+
+
+class AuditEventListResponse(CamelModel):
+    items: List[AuditEvent] = Field(default_factory=list)
+    total: int = 0
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 

@@ -61,6 +61,7 @@ from .api.product.routes_digest_prefs import router as product_digest_prefs_rout
 from .api.product.routes_speakers import router as product_speakers_router
 from .api.product.routes_trackers import router as product_trackers_router
 from .api.product.routes_nlp import router as product_nlp_router
+from .api.product.routes_audit import router as product_audit_router
 from .api.product.routes_pubsub import router as product_pubsub_router
 from .api.product.routes_search import router as product_search_router
 from .api.product.routes_shares import router as product_shares_router
@@ -599,6 +600,7 @@ app.include_router(product_digest_prefs_router)
 app.include_router(product_speakers_router)
 app.include_router(product_trackers_router)
 app.include_router(product_nlp_router)
+app.include_router(product_audit_router)
 # Public, UNAUTHENTICATED read-only recap via share token (capability URL).
 app.include_router(product_public_router)
 app.include_router(product_calendar_router)
