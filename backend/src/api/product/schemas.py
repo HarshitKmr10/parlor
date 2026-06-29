@@ -263,6 +263,31 @@ class WorkspaceHighlightListResponse(CamelModel):
     offset: int = 0
 
 
+class SearchSnippet(CamelModel):
+    """A matching transcript moment, with the query marked via <mark> tags."""
+
+    segment_id: str = ""
+    speaker_name: str = "Unknown"
+    t_start_sec: float = 0.0
+    snippet: str = ""
+
+
+class SearchResultItem(CamelModel):
+    meeting_id: str
+    title: Optional[str] = None
+    score: int = 0
+    matched_segments: int = 0
+    title_match: bool = False
+    summary_match: bool = False
+    snippets: List[SearchSnippet] = Field(default_factory=list)
+
+
+class SearchResponse(CamelModel):
+    query: str
+    items: List[SearchResultItem] = Field(default_factory=list)
+    total: int = 0
+
+
 class Meeting(CamelModel):
     id: str
     workspace_id: Optional[str] = None
