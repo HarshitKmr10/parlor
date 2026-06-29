@@ -81,6 +81,31 @@ async def _repo(db: DatabaseConnection = Depends(get_db)) -> ProductMeetingsRepo
     return ProductMeetingsRepo(db)
 
 
+async def _resolve_template_meta(db, workspace_id: str, template_id: Optional[str]):
+    """Resolve the summarizer template meta from an explicit id or the default.
+
+    Returns None (no template) on any miss — summarization must never fail just
+    because a template was deleted or the table is unavailable.
+    """
+    try:
+        from ...summary_templates import SummaryTemplatesRepo, template_to_meta
+
+        repo = SummaryTemplatesRepo(db)
+        row = (
+            await repo.get(template_id, workspace_id)
+            if template_id
+            else await repo.get_default(workspace_id)
+        )
+        if template_id and row is None:
+            raise ApiError(404, "not_found", "Summary template not found")
+        return template_to_meta(row)
+    except ApiError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("summary_template_resolve_failed: %s", exc)
+        return None
+
+
 async def _load_scoped_meeting(
     meeting_id: str,
     workspace_id: str,
@@ -111,9 +136,7 @@ async def list_meetings(
         requested = [s.strip() for s in status.split(",") if s.strip()]
         unknown = [s for s in requested if s not in _VALID_STATUSES]
         if unknown:
-            raise ApiError(
-                400, "invalid_status", f"Unknown status values: {unknown}"
-            )
+            raise ApiError(400, "invalid_status", f"Unknown status values: {unknown}")
         statuses = requested
 
     ids = await repo.list_ids(
@@ -232,9 +255,7 @@ async def create_botless_meeting(
     return meeting
 
 
-@router.post(
-    "/{meeting_id}/transcript", response_model=TranscriptIngestResponse
-)
+@router.post("/{meeting_id}/transcript", response_model=TranscriptIngestResponse)
 async def ingest_transcript(
     meeting_id: str,
     body: TranscriptIngestRequest,
@@ -289,9 +310,7 @@ async def ingest_transcript(
             last_at = ts
 
     if appended == 0:
-        raise ApiError(
-            500, "ingest_failed", "No transcript segments could be appended"
-        )
+        raise ApiError(500, "ingest_failed", "No transcript segments could be appended")
 
     return TranscriptIngestResponse(appended=appended, last_segment_at=last_at)
 
@@ -309,9 +328,7 @@ async def complete_meeting(
     meeting is already terminal, this is a no-op that returns the current state.
     Transitioning to ``completed`` fires the embed→summarize→recap pipeline.
     """
-    record, scoped = await _load_scoped_meeting(
-        meeting_id, workspace.id, service, repo
-    )
+    record, scoped = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     if record.status.value not in ("completed", "failed"):
         await service.update_meeting_status(meeting_id, InternalStatus.COMPLETED)
         _fire_completion_pipeline(meeting_id)
@@ -328,9 +345,7 @@ async def get_meeting(
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> MeetingWithInsights:
-    record, scoped = await _load_scoped_meeting(
-        meeting_id, workspace.id, service, repo
-    )
+    record, scoped = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     base = to_meeting(record, title=scoped.get("title"))
     insights = insights_from_row(scoped.get("insights"))
     result = MeetingWithInsights(**base.model_dump(), insights=insights)
@@ -392,9 +407,7 @@ async def stop_meeting(
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> Meeting:
-    record, scoped = await _load_scoped_meeting(
-        meeting_id, workspace.id, service, repo
-    )
+    record, scoped = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     if record.status.value not in ("completed", "failed"):
         await service.update_meeting_status(meeting_id, InternalStatus.COMPLETED)
         _fire_completion_pipeline(meeting_id)
@@ -407,25 +420,29 @@ async def stop_meeting(
 @router.post("/{meeting_id}/summarize", response_model=MeetingInsights)
 async def summarize_meeting(
     meeting_id: str,
+    template_id: Optional[str] = Query(None),
     workspace: Workspace = Depends(get_current_workspace),
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
+    db: DatabaseConnection = Depends(get_db),
 ) -> MeetingInsights:
-    record, scoped = await _load_scoped_meeting(
-        meeting_id, workspace.id, service, repo
-    )
-    segments = [s.model_dump(by_alias=True) for s in segments_from_transcript(record.transcript)]
-    payload = {
-        "meetingId": meeting_id,
-        "meta": {
-            "title": scoped.get("title") or "",
-            "participants": [
-                p.model_dump(by_alias=True)
-                for p in to_meeting(record).participants
-            ],
-        },
-        "segments": segments,
+    record, scoped = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
+    segments = [
+        s.model_dump(by_alias=True) for s in segments_from_transcript(record.transcript)
+    ]
+    meta = {
+        "title": scoped.get("title") or "",
+        "participants": [
+            p.model_dump(by_alias=True) for p in to_meeting(record).participants
+        ],
     }
+    # Apply the chosen template, or the workspace default. Best-effort: a missing
+    # template never blocks summarization.
+    template_meta = await _resolve_template_meta(db, workspace.id, template_id)
+    if template_meta is not None:
+        meta["template"] = template_meta
+
+    payload = {"meetingId": meeting_id, "meta": meta, "segments": segments}
     data = await ai_client.summarize(payload)
     insights = MeetingInsights.model_validate(data)
     # Persist for later GET /{id}.
@@ -460,8 +477,7 @@ async def ask_meeting(
     # Ensure the transcript is embedded so RAG has vectors even if the user
     # never clicked "Generate summary". /embed upserts, so this is idempotent.
     segments = [
-        s.model_dump(by_alias=True)
-        for s in segments_from_transcript(record.transcript)
+        s.model_dump(by_alias=True) for s in segments_from_transcript(record.transcript)
     ]
     if segments:
         try:
@@ -551,7 +567,10 @@ async def live_stream(websocket: WebSocket, meeting_id: str) -> None:
             if len(segments) > seen:
                 for seg in segments[seen:]:
                     await websocket.send_json(
-                        {"type": "segment", "segment": seg.model_dump(by_alias=True, mode="json")}
+                        {
+                            "type": "segment",
+                            "segment": seg.model_dump(by_alias=True, mode="json"),
+                        }
                     )
                 seen = len(segments)
 

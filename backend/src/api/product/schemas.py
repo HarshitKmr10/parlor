@@ -288,6 +288,38 @@ class SearchResponse(CamelModel):
     total: int = 0
 
 
+class SummaryTemplateCreate(CamelModel):
+    name: str = Field(..., min_length=1, max_length=120)
+    instructions: str = Field("", max_length=4000)
+    sections: List[str] = Field(default_factory=list)
+    is_default: bool = False
+    from_preset: Optional[str] = None  # create starting from a built-in preset
+
+
+class SummaryTemplateUpdate(CamelModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=120)
+    instructions: Optional[str] = Field(None, max_length=4000)
+    sections: Optional[List[str]] = None
+    is_default: Optional[bool] = None
+
+
+class SummaryTemplate(CamelModel):
+    id: str
+    name: str
+    instructions: str = ""
+    sections: List[str] = Field(default_factory=list)
+    is_default: bool = False
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class SummaryTemplatePreset(CamelModel):
+    key: str
+    name: str
+    instructions: str
+    sections: List[str] = Field(default_factory=list)
+
+
 class WebhookEndpointCreate(CamelModel):
     url: str = Field(..., min_length=1, max_length=2000)
     description: Optional[str] = Field(None, max_length=500)
