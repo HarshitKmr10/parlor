@@ -466,6 +466,15 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- Speaker profiles ---- */
+
+export interface SpeakerProfile {
+  id: string;
+  displayName: string;
+  email?: string;
+  aliases: string[];
+}
+
 /* ---- Live assist ---- */
 
 export interface MeetingAssist {
