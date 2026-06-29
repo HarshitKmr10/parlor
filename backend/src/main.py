@@ -516,6 +516,16 @@ app.add_middleware(
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.ALLOWED_HOSTS)
 
+# Idempotency: replays cached responses for POSTs that carry an Idempotency-Key
+# header so client retries never double-create. Best-effort; falls through on any
+# store error. Added before the rate limiter so the limiter stays outermost.
+try:
+    from .idempotency.middleware import IdempotencyMiddleware
+
+    app.add_middleware(IdempotencyMiddleware)
+except Exception as _idem_exc:  # noqa: BLE001
+    logger.warning("Idempotency middleware not installed: %s", _idem_exc)
+
 # Rate limiting (token bucket): per API-key/user/IP, stricter for the public
 # share surface. Tunable via RATE_LIMIT_* env; no-ops when RATE_LIMIT_ENABLED
 # is false. Health/readiness probes and CORS preflights are exempt.
