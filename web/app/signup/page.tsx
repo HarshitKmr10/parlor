@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import { SignupForm } from "@/components/auth/SignupForm";
+import { SsoButton } from "@/components/auth/SsoButton";
 
 export const metadata: Metadata = {
   title: "Create your account — Verdant",
@@ -23,6 +24,7 @@ export default function SignupPage() {
             </p>
           </div>
           <SignupForm />
+          <SsoButton />
         </div>
       </main>
     </div>

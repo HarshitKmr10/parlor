@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { AuthBrandPanel } from "@/components/auth/AuthBrandPanel";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { SsoButton } from "@/components/auth/SsoButton";
 
 export const metadata: Metadata = {
   title: "Sign in — Verdant",
@@ -26,6 +27,7 @@ export default function LoginPage() {
           <Suspense fallback={null}>
             <LoginForm />
           </Suspense>
+          <SsoButton />
         </div>
       </main>
     </div>
