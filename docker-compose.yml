@@ -43,6 +43,7 @@ services:
       - ./backend/db/0009_webhooks.sql:/docker-entrypoint-initdb.d/08_webhooks.sql:ro
       - ./backend/db/0010_summary_templates.sql:/docker-entrypoint-initdb.d/09_summary_templates.sql:ro
       - ./backend/db/0011_action_items.sql:/docker-entrypoint-initdb.d/10_action_items.sql:ro
+      - ./backend/db/0012_idempotency_keys.sql:/docker-entrypoint-initdb.d/11_idempotency_keys.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meeting} -d ${POSTGRES_DB:-meeting}"]
       interval: 3s
