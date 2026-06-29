@@ -103,8 +103,20 @@ def to_meeting(record: MeetingRecord, *, title: Optional[str] = None) -> Meeting
 def segments_from_transcript(
     transcript: Optional[dict[str, Any]],
 ) -> list[TranscriptSegment]:
-    """Project the internal transcript JSON `content` list into segments."""
-    if not transcript or not isinstance(transcript, dict):
+    """Project the internal transcript JSON `content` list into segments.
+
+    asyncpg returns a ``json``/``jsonb`` column as a JSON *string*, so decode it
+    before treating it as a dict — otherwise callers that pass the raw column
+    (e.g. cross-meeting search) silently get zero segments and no snippets.
+    """
+    if not transcript:
+        return []
+    if isinstance(transcript, str):
+        try:
+            transcript = json.loads(transcript)
+        except (ValueError, TypeError):
+            return []
+    if not isinstance(transcript, dict):
         return []
     content = transcript.get("content")
     if not isinstance(content, list):

@@ -3,25 +3,17 @@
 import { useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 
-type TabKey = "summary" | "transcript" | "ask";
-
-type Props = {
-  summary: ReactNode;
-  transcript: ReactNode;
-  ask: ReactNode;
-  /** Initial tab — e.g. open on Ask when arriving from a CTA. */
-  defaultTab?: TabKey;
+export type TabDef = {
+  key: string;
+  label: string;
+  panel: ReactNode;
 };
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "summary", label: "Summary" },
-  { key: "transcript", label: "Transcript" },
-  { key: "ask", label: "Ask" },
-];
-
-function isTabKey(value: string): value is TabKey {
-  return value === "summary" || value === "transcript" || value === "ask";
-}
+type Props = {
+  tabs: TabDef[];
+  /** Initial tab — e.g. open on Ask when arriving from a CTA. */
+  defaultTab?: string;
+};
 
 /** Subscribe to the URL hash so a `#ask` deep-link selects the right tab. */
 function subscribeToHash(callback: () => void): () => void {
@@ -29,47 +21,40 @@ function subscribeToHash(callback: () => void): () => void {
   return () => window.removeEventListener("hashchange", callback);
 }
 
-function getHashTab(): TabKey | null {
+function getHashTab(): string | null {
   if (typeof window === "undefined") return null;
   const hash = window.location.hash.replace("#", "");
-  return isTabKey(hash) ? hash : null;
+  return hash || null;
 }
 
-export function MeetingTabs({
-  summary,
-  transcript,
-  ask,
-  defaultTab = "summary",
-}: Props) {
+export function MeetingTabs({ tabs, defaultTab }: Props) {
+  const fallback = defaultTab ?? tabs[0]?.key;
   // User selection overrides the URL hash once they click a tab.
-  const [override, setOverride] = useState<TabKey | null>(null);
-  const hashTab = useSyncExternalStore(
-    subscribeToHash,
-    getHashTab,
-    () => null,
-  );
-  const active = override ?? hashTab ?? defaultTab;
+  const [override, setOverride] = useState<string | null>(null);
+  const hashTab = useSyncExternalStore(subscribeToHash, getHashTab, () => null);
+  const hashValid =
+    hashTab && tabs.some((t) => t.key === hashTab) ? hashTab : null;
+  const active = override ?? hashValid ?? fallback;
 
   // Persist the active tab in the URL hash so a reload (or a shared link)
-  // restores it instead of snapping back to the default (Summary).
-  const setActive = (key: TabKey) => {
+  // restores it instead of snapping back to the default.
+  const setActive = (key: string) => {
     setOverride(key);
     if (typeof window !== "undefined") {
       window.history.replaceState(null, "", `#${key}`);
     }
   };
 
-  const panel =
-    active === "summary" ? summary : active === "transcript" ? transcript : ask;
+  const panel = tabs.find((t) => t.key === active)?.panel ?? null;
 
   return (
     <div>
       <div
         role="tablist"
         aria-label="Meeting content"
-        className="flex gap-1 border-b border-border-subtle"
+        className="flex gap-1 overflow-x-auto border-b border-border-subtle"
       >
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const isActive = tab.key === active;
           return (
             <button
@@ -80,10 +65,8 @@ export function MeetingTabs({
               aria-selected={isActive}
               aria-controls={`panel-${tab.key}`}
               onClick={() => setActive(tab.key)}
-              className={`relative -mb-px px-4 py-2.5 font-sans text-sm font-medium transition-colors ${
-                isActive
-                  ? "text-ink"
-                  : "text-ink-muted hover:text-ink-soft"
+              className={`relative -mb-px whitespace-nowrap px-4 py-2.5 font-sans text-sm font-medium transition-colors ${
+                isActive ? "text-ink" : "text-ink-muted hover:text-ink-soft"
               }`}
             >
               {tab.label}

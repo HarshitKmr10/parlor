@@ -2,6 +2,10 @@ import type { ComponentType } from "react";
 import {
   DashboardIcon,
   MeetingsIcon,
+  SearchIcon,
+  HighlightIcon,
+  TasksIcon,
+  ReportIcon,
   AskIcon,
   IntegrationsIcon,
   SettingsIcon,
@@ -16,6 +20,10 @@ export type NavLink = {
 export const NAV_LINKS: readonly NavLink[] = [
   { label: "Dashboard", href: "/dashboard", icon: DashboardIcon },
   { label: "Meetings", href: "/meetings", icon: MeetingsIcon },
+  { label: "Search", href: "/search", icon: SearchIcon },
+  { label: "Highlights", href: "/highlights", icon: HighlightIcon },
+  { label: "Action items", href: "/action-items", icon: TasksIcon },
+  { label: "Reports", href: "/reports", icon: ReportIcon },
   { label: "Ask", href: "/ask", icon: AskIcon },
   { label: "Integrations", href: "/integrations", icon: IntegrationsIcon },
   { label: "Settings", href: "/settings", icon: SettingsIcon },

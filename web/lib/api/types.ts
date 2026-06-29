@@ -208,6 +208,261 @@ export interface ApiErrorBody {
   };
 }
 
+/* ---- Search ---- */
+
+export interface SearchSnippet {
+  segmentId: string;
+  speakerName: string;
+  tStartSec: number;
+  /** HTML with the query wrapped in <mark> tags. */
+  snippet: string;
+}
+
+export interface SearchResultItem {
+  meetingId: string;
+  title?: string;
+  score: number;
+  matchedSegments: number;
+  titleMatch: boolean;
+  summaryMatch: boolean;
+  snippets: SearchSnippet[];
+}
+
+export interface SearchResponse {
+  query: string;
+  items: SearchResultItem[];
+  total: number;
+}
+
+/* ---- Analytics ---- */
+
+export type Sentiment = "positive" | "neutral" | "negative";
+
+export interface SpeakerStat {
+  speakerName: string;
+  talkTimeSec: number;
+  /** Share of total speaking time, 0..1. */
+  talkRatio: number;
+  wordCount: number;
+  wordsPerMinute: number;
+  turns: number;
+  longestMonologueSec: number;
+  questionsAsked: number;
+  fillerWordCount: number;
+  sentiment: Sentiment;
+  sentimentScore: number;
+}
+
+export interface MeetingAnalytics {
+  meetingId: string;
+  durationSec: number;
+  totalWords: number;
+  wordsPerMinute: number;
+  numSpeakers: number;
+  numTurns: number;
+  turnsPerMinute: number;
+  interactivityScore: number;
+  balanceScore: number;
+  longestMonologueSec: number;
+  longestMonologueSpeaker?: string;
+  questionCount: number;
+  fillerWordCount: number;
+  overallSentiment: Sentiment;
+  overallSentimentScore: number;
+  speakers: SpeakerStat[];
+  computedAt: string;
+}
+
+/* ---- Highlights ---- */
+
+export interface Highlight {
+  id: string;
+  meetingId: string;
+  workspaceId?: string;
+  createdBy?: string;
+  tStartSec: number;
+  tEndSec: number;
+  label?: string;
+  note?: string;
+  color?: string;
+  excerpt?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface WorkspaceHighlight extends Highlight {
+  meetingTitle?: string;
+}
+
+export interface HighlightListResponse {
+  items: Highlight[];
+  total: number;
+}
+
+export interface WorkspaceHighlightListResponse {
+  items: WorkspaceHighlight[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface CreateHighlightInput {
+  tStartSec: number;
+  tEndSec: number;
+  label?: string;
+  note?: string;
+  color?: string;
+}
+
+/* ---- Comments ---- */
+
+export interface CommentAuthor {
+  id?: string;
+  name: string;
+}
+
+export interface Comment {
+  id: string;
+  meetingId: string;
+  parentId?: string;
+  author: CommentAuthor;
+  body: string;
+  anchorTSec?: number;
+  anchorSegmentId?: string;
+  mentions: CommentAuthor[];
+  resolved: boolean;
+  edited: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CommentListResponse {
+  items: Comment[];
+  total: number;
+}
+
+/* ---- Sharing ---- */
+
+export interface ShareLink {
+  meetingId: string;
+  token: string;
+  /** Relative app path, e.g. /share/{token}. */
+  path: string;
+  url?: string;
+  includeTranscript: boolean;
+  includeHighlights: boolean;
+  includeAnalytics: boolean;
+  revoked: boolean;
+  expiresAt?: string;
+  viewCount: number;
+  lastViewedAt?: string;
+  createdAt?: string;
+}
+
+export interface CreateShareInput {
+  includeTranscript?: boolean;
+  includeHighlights?: boolean;
+  includeAnalytics?: boolean;
+  expiresInDays?: number;
+}
+
+export interface PublicHighlight {
+  tStartSec: number;
+  tEndSec: number;
+  label?: string;
+  note?: string;
+  color?: string;
+  excerpt?: string;
+}
+
+/** Public, unauthenticated recap view returned for a share token. */
+export interface PublicMeetingView {
+  title?: string;
+  summary: string;
+  keyPoints: string[];
+  actionItems: ActionItem[];
+  chapters: Chapter[];
+  durationSec?: number;
+  transcript?: TranscriptSegment[];
+  highlights?: PublicHighlight[];
+  analytics?: MeetingAnalytics;
+  sharedAt: string;
+}
+
+/* ---- Action items (cross-meeting tracker) ---- */
+
+export interface ActionItemRecord {
+  id: string;
+  meetingId: string;
+  text: string;
+  assignee?: string;
+  dueDate?: string;
+  done: boolean;
+  source: "ai" | "manual";
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ActionItemListResponse {
+  items: ActionItemRecord[];
+  total: number;
+}
+
+/* ---- Summary templates ---- */
+
+export interface SummaryTemplate {
+  id: string;
+  name: string;
+  instructions: string;
+  sections: string[];
+  isDefault: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface SummaryTemplatePreset {
+  key: string;
+  name: string;
+  instructions: string;
+  sections: string[];
+}
+
+/* ---- Reports / digest ---- */
+
+export interface DigestAssignee {
+  assignee: string;
+  open: number;
+  done: number;
+}
+
+export interface DigestActionItems {
+  total: number;
+  open: number;
+  done: number;
+  byAssignee: DigestAssignee[];
+}
+
+export interface DigestMeeting {
+  id: string;
+  title?: string;
+  status?: string;
+  durationSec?: number;
+  createdAt?: string;
+}
+
+export interface DigestReport {
+  periodFrom: string;
+  periodTo: string;
+  meetingCount: number;
+  completedCount: number;
+  totalDurationSec: number;
+  avgDurationSec: number;
+  busiestDay?: string;
+  actionItems: DigestActionItems;
+  meetings: DigestMeeting[];
+  generatedAt: string;
+}
+
 /* ---- Live WebSocket events ---- */
 
 export type LiveEvent =
