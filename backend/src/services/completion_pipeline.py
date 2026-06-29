@@ -112,17 +112,45 @@ async def run_completion_pipeline(meeting_id: str) -> None:
                 error=exc.message,
             )
 
-        # 3. Deliver recap to enabled outbound integrations.
+        # 3. Promote AI-extracted action items into trackable rows (idempotent).
+        if insights is not None and workspace_id:
+            await _sync_action_items(db, workspace_id, meeting_id, insights)
+
+        # 4. Deliver recap to enabled outbound integrations.
         if insights is not None and workspace_id:
             await _deliver_recap(db, workspace_id, meeting_id, title, insights)
 
-        # 4. Fan out developer webhooks (best-effort, never fails the pipeline).
+        # 5. Fan out developer webhooks (best-effort, never fails the pipeline).
         if workspace_id:
             await _emit_webhooks(db, workspace_id, meeting_id, title, insights)
 
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "completion_pipeline.error", meeting_id=meeting_id, error=str(exc)
+        )
+
+
+async def _sync_action_items(db, workspace_id: str, meeting_id: str, insights) -> None:
+    """Promote AI action items into trackable rows. Idempotent, best-effort."""
+    try:
+        from ..action_items import ActionItemsRepo, dedupe_ai_items
+
+        items = dedupe_ai_items(insights.action_items)
+        if not items:
+            return
+        inserted = await ActionItemsRepo(db).sync_ai_items(
+            workspace_id=workspace_id, meeting_id=meeting_id, items=items
+        )
+        logger.info(
+            "completion_pipeline.action_items_synced",
+            meeting_id=meeting_id,
+            inserted=inserted,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "completion_pipeline.action_items_sync_failed",
+            meeting_id=meeting_id,
+            error=str(exc),
         )
 
 

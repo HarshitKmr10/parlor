@@ -48,6 +48,7 @@ from .api.product.routes_calendar import router as product_calendar_router
 from .api.product.routes_google_workspace import (
     router as product_google_workspace_router,
 )
+from .api.product.routes_action_items import router as product_action_items_router
 from .api.product.routes_comments import router as product_comments_router
 from .api.product.routes_highlights import router as product_highlights_router
 from .api.product.routes_integrations import router as product_integrations_router
@@ -547,6 +548,7 @@ app.include_router(product_comments_router)
 app.include_router(product_shares_router)
 app.include_router(product_webhooks_router)
 app.include_router(product_summary_templates_router)
+app.include_router(product_action_items_router)
 # Public, UNAUTHENTICATED read-only recap via share token (capability URL).
 app.include_router(product_public_router)
 app.include_router(product_calendar_router)

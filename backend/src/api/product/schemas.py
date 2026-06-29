@@ -288,6 +288,38 @@ class SearchResponse(CamelModel):
     total: int = 0
 
 
+class ActionItemRecord(CamelModel):
+    """A trackable action item promoted out of insights into its own row."""
+
+    id: str
+    meeting_id: str
+    text: str
+    assignee: Optional[str] = None
+    due_date: Optional[str] = None
+    done: bool = False
+    source: str = "manual"  # ai | manual
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+
+class ActionItemCreate(CamelModel):
+    text: str = Field(..., min_length=1, max_length=2000)
+    assignee: Optional[str] = Field(None, max_length=200)
+    due_date: Optional[str] = Field(None, max_length=64)
+
+
+class ActionItemUpdate(CamelModel):
+    text: Optional[str] = Field(None, min_length=1, max_length=2000)
+    assignee: Optional[str] = Field(None, max_length=200)
+    due_date: Optional[str] = Field(None, max_length=64)
+    done: Optional[bool] = None
+
+
+class ActionItemListResponse(CamelModel):
+    items: List[ActionItemRecord] = Field(default_factory=list)
+    total: int = 0
+
+
 class SummaryTemplateCreate(CamelModel):
     name: str = Field(..., min_length=1, max_length=120)
     instructions: str = Field("", max_length=4000)
