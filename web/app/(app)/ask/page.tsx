@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 import { AskIcon, MeetingsIcon } from "@/components/ui/icons";
 import { formatDateTime } from "@/lib/format";
+import { WorkspaceAsk } from "@/components/ask/WorkspaceAsk";
 
 export const metadata: Metadata = {
   title: "Ask — Verdant",
@@ -31,12 +32,22 @@ export default async function AskPage() {
     <div className="mx-auto max-w-3xl">
       <header className="mb-7">
         <p className="eyebrow mb-1.5">Knowledge</p>
-        <h1 className="font-display text-2xl text-ink">Ask your meetings</h1>
+        <h1 className="font-display text-2xl text-ink">Ask Verdant</h1>
         <p className="mt-1.5 max-w-xl text-sm text-ink-muted">
-          Pick a meeting to ask questions grounded in its transcript, with cited
-          snippets you can trace back to who said what.
+          Ask one question across every meeting, or pick a single meeting to
+          dig in. Answers are grounded in transcripts with traceable citations.
         </p>
       </header>
+
+      {!backendDown && (
+        <section className="mb-10">
+          <WorkspaceAsk />
+        </section>
+      )}
+
+      {!backendDown && meetings.length > 0 && (
+        <h2 className="eyebrow mb-3">Or ask a single meeting</h2>
+      )}
 
       {backendDown ? (
         <BackendDownState resource="your meetings" />

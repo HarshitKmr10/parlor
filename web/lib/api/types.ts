@@ -93,6 +93,9 @@ export interface Citation {
   speakerName: string;
   text: string;
   tStartSec: number;
+  /** Present on workspace-wide ("Ask Verdant") answers. */
+  meetingId?: string;
+  meetingTitle?: string;
 }
 
 export type CalendarProvider = "google" | "microsoft";

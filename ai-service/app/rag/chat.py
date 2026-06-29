@@ -88,6 +88,7 @@ async def answer_question(
             speaker_name=s.speaker_name,
             text=s.text,
             t_start_sec=s.t_start_sec,
+            meeting_id=s.meeting_id or None,
         )
         for s in retrieved
     ]

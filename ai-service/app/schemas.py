@@ -63,6 +63,9 @@ class Citation(CamelModel):
     speaker_name: str
     text: str
     t_start_sec: float
+    # Present on workspace-wide ("ask across all meetings") answers so the
+    # caller can attribute each citation to its source meeting.
+    meeting_id: str | None = None
 
 
 class ChatMessage(CamelModel):
