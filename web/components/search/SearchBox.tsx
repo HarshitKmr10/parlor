@@ -7,9 +7,16 @@ import { SearchIcon } from "@/components/ui/icons";
 type Props = {
   initialQuery?: string;
   autoFocus?: boolean;
+  ariaLabel?: string;
+  placeholder?: string;
 };
 
-export function SearchBox({ initialQuery = "", autoFocus = false }: Props) {
+export function SearchBox({
+  initialQuery = "",
+  autoFocus = false,
+  ariaLabel = "Search meetings",
+  placeholder = "Search every meeting…",
+}: Props) {
   const router = useRouter();
   const [value, setValue] = useState(initialQuery);
 
@@ -31,8 +38,8 @@ export function SearchBox({ initialQuery = "", autoFocus = false }: Props) {
         value={value}
         autoFocus={autoFocus}
         onChange={(e) => setValue(e.target.value)}
-        placeholder="Search every meeting…"
-        aria-label="Search meetings"
+        placeholder={placeholder}
+        aria-label={ariaLabel}
         className="w-full rounded-md border border-border-default bg-surface-0 py-2 pl-9 pr-3 text-sm text-ink placeholder:text-ink-faint focus:border-border-strong"
       />
     </form>

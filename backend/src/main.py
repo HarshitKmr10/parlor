@@ -507,13 +507,22 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Meeting Joiner Service",
+    title="Verdant API",
     description=(
-        "MS Teams Meeting Bot Service for joining meetings and "
-        "processing transcripts"
+        "The Verdant meeting-intelligence API. Capture meetings, then read "
+        "transcripts, summaries, analytics, highlights, action items, and ask "
+        "questions across your whole workspace.\n\n"
+        "**Auth:** send `Authorization: Bearer <token>` (from `/api/v1/auth/login` "
+        "or a workspace API key) and `X-Workspace-Id: <workspace-id>`.\n\n"
+        "**Webhooks:** subscribe at `/api/v1/webhooks` to receive HMAC-signed "
+        "`transcript.ready`, `summary.ready`, and `meeting.completed` events.\n\n"
+        "Generate a client with `openapi-generator-cli generate -i "
+        "/openapi.json -g typescript-fetch -o ./sdk`."
     ),
     version="1.0.0",
     lifespan=lifespan,
+    contact={"name": "Verdant", "url": "https://verdant.example.com"},
+    license_info={"name": "Proprietary"},
 )
 
 # Add middleware.
