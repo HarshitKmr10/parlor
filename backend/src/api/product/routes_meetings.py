@@ -172,6 +172,26 @@ async def create_meeting(
         raise ApiError(
             400, "invalid_meeting_url", "Unrecognized or unsupported meeting URL"
         )
+
+    # Enforce the plan's monthly meeting quota (best-effort; never blocks on a
+    # billing-lookup error).
+    try:
+        from ...billing import BillingRepo, within_meeting_quota
+
+        billing = BillingRepo(repo._db)
+        plan = (await billing.get(workspace.id))["plan"]
+        used = await billing.meetings_this_month(workspace.id)
+        if not within_meeting_quota(plan, used):
+            raise ApiError(
+                402,
+                "quota_exceeded",
+                f"Your {plan} plan's monthly meeting limit is reached. Upgrade to add more.",
+            )
+    except ApiError:
+        raise
+    except Exception:  # noqa: BLE001 — billing lookup must not block creation
+        pass
+
     try:
         record = await service.create_meeting(
             meeting_url=body.meeting_url,

@@ -153,6 +153,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Billing & plan"
+            description="Manage your subscription, seats, and monthly meeting quota."
+          >
+            <Link
+              href="/settings/billing"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage billing
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Usage"
             description="Admin-only workspace activity: meetings, minutes captured."
           >

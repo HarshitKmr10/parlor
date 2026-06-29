@@ -786,6 +786,26 @@ class UsageSummary(CamelModel):
     per_creator: List[UsageCreator] = Field(default_factory=list)
 
 
+class PlanInfo(CamelModel):
+    key: str
+    name: str
+    meetings_per_month: Optional[int] = None
+    seats: int = 0
+    price_usd: int = 0
+
+
+class BillingStatus(CamelModel):
+    plan: str = "free"
+    status: str = "active"
+    meetings_this_month: int = 0
+    meeting_quota: Optional[int] = None
+    plans: List[PlanInfo] = Field(default_factory=list)
+
+
+class CheckoutRequest(CamelModel):
+    plan: str = Field(..., pattern="^(pro|business)$")
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 
