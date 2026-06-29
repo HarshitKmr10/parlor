@@ -18,6 +18,12 @@ const PROTECTED_PREFIXES = [
   "/ask",
   "/integrations",
   "/settings",
+  "/search",
+  "/highlights",
+  "/action-items",
+  "/trackers",
+  "/reports",
+  "/developers",
 ];
 
 function isProtected(pathname: string): boolean {
@@ -109,5 +115,11 @@ export const config = {
     "/ask/:path*",
     "/integrations/:path*",
     "/settings/:path*",
+    "/search/:path*",
+    "/highlights/:path*",
+    "/action-items/:path*",
+    "/trackers/:path*",
+    "/reports/:path*",
+    "/developers/:path*",
   ],
 };
