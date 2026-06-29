@@ -32,6 +32,7 @@ from .schemas import (
     Citation,
     Meeting,
     MeetingAnalytics,
+    MeetingAssist,
     MeetingCreateRequest,
     MeetingInsights,
     MeetingListResponse,
@@ -398,6 +399,29 @@ async def get_meeting_analytics(
     record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     segments = segments_from_transcript(record.transcript)
     return compute_meeting_analytics(meeting_id, segments)
+
+
+@router.post("/{meeting_id}/assist", response_model=MeetingAssist)
+async def get_meeting_assist(
+    meeting_id: str,
+    workspace: Workspace = Depends(get_current_workspace),
+    service: MeetingService = Depends(_service),
+    repo: ProductMeetingsRepo = Depends(_repo),
+) -> MeetingAssist:
+    """Proactive during-call assist: recap-so-far, suggested questions, and
+    coverage gaps computed from the transcript captured so far. Deterministic
+    via the ai-service /assist path."""
+    record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
+    segments = [
+        s.model_dump(by_alias=True) for s in segments_from_transcript(record.transcript)
+    ]
+    data = await ai_client.assist({"meetingId": meeting_id, "segments": segments})
+    return MeetingAssist(
+        summary_so_far=str(data.get("summarySoFar", "")),
+        suggested_questions=list(data.get("suggestedQuestions") or []),
+        coverage_gaps=list(data.get("coverageGaps") or []),
+        segment_count=int(data.get("segmentCount") or 0),
+    )
 
 
 @router.delete("/{meeting_id}", response_model=Meeting)

@@ -466,6 +466,15 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- Live assist ---- */
+
+export interface MeetingAssist {
+  summarySoFar: string;
+  suggestedQuestions: string[];
+  coverageGaps: string[];
+  segmentCount: number;
+}
+
 /* ---- Notifications ---- */
 
 export interface Notification {

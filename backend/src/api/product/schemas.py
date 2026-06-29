@@ -651,6 +651,13 @@ class DigestPreferencesUpdate(CamelModel):
     target: Optional[str] = Field(None, max_length=2000)
 
 
+class MeetingAssist(CamelModel):
+    summary_so_far: str = ""
+    suggested_questions: List[str] = Field(default_factory=list)
+    coverage_gaps: List[str] = Field(default_factory=list)
+    segment_count: int = 0
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 

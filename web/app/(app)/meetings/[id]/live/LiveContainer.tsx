@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import { LiveMeetingView } from "@/components/live-transcript/LiveMeetingView";
+import { LiveAssist } from "@/components/live-transcript/LiveAssist";
 import type {
   ActionItem,
   AskAnswer,
@@ -53,13 +54,16 @@ export function LiveContainer({
   );
 
   return (
-    <LiveMeetingView
-      meeting={meeting}
-      summaryBullets={summaryBullets}
-      actionItems={actionItems}
-      meetingId={meetingId}
-      initialStatus={initialStatus}
-      onAsk={handleAsk}
-    />
+    <div className="flex flex-col gap-4">
+      <LiveAssist meetingId={meetingId} />
+      <LiveMeetingView
+        meeting={meeting}
+        summaryBullets={summaryBullets}
+        actionItems={actionItems}
+        meetingId={meetingId}
+        initialStatus={initialStatus}
+        onAsk={handleAsk}
+      />
+    </div>
   );
 }
