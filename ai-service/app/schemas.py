@@ -109,6 +109,18 @@ class ChatResponse(CamelModel):
     citations: list[Citation] = Field(default_factory=list)
 
 
+class AssistRequest(CamelModel):
+    meeting_id: str | None = None
+    segments: list[TranscriptSegment] = Field(default_factory=list)
+
+
+class AssistResponse(CamelModel):
+    summary_so_far: str = ""
+    suggested_questions: list[str] = Field(default_factory=list)
+    coverage_gaps: list[str] = Field(default_factory=list)
+    segment_count: int = 0
+
+
 class HealthResponse(CamelModel):
     status: str
     mode: str

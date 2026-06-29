@@ -10,7 +10,10 @@ from ..config import settings
 from ..dependencies import get_router, get_store
 from ..providers import ProviderError, ProviderRouter
 from ..rag import EmbeddingStore, answer_question, summarize_meeting
+from ..assist import compute_assist
 from ..schemas import (
+    AssistRequest,
+    AssistResponse,
     ChatRequest,
     ChatResponse,
     EmbedRequest,
@@ -116,3 +119,13 @@ async def chat(
         raise _error(502, "provider_error", exc.message) from exc
     except RuntimeError as exc:
         raise _error(503, "store_unavailable", str(exc)) from exc
+
+
+@router.post("/assist", response_model=AssistResponse, response_model_by_alias=True)
+async def assist(payload: AssistRequest) -> AssistResponse:
+    """Proactive during-call assist: recap-so-far, suggested questions, gaps.
+
+    Deterministic over the transcript captured so far — works in any mode.
+    """
+    data = compute_assist(payload.segments)
+    return AssistResponse(**data)

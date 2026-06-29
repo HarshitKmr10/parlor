@@ -76,3 +76,7 @@ async def summarize(payload: dict[str, Any]) -> dict[str, Any]:
 
 async def chat(payload: dict[str, Any]) -> dict[str, Any]:
     return await _post("/chat", payload)
+
+
+async def assist(payload: dict[str, Any]) -> dict[str, Any]:
+    return await _post("/assist", payload)
