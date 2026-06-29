@@ -57,6 +57,7 @@ from .api.product.routes_public import router as product_public_router
 from .api.product.routes_reports import router as product_reports_router
 from .api.product.routes_ask import router as product_ask_router
 from .api.product.routes_notifications import router as product_notifications_router
+from .api.product.routes_digest_prefs import router as product_digest_prefs_router
 from .api.product.routes_pubsub import router as product_pubsub_router
 from .api.product.routes_search import router as product_search_router
 from .api.product.routes_shares import router as product_shares_router
@@ -304,6 +305,15 @@ async def lifespan(app: FastAPI):
         except Exception as e:  # noqa: BLE001
             logger.warning("Webhook dispatcher start failed: %s", e)
 
+        # Start the digest scheduler — emits due workspace digests to email/Slack.
+        try:
+            from .services.digest_scheduler import get_digest_scheduler
+
+            await get_digest_scheduler().start()
+            logger.info("Digest scheduler started")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Digest scheduler start failed: %s", e)
+
         # Start the calendar poller — in standalone, periodically scans
         # auto-join calendar accounts for imminent meetings and dispatches a
         # local bot. No-ops quietly when no OAuth creds are configured.
@@ -418,6 +428,14 @@ async def lifespan(app: FastAPI):
             logger.info("Webhook dispatcher stopped")
         except Exception as e:  # noqa: BLE001
             logger.warning("Webhook dispatcher stop error: %s", e)
+
+        try:
+            from .services.digest_scheduler import close_digest_scheduler
+
+            await close_digest_scheduler()
+            logger.info("Digest scheduler stopped")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Digest scheduler stop error: %s", e)
         try:
             await close_meeting_scheduler()
             logger.info("Meeting scheduler stopped")
@@ -565,6 +583,7 @@ app.include_router(product_action_items_router)
 app.include_router(product_reports_router)
 app.include_router(product_ask_router)
 app.include_router(product_notifications_router)
+app.include_router(product_digest_prefs_router)
 # Public, UNAUTHENTICATED read-only recap via share token (capability URL).
 app.include_router(product_public_router)
 app.include_router(product_calendar_router)

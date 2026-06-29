@@ -632,6 +632,25 @@ class NotificationListResponse(CamelModel):
     unread: int = 0
 
 
+class DigestPreferences(CamelModel):
+    enabled: bool = False
+    frequency: str = "weekly"        # daily | weekly
+    hour_utc: int = 13
+    day_of_week: int = 0             # 0=Mon..6=Sun
+    channel: str = "email"           # email | slack
+    target: Optional[str] = None
+    last_sent_at: Optional[datetime] = None
+
+
+class DigestPreferencesUpdate(CamelModel):
+    enabled: bool = False
+    frequency: str = Field("weekly", pattern="^(daily|weekly)$")
+    hour_utc: int = Field(13, ge=0, le=23)
+    day_of_week: int = Field(0, ge=0, le=6)
+    channel: str = Field("email", pattern="^(email|slack)$")
+    target: Optional[str] = Field(None, max_length=2000)
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 

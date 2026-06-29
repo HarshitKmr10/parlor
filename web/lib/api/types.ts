@@ -484,6 +484,18 @@ export interface NotificationListResponse {
   unread: number;
 }
 
+/* ---- Digest preferences ---- */
+
+export interface DigestPreferences {
+  enabled: boolean;
+  frequency: "daily" | "weekly";
+  hourUtc: number;
+  dayOfWeek: number;
+  channel: "email" | "slack";
+  target?: string;
+  lastSentAt?: string;
+}
+
 /* ---- Webhooks (developer) ---- */
 
 export interface WebhookEndpoint {
