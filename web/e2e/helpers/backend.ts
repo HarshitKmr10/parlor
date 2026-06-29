@@ -117,9 +117,14 @@ export function seedTranscript(
     totalSegments: segments.length,
     durationSec: last ? last.endTime : 0,
   };
+  // Set bot_join/leave so the digest + meeting list show a real duration
+  // (a live bot would record these; the digest derives duration from them).
+  const durationSec = last ? Math.round(last.endTime) : 0;
   const sql = `UPDATE meeting_joiner
      SET transcript = $json$${JSON.stringify(transcript)}$json$::json,
          status = 'completed',
+         bot_join_time = now() - interval '${durationSec} seconds',
+         bot_leave_time = now(),
          updated_at = now()
      WHERE id = '${meetingId}'::uuid;`;
   const dir = mkdtempSync(join(tmpdir(), "seed-"));
