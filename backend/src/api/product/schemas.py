@@ -772,6 +772,20 @@ class RetentionSettingsUpdate(CamelModel):
     legal_hold: bool = False
 
 
+class UsageCreator(CamelModel):
+    creator: str
+    meetings: int = 0
+    minutes: float = 0.0
+
+
+class UsageSummary(CamelModel):
+    meeting_count: int = 0
+    completed_count: int = 0
+    total_minutes: float = 0.0
+    active_members: int = 0
+    per_creator: List[UsageCreator] = Field(default_factory=list)
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 

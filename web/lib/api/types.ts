@@ -466,6 +466,16 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- Usage analytics ---- */
+
+export interface UsageSummary {
+  meetingCount: number;
+  completedCount: number;
+  totalMinutes: number;
+  activeMembers: number;
+  perCreator: { creator: string; meetings: number; minutes: number }[];
+}
+
 /* ---- Retention & compliance ---- */
 
 export interface RetentionSettings {
