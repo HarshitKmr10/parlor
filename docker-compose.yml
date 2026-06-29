@@ -49,6 +49,7 @@ services:
       - ./backend/db/0015_speaker_profiles.sql:/docker-entrypoint-initdb.d/14_speaker_profiles.sql:ro
       - ./backend/db/0016_trackers.sql:/docker-entrypoint-initdb.d/15_trackers.sql:ro
       - ./backend/db/0017_nlp_settings.sql:/docker-entrypoint-initdb.d/16_nlp_settings.sql:ro
+      - ./backend/db/0018_audit_events.sql:/docker-entrypoint-initdb.d/17_audit_events.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meeting} -d ${POSTGRES_DB:-meeting}"]
       interval: 3s

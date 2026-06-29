@@ -466,6 +466,23 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- Audit log ---- */
+
+export interface AuditEvent {
+  id: string;
+  actorId?: string;
+  action: string;
+  resourceType: string;
+  resourceId?: string;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AuditEventListResponse {
+  items: AuditEvent[];
+  total: number;
+}
+
 /* ---- NLP settings (redaction + custom vocab) ---- */
 
 export interface NlpSettings {
