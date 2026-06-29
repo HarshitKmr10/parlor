@@ -2,9 +2,11 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getMeeting, getTranscript } from "@/lib/api/meetings";
 import { getMeetingAnalytics } from "@/lib/api/analytics";
+import { getMeetingCoaching } from "@/lib/api/coaching";
 import { ApiError } from "@/lib/api/error";
 import { BACKEND_UNAVAILABLE_CODE } from "@/lib/api/client";
 import type {
+  CoachingScorecard,
   MeetingAnalytics,
   MeetingDetail,
   TranscriptSegment,
@@ -15,6 +17,7 @@ import { SummaryTab } from "@/components/meetings/detail/SummaryTab";
 import { TranscriptTab } from "@/components/meetings/detail/TranscriptTab";
 import { AskTab } from "@/components/meetings/detail/AskTab";
 import { AnalyticsTab } from "@/components/meetings/detail/AnalyticsTab";
+import { CoachingTab } from "@/components/meetings/detail/CoachingTab";
 import { HighlightsTab } from "@/components/meetings/detail/HighlightsTab";
 import { CommentsTab } from "@/components/meetings/detail/CommentsTab";
 import { GenerateSummary } from "@/components/meetings/detail/GenerateSummary";
@@ -38,17 +41,21 @@ export default async function MeetingDetailPage({
   let meeting: MeetingDetail;
   let segments: TranscriptSegment[] = [];
   let analytics: MeetingAnalytics | null = null;
+  let coaching: CoachingScorecard | null = null;
 
   try {
-    // Fetch meeting + transcript + analytics in parallel — no request waterfall.
-    const [meetingResult, transcriptResult, analyticsResult] = await Promise.all([
-      getMeeting(id),
-      getTranscript(id).catch(() => ({ items: [], lastSegmentAt: null })),
-      getMeetingAnalytics(id).catch(() => null),
-    ]);
+    // Fetch meeting + transcript + analytics + coaching in parallel.
+    const [meetingResult, transcriptResult, analyticsResult, coachingResult] =
+      await Promise.all([
+        getMeeting(id),
+        getTranscript(id).catch(() => ({ items: [], lastSegmentAt: null })),
+        getMeetingAnalytics(id).catch(() => null),
+        getMeetingCoaching(id).catch(() => null),
+      ]);
     meeting = meetingResult;
     segments = transcriptResult.items;
     analytics = analyticsResult;
+    coaching = coachingResult;
   } catch (error: unknown) {
     if (ApiError.isApiError(error)) {
       if (error.code === BACKEND_UNAVAILABLE_CODE) {
@@ -99,6 +106,17 @@ export default async function MeetingDetailPage({
       ) : (
         <p className="rounded-lg border border-dashed border-border-default bg-surface-1/60 px-5 py-10 text-center text-sm text-ink-muted">
           Analytics will appear once this meeting has a transcript.
+        </p>
+      ),
+    },
+    {
+      key: "coaching",
+      label: "Coaching",
+      panel: coaching ? (
+        <CoachingTab coaching={coaching} />
+      ) : (
+        <p className="rounded-lg border border-dashed border-border-default bg-surface-1/60 px-5 py-10 text-center text-sm text-ink-muted">
+          A coaching scorecard appears once this meeting has a transcript.
         </p>
       ),
     },

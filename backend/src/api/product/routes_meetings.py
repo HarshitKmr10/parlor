@@ -31,6 +31,7 @@ from .schemas import (
     BotlessCreateRequest,
     Citation,
     Meeting,
+    CoachingScorecard,
     MeetingAnalytics,
     MeetingAssist,
     MeetingCreateRequest,
@@ -396,9 +397,13 @@ async def get_meeting_analytics(
     works even when the AI service is unavailable. Returns zeroed metrics for a
     meeting with no transcript yet.
     """
+    return await _resolved_analytics(meeting_id, workspace, service, repo)
+
+
+async def _resolved_analytics(meeting_id, workspace, service, repo):
+    """Compute analytics with diarized labels resolved to named people."""
     record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     segments = segments_from_transcript(record.transcript)
-    # Resolve diarized labels to named people so talk-time is per-person.
     from ...speakers import SpeakerProfilesRepo, build_alias_map
 
     profiles = await SpeakerProfilesRepo(repo._db).list(workspace.id)
@@ -411,6 +416,21 @@ async def get_meeting_analytics(
             for seg in segments
         ]
     return compute_meeting_analytics(meeting_id, segments)
+
+
+@router.get("/{meeting_id}/coaching", response_model=CoachingScorecard)
+async def get_meeting_coaching(
+    meeting_id: str,
+    workspace: Workspace = Depends(get_current_workspace),
+    service: MeetingService = Depends(_service),
+    repo: ProductMeetingsRepo = Depends(_repo),
+) -> CoachingScorecard:
+    """A coaching scorecard (talk ratio, monologue risk, discovery, balance)
+    derived from the meeting's conversation analytics. Deterministic."""
+    from ...coaching import compute_coaching
+
+    analytics = await _resolved_analytics(meeting_id, workspace, service, repo)
+    return CoachingScorecard.model_validate(compute_coaching(analytics))
 
 
 @router.post("/{meeting_id}/assist", response_model=MeetingAssist)

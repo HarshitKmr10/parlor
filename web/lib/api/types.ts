@@ -466,6 +466,28 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- Coaching ---- */
+
+export interface CoachingSpeaker {
+  speakerName: string;
+  talkRatio: number;
+  questionsAsked: number;
+  wordsPerMinute: number;
+  fillerWordCount: number;
+}
+
+export interface CoachingScorecard {
+  meetingId: string;
+  overallGrade: string;
+  overallScore: number;
+  talkRatioTop: number;
+  longestMonologueSec: number;
+  questionCount: number;
+  balanceScore: number;
+  tips: string[];
+  perSpeaker: CoachingSpeaker[];
+}
+
 /* ---- Speaker profiles ---- */
 
 export interface SpeakerProfile {
