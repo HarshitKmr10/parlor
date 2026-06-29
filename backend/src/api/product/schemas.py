@@ -677,6 +677,26 @@ class SpeakerProfileUpdate(CamelModel):
     aliases: Optional[List[str]] = None
 
 
+class CoachingSpeaker(CamelModel):
+    speaker_name: str
+    talk_ratio: float = 0.0
+    questions_asked: int = 0
+    words_per_minute: float = 0.0
+    filler_word_count: int = 0
+
+
+class CoachingScorecard(CamelModel):
+    meeting_id: str
+    overall_grade: str = "F"
+    overall_score: float = 0.0
+    talk_ratio_top: float = 0.0
+    longest_monologue_sec: float = 0.0
+    question_count: int = 0
+    balance_score: float = 0.0
+    tips: List[str] = Field(default_factory=list)
+    per_speaker: List[CoachingSpeaker] = Field(default_factory=list)
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 
