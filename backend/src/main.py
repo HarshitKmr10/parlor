@@ -48,6 +48,7 @@ from .api.product.routes_calendar import router as product_calendar_router
 from .api.product.routes_google_workspace import (
     router as product_google_workspace_router,
 )
+from .api.product.routes_highlights import router as product_highlights_router
 from .api.product.routes_integrations import router as product_integrations_router
 from .api.product.routes_meetings import router as product_meetings_router
 from .api.product.routes_pubsub import router as product_pubsub_router
@@ -504,6 +505,7 @@ app.include_router(sessions_routes.router)
 app.include_router(auth_router)
 app.include_router(workspaces_router)
 app.include_router(product_meetings_router)
+app.include_router(product_highlights_router)
 app.include_router(product_calendar_router)
 app.include_router(product_google_workspace_router)
 app.include_router(product_integrations_router)

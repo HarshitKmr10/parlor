@@ -206,6 +206,63 @@ class MeetingAnalytics(CamelModel):
     computed_at: datetime
 
 
+class Highlight(CamelModel):
+    """A timestamped clip/bookmark a user marks on a meeting."""
+
+    id: str
+    meeting_id: str
+    workspace_id: Optional[str] = None
+    created_by: Optional[str] = None
+    t_start_sec: float
+    t_end_sec: float
+    label: Optional[str] = None
+    note: Optional[str] = None
+    color: Optional[str] = None
+    excerpt: Optional[str] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+
+class HighlightCreate(CamelModel):
+    t_start_sec: float = Field(..., ge=0)
+    t_end_sec: float = Field(..., ge=0)
+    label: Optional[str] = Field(None, max_length=300)
+    note: Optional[str] = Field(None, max_length=2000)
+    color: Optional[str] = Field(None, max_length=20)
+
+    @model_validator(mode="after")
+    def _check_range(self) -> "HighlightCreate":
+        if self.t_end_sec < self.t_start_sec:
+            raise ValueError("tEndSec must be >= tStartSec")
+        return self
+
+
+class HighlightUpdate(CamelModel):
+    t_start_sec: Optional[float] = Field(None, ge=0)
+    t_end_sec: Optional[float] = Field(None, ge=0)
+    label: Optional[str] = Field(None, max_length=300)
+    note: Optional[str] = Field(None, max_length=2000)
+    color: Optional[str] = Field(None, max_length=20)
+
+
+class HighlightListResponse(CamelModel):
+    items: List[Highlight] = Field(default_factory=list)
+    total: int = 0
+
+
+class WorkspaceHighlight(Highlight):
+    """A highlight enriched with its meeting's title for the reel view."""
+
+    meeting_title: Optional[str] = None
+
+
+class WorkspaceHighlightListResponse(CamelModel):
+    items: List[WorkspaceHighlight] = Field(default_factory=list)
+    total: int = 0
+    limit: int = 0
+    offset: int = 0
+
+
 class Meeting(CamelModel):
     id: str
     workspace_id: Optional[str] = None

@@ -37,6 +37,7 @@ services:
       - ./backend/db/0003_calendar_integrations.sql:/docker-entrypoint-initdb.d/02_calendar_integrations.sql:ro
       - ./backend/db/0004_google_workspace.sql:/docker-entrypoint-initdb.d/03_google_workspace.sql:ro
       - ./backend/db/0005_meet_events.sql:/docker-entrypoint-initdb.d/04_meet_events.sql:ro
+      - ./backend/db/0006_highlights.sql:/docker-entrypoint-initdb.d/05_highlights.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meeting} -d ${POSTGRES_DB:-meeting}"]
       interval: 3s
