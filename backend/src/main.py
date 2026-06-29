@@ -63,6 +63,7 @@ from .api.product.routes_trackers import router as product_trackers_router
 from .api.product.routes_nlp import router as product_nlp_router
 from .api.product.routes_audit import router as product_audit_router
 from .api.product.routes_sso import router as product_sso_router
+from .api.product.routes_compliance import router as product_compliance_router
 from .api.product.routes_pubsub import router as product_pubsub_router
 from .api.product.routes_search import router as product_search_router
 from .api.product.routes_shares import router as product_shares_router
@@ -319,6 +320,16 @@ async def lifespan(app: FastAPI):
         except Exception as e:  # noqa: BLE001
             logger.warning("Digest scheduler start failed: %s", e)
 
+        # Start the retention sweeper — deletes meetings past their retention
+        # window (legal hold pauses it).
+        try:
+            from .services.retention_sweeper import get_retention_sweeper
+
+            await get_retention_sweeper().start()
+            logger.info("Retention sweeper started")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Retention sweeper start failed: %s", e)
+
         # Start the calendar poller — in standalone, periodically scans
         # auto-join calendar accounts for imminent meetings and dispatches a
         # local bot. No-ops quietly when no OAuth creds are configured.
@@ -441,6 +452,14 @@ async def lifespan(app: FastAPI):
             logger.info("Digest scheduler stopped")
         except Exception as e:  # noqa: BLE001
             logger.warning("Digest scheduler stop error: %s", e)
+
+        try:
+            from .services.retention_sweeper import close_retention_sweeper
+
+            await close_retention_sweeper()
+            logger.info("Retention sweeper stopped")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Retention sweeper stop error: %s", e)
         try:
             await close_meeting_scheduler()
             logger.info("Meeting scheduler stopped")
@@ -603,6 +622,7 @@ app.include_router(product_trackers_router)
 app.include_router(product_nlp_router)
 app.include_router(product_audit_router)
 app.include_router(product_sso_router)
+app.include_router(product_compliance_router)
 # Public, UNAUTHENTICATED read-only recap via share token (capability URL).
 app.include_router(product_public_router)
 app.include_router(product_calendar_router)

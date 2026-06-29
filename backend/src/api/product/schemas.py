@@ -762,6 +762,16 @@ class AuditEventListResponse(CamelModel):
     total: int = 0
 
 
+class RetentionSettings(CamelModel):
+    retention_days: Optional[int] = None
+    legal_hold: bool = False
+
+
+class RetentionSettingsUpdate(CamelModel):
+    retention_days: Optional[int] = Field(None, ge=1, le=3650)
+    legal_hold: bool = False
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 

@@ -140,6 +140,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Retention & compliance"
+            description="Set data-retention windows, place a legal hold, and export workspace data."
+          >
+            <Link
+              href="/settings/compliance"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage retention & data
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Audit log"
             description="Review sensitive actions — shares, deletions, key changes — across the workspace."
           >
