@@ -1,0 +1,105 @@
+"""Owner-facing meeting share-link management (workspace-scoped).
+
+  POST   /api/v1/meetings/{meeting_id}/share   create or rotate the link
+  GET    /api/v1/meetings/{meeting_id}/share   fetch current link (404 if none)
+  DELETE /api/v1/meetings/{meeting_id}/share   revoke (token goes dead)
+
+The public, unauthenticated read view lives in routes_public.py.
+"""
+
+from __future__ import annotations
+
+import os
+from datetime import datetime, timedelta, timezone
+from typing import Optional
+
+from fastapi import APIRouter, Depends
+
+from ...sharing import SharesRepo, generate_share_token
+from ..database.connection import DatabaseConnection
+from .deps import AuthContext, get_current_context, get_db
+from .errors import ApiError
+from .meetings_repo import ProductMeetingsRepo
+from .schemas import ShareCreateRequest, ShareLink
+
+router = APIRouter(prefix="/api/v1", tags=["sharing"])
+
+
+async def _repo(db: DatabaseConnection = Depends(get_db)) -> SharesRepo:
+    return SharesRepo(db)
+
+
+async def _meetings_repo(
+    db: DatabaseConnection = Depends(get_db),
+) -> ProductMeetingsRepo:
+    return ProductMeetingsRepo(db)
+
+
+def _share_link(row: dict) -> ShareLink:
+    token = row["token"]
+    path = f"/share/{token}"
+    base = (os.getenv("PUBLIC_APP_URL") or "").rstrip("/")
+    return ShareLink(
+        meeting_id=str(row["meeting_id"]),
+        token=token,
+        path=path,
+        url=f"{base}{path}" if base else None,
+        include_transcript=bool(row["include_transcript"]),
+        include_highlights=bool(row["include_highlights"]),
+        include_analytics=bool(row["include_analytics"]),
+        revoked=bool(row["revoked"]),
+        expires_at=row.get("expires_at"),
+        view_count=int(row.get("view_count") or 0),
+        last_viewed_at=row.get("last_viewed_at"),
+        created_at=row.get("created_at"),
+    )
+
+
+@router.post("/meetings/{meeting_id}/share", response_model=ShareLink, status_code=201)
+async def create_share(
+    meeting_id: str,
+    body: ShareCreateRequest,
+    ctx: AuthContext = Depends(get_current_context),
+    repo: SharesRepo = Depends(_repo),
+    meetings: ProductMeetingsRepo = Depends(_meetings_repo),
+) -> ShareLink:
+    if await meetings.get_scoped(meeting_id, ctx.workspace.id) is None:
+        raise ApiError(404, "not_found", "Meeting not found in this workspace")
+
+    expires_at: Optional[datetime] = None
+    if body.expires_in_days is not None:
+        expires_at = datetime.now(timezone.utc) + timedelta(days=body.expires_in_days)
+
+    row = await repo.upsert(
+        meeting_id=meeting_id,
+        workspace_id=ctx.workspace.id,
+        created_by=ctx.user.id if ctx.user else None,
+        token=generate_share_token(),
+        include_transcript=body.include_transcript,
+        include_highlights=body.include_highlights,
+        include_analytics=body.include_analytics,
+        expires_at=expires_at,
+    )
+    return _share_link(row)
+
+
+@router.get("/meetings/{meeting_id}/share", response_model=ShareLink)
+async def get_share(
+    meeting_id: str,
+    ctx: AuthContext = Depends(get_current_context),
+    repo: SharesRepo = Depends(_repo),
+) -> ShareLink:
+    row = await repo.get_for_meeting(meeting_id, ctx.workspace.id)
+    if row is None:
+        raise ApiError(404, "not_found", "This meeting has no share link")
+    return _share_link(row)
+
+
+@router.delete("/meetings/{meeting_id}/share", status_code=204)
+async def revoke_share(
+    meeting_id: str,
+    ctx: AuthContext = Depends(get_current_context),
+    repo: SharesRepo = Depends(_repo),
+) -> None:
+    if not await repo.revoke(meeting_id, ctx.workspace.id):
+        raise ApiError(404, "not_found", "This meeting has no share link")

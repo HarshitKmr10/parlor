@@ -51,8 +51,10 @@ from .api.product.routes_google_workspace import (
 from .api.product.routes_highlights import router as product_highlights_router
 from .api.product.routes_integrations import router as product_integrations_router
 from .api.product.routes_meetings import router as product_meetings_router
+from .api.product.routes_public import router as product_public_router
 from .api.product.routes_pubsub import router as product_pubsub_router
 from .api.product.routes_search import router as product_search_router
+from .api.product.routes_shares import router as product_shares_router
 from .services.ghost_pod_reaper import close_ghost_pod_reaper, get_ghost_pod_reaper
 from .services.meeting_scheduler import (
     close_meeting_scheduler,
@@ -508,6 +510,9 @@ app.include_router(workspaces_router)
 app.include_router(product_meetings_router)
 app.include_router(product_highlights_router)
 app.include_router(product_search_router)
+app.include_router(product_shares_router)
+# Public, UNAUTHENTICATED read-only recap via share token (capability URL).
+app.include_router(product_public_router)
 app.include_router(product_calendar_router)
 app.include_router(product_google_workspace_router)
 app.include_router(product_integrations_router)
