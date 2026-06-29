@@ -697,6 +697,40 @@ class CoachingScorecard(CamelModel):
     per_speaker: List[CoachingSpeaker] = Field(default_factory=list)
 
 
+class Tracker(CamelModel):
+    id: str
+    name: str
+    keywords: List[str] = Field(default_factory=list)
+    enabled: bool = True
+
+
+class TrackerCreate(CamelModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    keywords: List[str] = Field(default_factory=list)
+
+
+class TrackerUpdate(CamelModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    keywords: Optional[List[str]] = None
+    enabled: Optional[bool] = None
+
+
+class TrackerHit(CamelModel):
+    id: str
+    tracker_id: str
+    meeting_id: str
+    matched_keyword: str
+    snippet: str
+    segment_id: Optional[str] = None
+    t_start_sec: float = 0.0
+    created_at: datetime
+
+
+class TrackerHitListResponse(CamelModel):
+    items: List[TrackerHit] = Field(default_factory=list)
+    total: int = 0
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 
