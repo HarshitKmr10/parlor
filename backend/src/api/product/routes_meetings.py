@@ -398,6 +398,18 @@ async def get_meeting_analytics(
     """
     record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     segments = segments_from_transcript(record.transcript)
+    # Resolve diarized labels to named people so talk-time is per-person.
+    from ...speakers import SpeakerProfilesRepo, build_alias_map
+
+    profiles = await SpeakerProfilesRepo(repo._db).list(workspace.id)
+    if profiles and segments:
+        alias_map = build_alias_map(profiles)
+        segments = [
+            seg.model_copy(
+                update={"speaker_name": alias_map.get((seg.speaker_name or "").lower(), seg.speaker_name)}
+            )
+            for seg in segments
+        ]
     return compute_meeting_analytics(meeting_id, segments)
 
 

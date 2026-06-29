@@ -658,6 +658,25 @@ class MeetingAssist(CamelModel):
     segment_count: int = 0
 
 
+class SpeakerProfile(CamelModel):
+    id: str
+    display_name: str
+    email: Optional[str] = None
+    aliases: List[str] = Field(default_factory=list)
+
+
+class SpeakerProfileCreate(CamelModel):
+    display_name: str = Field(..., min_length=1, max_length=200)
+    email: Optional[str] = Field(None, max_length=320)
+    aliases: List[str] = Field(default_factory=list)
+
+
+class SpeakerProfileUpdate(CamelModel):
+    display_name: Optional[str] = Field(None, min_length=1, max_length=200)
+    email: Optional[str] = Field(None, max_length=320)
+    aliases: Optional[List[str]] = None
+
+
 # ── Calendar ─────────────────────────────────────────────────────────────
 CalendarProvider = Literal["google", "microsoft"]
 
