@@ -748,7 +748,7 @@ class CalendarAccountUpdate(CamelModel):
 
 
 # ── Outbound integrations ──────────────────────────────────────────────────
-IntegrationKind = Literal["slack", "email", "notion", "hubspot"]
+IntegrationKind = Literal["slack", "email", "notion", "hubspot", "salesforce"]
 
 
 class Integration(CamelModel):

@@ -19,7 +19,7 @@ from .email_provider import EmailProvider
 from .models import DeliveryResult, MeetingRecap
 from .repo import IntegrationsRepo
 from .slack_provider import SlackProvider
-from .stub_providers import HubspotProvider, NotionProvider
+from .crm_providers import HubspotProvider, NotionProvider, SalesforceProvider
 
 logger = get_logger(__name__)
 
@@ -30,6 +30,7 @@ PROVIDERS: Dict[str, IntegrationProvider] = {
         EmailProvider(),
         NotionProvider(),
         HubspotProvider(),
+        SalesforceProvider(),
     )
 }
 

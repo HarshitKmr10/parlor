@@ -22,7 +22,7 @@ def _recap():
 
 
 def test_registry_has_all_kinds():
-    assert set(KNOWN_KINDS) == {"slack", "email", "notion", "hubspot"}
+    assert set(KNOWN_KINDS) == {"slack", "email", "notion", "hubspot", "salesforce"}
 
 
 def test_slack_is_configured_requires_webhook():

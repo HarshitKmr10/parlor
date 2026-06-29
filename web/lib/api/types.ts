@@ -466,6 +466,17 @@ export interface DigestReport {
   generatedAt: string;
 }
 
+/* ---- Outbound integrations ---- */
+
+export type IntegrationKind = "slack" | "email" | "notion" | "hubspot" | "salesforce";
+
+export interface Integration {
+  kind: IntegrationKind;
+  enabled: boolean;
+  config: Record<string, string>;
+  implemented: boolean;
+}
+
 /* ---- Trackers ---- */
 
 export interface Tracker {
