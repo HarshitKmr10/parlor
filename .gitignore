@@ -38,3 +38,22 @@ auth.json
 **/*.auth.json
 secrets/auth/
 **/google-auth-state/
+
+# Local agent tooling (Claude Code skills/commands/settings — machine-local)
+.claude/
+
+# Worktree-generated (also added to .git/info/exclude per worktree)
+run-worktree.sh
+.env.worktree
+
+# Editors
+.idea/
+*.swp
+*~
+
+# Python coverage & packaging
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+*.egg-info/
