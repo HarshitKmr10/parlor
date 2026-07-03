@@ -1,11 +1,11 @@
-# Verdant MCP server
+# Parlor MCP server
 
 A [Model Context Protocol](https://modelcontextprotocol.io) server that lets
-MCP clients (Claude Desktop, Claude Code, ChatGPT, etc.) query a Verdant
+MCP clients (Claude Desktop, Claude Code, ChatGPT, etc.) query a Parlor
 workspace's meeting knowledge base — search meetings, read transcripts, and ask
 grounded questions with citations.
 
-It is a thin, read-mostly client over the Verdant backend product API
+It is a thin, read-mostly client over the Parlor backend product API
 (`/api/v1`), authenticated with a **workspace API key** sent as the `X-API-Key`
 header. No secrets are hardcoded; everything comes from environment variables.
 

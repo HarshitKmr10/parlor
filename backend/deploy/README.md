@@ -3,10 +3,10 @@
 Generic reference manifests for running the standalone bot on any Kubernetes
 cluster. Edit the placeholders, apply with `kubectl`, done.
 
-These are intentionally *not* the monorepo manifests — those live at
-`../../infra/specs/meetingjoiner.yml` and are FuturePath-specific
-(uses `fpaiopsstaging.azurecr.io`, cert-manager `ClusterIssuer`, and
-internal hostnames).
+These are intentionally *not* any particular organization's internal monorepo
+manifests — those would typically live elsewhere and reference an internal
+container registry, cert-manager `ClusterIssuer`, and internal hostnames
+specific to that deployment.
 
 ## Files
 
@@ -45,8 +45,6 @@ All env keys are documented in `../.env.example`. The ConfigMap covers the
 non-secret subset; the Secret covers everything that should never end up
 in plain YAML (DSNs, API keys).
 
-When monorepo developers update `../../infra/envs/staging/meeting-joiner-env`
-with a new key, CI runs `node ../db/extract-env-example.mjs` to enforce
-that the bundled `.env.example` (and therefore vendor consumers) stays in
-sync. ConfigMap/Secret edits here are NOT auto-synced — revisit
-periodically (the file headers reference the canonical source).
+If you vendor this into a larger monorepo with its own env-file source of
+truth, keep the bundled `.env.example` (and therefore vendor consumers) in
+sync with it yourself — ConfigMap/Secret edits here are NOT auto-synced.

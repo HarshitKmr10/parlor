@@ -9,7 +9,7 @@ import { BackendDownState } from "@/components/ui/BackendDownState";
 import { formatDuration, formatRelative } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Trackers — Verdant",
+  title: "Trackers — Parlor",
 };
 
 export default async function TrackersPage() {
@@ -36,7 +36,7 @@ export default async function TrackersPage() {
         <p className="eyebrow mb-1.5">Monitors</p>
         <h1 className="font-display text-2xl text-ink">Trackers</h1>
         <p className="mt-1.5 max-w-xl text-sm text-ink-muted">
-          Define topics to watch for — competitors, pricing, next steps. Verdant
+          Define topics to watch for — competitors, pricing, next steps. Parlor
           flags every mention across your meetings.
         </p>
       </header>

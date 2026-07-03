@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ============================================================
-   VERDANT design system — sage-on-white, brass, YC-grade.
+   PARLOR design system — sage-on-white, brass, YC-grade.
    Tailwind v4: @theme tokens generate utilities (bg-sage-600,
    text-ink, rounded-lg, …). OKLCH is source of truth; hex is
    the sRGB fallback baked into the values below.

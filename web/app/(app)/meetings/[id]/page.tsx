@@ -26,7 +26,7 @@ import { ShareButton } from "@/components/meetings/detail/ShareButton";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Meeting — Verdant",
+  title: "Meeting — Parlor",
 };
 
 type Params = Promise<{ id: string }>;

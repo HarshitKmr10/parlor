@@ -141,7 +141,7 @@ export function WebhooksManager({ initialEndpoints, eventTypes }: Props) {
         <input
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://example.com/webhooks/verdant"
+          placeholder="https://example.com/webhooks/parlor"
           className="w-full rounded-md border border-border-default bg-surface-0 px-3 py-2 font-mono text-sm text-ink"
         />
         {eventTypes.length > 0 && (

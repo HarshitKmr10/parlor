@@ -260,7 +260,7 @@ async function joinMeetingImpl(meetingUrl, credentials = {}, options = {}) {
         // as finals too. The earlier finals-only check
         // `kind === 'final' || is_final === true` was matching the
         // diarizer shape and silently dropping every per-track segment,
-        // which is why staging meeting 9836550c-... was producing AWS
+        // which is why a real test meeting was producing AWS
         // Transcribe text in logs but persisting zero rows to the DB.
         if (!segment) return;
         const isExplicitPartial = segment.kind === 'partial'

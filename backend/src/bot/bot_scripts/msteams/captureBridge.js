@@ -337,9 +337,8 @@ class CaptureBridge {
         // `typeof entry !== 'string' continue` silently dropped every
         // entry → roster_solo never fired → "Speaker N" appeared in
         // transcripts despite all the cumulative-seen patches we shipped.
-        // Verified live on staging meeting 58707709-... (bot
-        // "ABC TESTING", lone human "Harshit Kumar"): segments still
-        // came back as Speaker 2 / peer_label.
+        // Verified live during testing (bot "ABC TESTING", lone human
+        // "Jane Doe"): segments still came back as Speaker 2 / peer_label.
         const name = typeof entry === 'string' ? entry : entry?.name;
         if (typeof name !== 'string' || !name.trim()) continue;
         const a = name.trim().toLowerCase();

@@ -46,8 +46,8 @@ To capture true system/meeting audio on macOS, install a loopback device:
          Aggregate Device combining BlackHole + your mic to record both sides.
 
   3. Re-run with the loopback device:
-       verdant-capture --list-devices          # find its index/name
-       verdant-capture --device "BlackHole 2ch" ...
+       parlor-capture --list-devices          # find its index/name
+       parlor-capture --device "BlackHole 2ch" ...
 """
 
 

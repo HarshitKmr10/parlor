@@ -1,9 +1,9 @@
-# Meeting SaaS — AI Service
+# Parlor — AI Service
 
-Internal (non-public) Python/FastAPI microservice that powers meeting summaries,
-action-item / chapter extraction, transcript embeddings, and chat-with-meeting
-(RAG). Called over HTTP by the backend. Implements the **AI service** section of
-[`../docs/API-CONTRACT.md`](../docs/API-CONTRACT.md).
+Python/FastAPI microservice that powers meeting summaries, action-item /
+chapter extraction, transcript embeddings, and chat-with-meeting (RAG). Called
+over HTTP by the backend. Runs in **mock mode** with zero LLM keys. Implements
+the **AI service** section of [`../docs/API-CONTRACT.md`](../docs/API-CONTRACT.md).
 
 Runs on **port 8100**.
 

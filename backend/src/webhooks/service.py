@@ -110,10 +110,10 @@ class WebhookService:
         ts = int(time.time())
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "Verdant-Webhooks/1.0",
-            "X-Verdant-Signature": build_signature_header(secret, body, ts),
-            "X-Verdant-Event-Type": delivery["event_type"],
-            "X-Verdant-Delivery-Id": str(delivery_id),
+            "User-Agent": "Parlor-Webhooks/1.0",
+            "X-Parlor-Signature": build_signature_header(secret, body, ts),
+            "X-Parlor-Event-Type": delivery["event_type"],
+            "X-Parlor-Delivery-Id": str(delivery_id),
         }
 
         status_code: Optional[int] = None

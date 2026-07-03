@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
 
-test.describe("Ask Verdant (cross-meeting)", () => {
+test.describe("Ask Parlor (cross-meeting)", () => {
   test("answers across all meetings with meeting-attributed citations", async ({ page }) => {
     await page.goto("/ask");
-    await expect(page.getByRole("heading", { name: "Ask Verdant" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Ask Parlor" })).toBeVisible();
 
     const input = page.getByPlaceholder("Ask across every meeting…");
     await input.fill("Who owns the billing migration?");

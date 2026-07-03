@@ -8,7 +8,7 @@ import { PrivacySettings } from "@/components/settings/PrivacySettings";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Privacy & redaction — Verdant",
+  title: "Privacy & redaction — Parlor",
 };
 
 const DEFAULTS: NlpSettings = {

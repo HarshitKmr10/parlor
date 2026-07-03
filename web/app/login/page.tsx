@@ -5,8 +5,8 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { SsoButton } from "@/components/auth/SsoButton";
 
 export const metadata: Metadata = {
-  title: "Sign in — Verdant",
-  description: "Sign in to your Verdant workspace.",
+  title: "Sign in — Parlor",
+  description: "Sign in to your Parlor workspace.",
 };
 
 export default function LoginPage() {
@@ -18,7 +18,7 @@ export default function LoginPage() {
           <div className="mb-8">
             <p className="eyebrow mb-2">Welcome back</p>
             <h1 className="font-display text-2xl text-ink">
-              Sign in to Verdant
+              Sign in to Parlor
             </h1>
             <p className="mt-1.5 text-sm text-ink-muted">
               Pick up right where your meetings left off.

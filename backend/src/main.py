@@ -533,9 +533,9 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(
-    title="Verdant API",
+    title="Parlor API",
     description=(
-        "The Verdant meeting-intelligence API. Capture meetings, then read "
+        "The Parlor meeting-intelligence API. Capture meetings, then read "
         "transcripts, summaries, analytics, highlights, action items, and ask "
         "questions across your whole workspace.\n\n"
         "**Auth:** send `Authorization: Bearer <token>` (from `/api/v1/auth/login` "
@@ -547,7 +547,7 @@ app = FastAPI(
     ),
     version="1.0.0",
     lifespan=lifespan,
-    contact={"name": "Verdant", "url": "https://verdant.example.com"},
+    contact={"name": "Parlor", "url": "https://parlor.example.com"},
     license_info={"name": "Proprietary"},
 )
 

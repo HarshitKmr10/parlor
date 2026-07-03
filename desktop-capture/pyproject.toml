@@ -3,14 +3,14 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "verdant-capture"
+name = "parlor-capture"
 version = "0.1.0"
-description = "Botless desktop audio capture client for the Verdant meeting assistant (Granola-style, no bot joins the call)."
+description = "Botless desktop audio capture client for the Parlor meeting assistant (Granola-style, no bot joins the call)."
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
-authors = [{ name = "Verdant" }]
-keywords = ["meetings", "transcription", "system-audio", "whisper", "verdant"]
+authors = [{ name = "Parlor" }]
+keywords = ["meetings", "transcription", "system-audio", "whisper", "parlor"]
 
 dependencies = [
     # CLI + config
@@ -30,7 +30,7 @@ whisper = ["faster-whisper>=1.0"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21"]
 
 [project.scripts]
-verdant-capture = "verdant_capture.cli:app"
+parlor-capture = "verdant_capture.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/verdant_capture"]

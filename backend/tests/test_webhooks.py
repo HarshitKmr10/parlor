@@ -217,8 +217,8 @@ async def test_deliver_one_success_marks_delivered_and_signs():
     svc._repo.mark_delivered.assert_awaited_once()
     # signed headers present
     _, kwargs = client.post.call_args
-    assert kwargs["headers"]["X-Verdant-Signature"].startswith("t=")
-    assert kwargs["headers"]["X-Verdant-Event-Type"] == "meeting.completed"
+    assert kwargs["headers"]["X-Parlor-Signature"].startswith("t=")
+    assert kwargs["headers"]["X-Parlor-Event-Type"] == "meeting.completed"
 
 
 @pytest.mark.asyncio

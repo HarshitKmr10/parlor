@@ -67,13 +67,13 @@ describe('attributeFromTrack', () => {
       peerId: 2,
       trackId: 't1',
       peerLabel: 'Speaker 2',
-      roster: { list: ['Harshit Kumar'] },
+      roster: { list: ['Jane Doe'] },
       activeSpeakerName: null,
       botName: 'Bot',
       csrcSources: [{ source: 201, name: null, audioLevel: 50 }],
     });
     expect(out.confidence).toBe('roster_solo');
-    expect(out.speaker).toBe('Harshit Kumar');
+    expect(out.speaker).toBe('Jane Doe');
   });
 
   test('csrcSources empty/undefined falls through to existing chain', () => {
@@ -81,13 +81,13 @@ describe('attributeFromTrack', () => {
       peerId: 2,
       trackId: 't1',
       peerLabel: 'Speaker 2',
-      roster: { list: ['Harshit Kumar'] },
-      activeSpeakerName: 'Harshit Kumar',
+      roster: { list: ['Jane Doe'] },
+      activeSpeakerName: 'Jane Doe',
       botName: 'Bot',
       csrcSources: [],
     });
     expect(out.confidence).toBe('roster_active');
-    expect(out.speaker).toBe('Harshit Kumar');
+    expect(out.speaker).toBe('Jane Doe');
   });
 
   test('uses activeSpeakerName when available (roster_active)', () => {
@@ -95,28 +95,28 @@ describe('attributeFromTrack', () => {
       peerId: 2,
       trackId: 't1',
       peerLabel: 'Speaker 2',
-      roster: { list: ['Test', 'Harshit Kumar'] },
-      activeSpeakerName: 'Harshit Kumar',
+      roster: { list: ['Test', 'Jane Doe'] },
+      activeSpeakerName: 'Jane Doe',
       botName: 'Test',
     });
     expect(out.confidence).toBe('roster_active');
-    expect(out.speaker).toBe('Harshit Kumar');
+    expect(out.speaker).toBe('Jane Doe');
   });
 
   test('roster_solo fires when one human + bot are in the list (botName="Test")', () => {
-    // Regression for staging meeting 73fa5bf7-... — the bot was named
+    // Regression found during testing — the bot was named
     // "Test" and segments came back as "Speaker 2" because the prior
     // /bot/i filter didn't match "Test", so humans.length was 2.
     const out = attributeFromTrack({
       peerId: 2,
       trackId: 't1',
       peerLabel: 'Speaker 2',
-      roster: { list: ['Test', 'Harshit Kumar'] },
+      roster: { list: ['Test', 'Jane Doe'] },
       activeSpeakerName: null,
       botName: 'Test',
     });
     expect(out.confidence).toBe('roster_solo');
-    expect(out.speaker).toBe('Harshit Kumar');
+    expect(out.speaker).toBe('Jane Doe');
   });
 
   test('roster_solo also fires when bot name is "ABC"', () => {
@@ -124,12 +124,12 @@ describe('attributeFromTrack', () => {
       peerId: 2,
       trackId: 't1',
       peerLabel: 'Speaker 2',
-      roster: { list: ['ABC', 'Harshit Kumar'] },
+      roster: { list: ['ABC', 'Jane Doe'] },
       activeSpeakerName: null,
       botName: 'ABC',
     });
     expect(out.confidence).toBe('roster_solo');
-    expect(out.speaker).toBe('Harshit Kumar');
+    expect(out.speaker).toBe('Jane Doe');
   });
 
   test('extracts strings directly (regression: list is string[], not {name}[])', () => {
@@ -137,12 +137,12 @@ describe('attributeFromTrack', () => {
       peerId: 2,
       trackId: 't1',
       peerLabel: 'Speaker 2',
-      roster: { list: ['Harshit Kumar'] }, // bare strings
+      roster: { list: ['Jane Doe'] }, // bare strings
       activeSpeakerName: null,
       botName: 'AIOps Bot',
     });
     expect(out.confidence).toBe('roster_solo');
-    expect(out.speaker).toBe('Harshit Kumar');
+    expect(out.speaker).toBe('Jane Doe');
   });
 
   test('REGRESSION: handles {name, speaking} objects from rosterWatcher.snapshot()', () => {
@@ -152,8 +152,8 @@ describe('attributeFromTrack', () => {
     // #3498 captureBridge wiring) silently dropped these because
     // `typeof entry === 'string'` is false for objects → roster_solo
     // never fired → "Speaker N" still appeared in transcripts.
-    // Verified live on staging meeting 58707709-... where bot was
-    // "ABC TESTING" and Harshit was the only human; segments still
+    // Verified live during testing, where bot was
+    // "ABC TESTING" and Jane was the only human; segments still
     // came back as Speaker 2 / peer_label.
     const out = attributeFromTrack({
       peerId: 2,
@@ -161,13 +161,13 @@ describe('attributeFromTrack', () => {
       peerLabel: 'Speaker 2',
       roster: { list: [
         { name: 'ABC TESTING', speaking: false },
-        { name: 'Harshit Kumar', speaking: true },
+        { name: 'Jane Doe', speaking: true },
       ] },
       activeSpeakerName: null,
       botName: 'ABC TESTING',
     });
     expect(out.confidence).toBe('roster_solo');
-    expect(out.speaker).toBe('Harshit Kumar');
+    expect(out.speaker).toBe('Jane Doe');
   });
 
   test('REGRESSION: object list with no botName still picks the lone human', () => {
@@ -175,11 +175,11 @@ describe('attributeFromTrack', () => {
       peerId: 2,
       trackId: 't1',
       peerLabel: 'Speaker 2',
-      roster: { list: [{ name: 'Harshit Kumar', speaking: true }] },
+      roster: { list: [{ name: 'Jane Doe', speaking: true }] },
       activeSpeakerName: null,
     });
     expect(out.confidence).toBe('roster_solo');
-    expect(out.speaker).toBe('Harshit Kumar');
+    expect(out.speaker).toBe('Jane Doe');
   });
 
   test('falls back to lastBoundSpeaker when 2+ humans + no active speaker (avoids Speaker N)', () => {
@@ -206,10 +206,10 @@ describe('attributeFromTrack', () => {
       roster: { list: [] },
       activeSpeakerName: null,
       botName: 'Bot',
-      lastBoundSpeaker: 'Harshit Kumar',
+      lastBoundSpeaker: 'Jane Doe',
     });
     expect(out.confidence).toBe('last_known_speaker');
-    expect(out.speaker).toBe('Harshit Kumar');
+    expect(out.speaker).toBe('Jane Doe');
   });
 
   test('soft-label fallback only when NO lastBoundSpeaker either (true cold start)', () => {
@@ -233,11 +233,11 @@ describe('attributeFromTrack', () => {
       peerId: 2,
       trackId: 't1',
       peerLabel: 'Speaker 2',
-      roster: { list: ['Harshit Kumar'] },
+      roster: { list: ['Jane Doe'] },
       activeSpeakerName: null,
       // botName: undefined
     });
     expect(out.confidence).toBe('roster_solo');
-    expect(out.speaker).toBe('Harshit Kumar');
+    expect(out.speaker).toBe('Jane Doe');
   });
 });

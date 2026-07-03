@@ -6,7 +6,7 @@ import { AnalyticsTab } from "@/components/meetings/detail/AnalyticsTab";
 import { formatDurationLong } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Shared recap — Verdant",
+  title: "Shared recap — Parlor",
   robots: { index: false, follow: false },
 };
 
@@ -17,12 +17,12 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh bg-surface-0">
       <header className="border-b border-border-subtle">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-5 py-4">
-          <span className="font-display text-lg text-ink">Verdant</span>
+          <span className="font-display text-lg text-ink">Parlor</span>
           <a
             href="/signup"
             className="rounded-md bg-sage-600 px-3 py-1.5 text-sm font-medium text-surface-cream hover:bg-sage-700"
           >
-            Try Verdant
+            Try Parlor
           </a>
         </div>
       </header>
@@ -107,7 +107,7 @@ export default async function PublicSharePage({ params }: { params: Params }) {
         )}
 
         <footer className="border-t border-border-subtle pt-6 text-center text-xs text-ink-faint">
-          Captured and summarized with Verdant.
+          Captured and summarized with Parlor.
         </footer>
       </article>
     </Shell>

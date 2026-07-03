@@ -26,7 +26,7 @@ export function BackendDownState({ resource = "your data" }: Props) {
       </div>
       <h3 className="font-display text-lg text-ink">Backend not connected</h3>
       <p className="mt-1.5 max-w-md text-sm leading-relaxed text-ink-muted">
-        We couldn&rsquo;t reach the Verdant API to load {resource}. Start the
+        We couldn&rsquo;t reach the Parlor API to load {resource}. Start the
         backend service, then refresh this page. The interface stays available
         so you can keep exploring.
       </p>

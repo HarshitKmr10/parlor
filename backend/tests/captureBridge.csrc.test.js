@@ -23,19 +23,19 @@ function makeBridge({ rosterWatcher, botName = 'Bot' } = {}) {
 
 describe('CaptureBridge CSRC correlation', () => {
   test('learns + locks mapping after 3 single-source corroborations', () => {
-    let active = 'Harshit Kumar';
+    let active = 'Jane Doe';
     const rosterWatcher = {
       getActiveSpeakerInWindow: () => active,
       snapshot: () => ({ list: [], byName: {}, byPeerId: {} }),
     };
     const bridge = makeBridge({ rosterWatcher });
 
-    bridge._learnCsrcMapping([{ source: 201 }], 'Harshit Kumar');
+    bridge._learnCsrcMapping([{ source: 201 }], 'Jane Doe');
     expect(bridge._csrcSourceMap.has(201)).toBe(false); // pending only
-    bridge._learnCsrcMapping([{ source: 201 }], 'Harshit Kumar');
+    bridge._learnCsrcMapping([{ source: 201 }], 'Jane Doe');
     expect(bridge._csrcSourceMap.has(201)).toBe(false);
-    bridge._learnCsrcMapping([{ source: 201 }], 'Harshit Kumar');
-    expect(bridge._csrcSourceMap.get(201)).toBe('Harshit Kumar');
+    bridge._learnCsrcMapping([{ source: 201 }], 'Jane Doe');
+    expect(bridge._csrcSourceMap.get(201)).toBe('Jane Doe');
   });
 
   test('does not lock a candidate that gets contradicted by a different name', () => {

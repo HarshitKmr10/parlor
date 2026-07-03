@@ -39,7 +39,7 @@ export function LiveAssist({ meetingId, onPickQuestion, intervalMs = 20_000 }: P
     >
       <p className="eyebrow mb-2 flex items-center gap-1.5">
         <SparkIcon className="h-3.5 w-3.5" />
-        Verdant assist
+        Parlor assist
       </p>
 
       {assist.suggestedQuestions.length > 0 && (

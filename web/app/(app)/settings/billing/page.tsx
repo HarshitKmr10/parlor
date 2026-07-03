@@ -8,7 +8,7 @@ import { BillingPanel } from "@/components/settings/BillingPanel";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Billing — Verdant",
+  title: "Billing — Parlor",
 };
 
 export default async function BillingPage() {

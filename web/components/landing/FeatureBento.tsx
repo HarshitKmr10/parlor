@@ -31,7 +31,7 @@ const FEATURES: Feature[] = [
   {
     icon: <CalendarIcon />,
     title: "Calendar auto-join",
-    description: "Verdant watches your calendar and slips into every meeting on time, so you never press record.",
+    description: "Parlor watches your calendar and slips into every meeting on time, so you never press record.",
     span: "lg:col-span-3",
   },
   {
@@ -75,7 +75,7 @@ export function FeatureBento() {
           </Reveal>
           <Reveal delay={120}>
             <p className="mt-4 text-lg leading-relaxed text-ink-soft">
-              Not just a recorder. Verdant listens, organizes, and answers — so
+              Not just a recorder. Parlor listens, organizes, and answers — so
               the work that usually happens after the call mostly happens on its
               own.
             </p>

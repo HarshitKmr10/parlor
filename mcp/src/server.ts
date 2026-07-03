@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Verdant MCP server — stdio transport.
+ * Parlor MCP server — stdio transport.
  *
  * Exposes the workspace meeting knowledge base (search_meetings, get_meeting,
- * get_transcript, ask_meetings) over MCP, backed by the Verdant product API and
+ * get_transcript, ask_meetings) over MCP, backed by the Parlor product API and
  * authenticated with a workspace API key (`X-API-Key`).
  */
 
@@ -14,7 +14,7 @@ import { loadConfig, ConfigError, type VerdantConfig } from "./config.js";
 import { VerdantClient, type FetchLike } from "./client.js";
 import { registerTools } from "./tools/index.js";
 
-const SERVER_NAME = "verdant-mcp";
+const SERVER_NAME = "parlor-mcp";
 const SERVER_VERSION = "0.1.0";
 
 export interface CreateServerOptions {
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
     config = loadConfig();
   } catch (error) {
     if (error instanceof ConfigError) {
-      process.stderr.write(`[verdant-mcp] ${error.message}\n`);
+      process.stderr.write(`[parlor-mcp] ${error.message}\n`);
       process.exit(1);
     }
     throw error;
@@ -58,7 +58,7 @@ async function main(): Promise<void> {
   const transport = new StdioServerTransport();
   await server.connect(transport);
   process.stderr.write(
-    `[verdant-mcp] connected (api=${config.apiUrl}, workspace=${config.workspaceId ?? "default"})\n`,
+    `[parlor-mcp] connected (api=${config.apiUrl}, workspace=${config.workspaceId ?? "default"})\n`,
   );
 }
 
@@ -70,7 +70,7 @@ const invokedDirectly =
 if (invokedDirectly) {
   main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`[verdant-mcp] fatal: ${message}\n`);
+    process.stderr.write(`[parlor-mcp] fatal: ${message}\n`);
     process.exit(1);
   });
 }

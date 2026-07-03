@@ -8,7 +8,7 @@ import { BackendDownState } from "@/components/ui/BackendDownState";
 import { formatDate, formatDurationLong, formatHours } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Reports — Verdant",
+  title: "Reports — Parlor",
 };
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {

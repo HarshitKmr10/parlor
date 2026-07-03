@@ -1,4 +1,4 @@
-"""Local desktop GUI control panel wrapping the verdant-capture CLI.
+"""Local desktop GUI control panel wrapping the parlor-capture CLI.
 
 `build_capture_args` (pure) maps a form dict to CLI args; `CaptureController`
 manages the capture subprocess lifecycle (injectable launcher for tests). The

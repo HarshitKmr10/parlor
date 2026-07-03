@@ -45,7 +45,7 @@ describe('watchAloneness — audio-path fallback (recentAttributedSpeaker)', () 
     const { controller, signal } = makeAbortable();
     const onAlone = jest.fn();
     let now = Date.now();
-    const recentAttributedSpeaker = () => ({ name: 'Harshit Kumar', tsMs: now });
+    const recentAttributedSpeaker = () => ({ name: 'Jane Doe', tsMs: now });
 
     const watcher = watchAloneness({
       roster, signal, onAlone, logger: QUIET_LOGGER,
@@ -77,7 +77,7 @@ describe('watchAloneness — audio-path fallback (recentAttributedSpeaker)', () 
     // Stamp a single attribution then never refresh — caller no longer
     // attributes audio (e.g. all speakers stopped talking AND left).
     const staleTs = Date.now();
-    const recentAttributedSpeaker = () => ({ name: 'Harshit Kumar', tsMs: staleTs });
+    const recentAttributedSpeaker = () => ({ name: 'Jane Doe', tsMs: staleTs });
 
     const watcher = watchAloneness({
       roster, signal, onAlone, logger: QUIET_LOGGER,
@@ -105,7 +105,7 @@ describe('watchAloneness — audio-path fallback (recentAttributedSpeaker)', () 
     const { controller, signal } = makeAbortable();
     const onAlone = jest.fn();
     let now = Date.now();
-    const recentAttributedSpeaker = () => ({ name: 'Harshit Kumar', tsMs: now });
+    const recentAttributedSpeaker = () => ({ name: 'Jane Doe', tsMs: now });
 
     const watcher = watchAloneness({
       roster, signal, onAlone, logger: QUIET_LOGGER,

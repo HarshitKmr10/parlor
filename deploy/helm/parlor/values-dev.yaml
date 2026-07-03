@@ -9,7 +9,7 @@
 #   - local_whisper STT (no cloud STT creds)
 #   - ingress disabled (use kubectl port-forward, see NOTES)
 #
-#   helm install verdant ./deploy/helm/verdant -f deploy/helm/verdant/values-dev.yaml
+#   helm install parlor ./deploy/helm/parlor -f deploy/helm/parlor/values-dev.yaml
 #
 # Override the image repos/tags below to point at your locally built/pushed
 # images (e.g. images loaded into kind via `kind load docker-image`).
@@ -46,7 +46,7 @@ secrets:
 backend:
   replicaCount: 1
   image:
-    repository: verdant-meeting-api
+    repository: parlor-meeting-api
   allowedOrigins:
     - "http://localhost:3000"
   allowedHosts: "*"
@@ -58,7 +58,7 @@ backend:
 aiService:
   replicaCount: 1
   image:
-    repository: verdant-ai-service
+    repository: parlor-ai-service
   resources:
     requests: { cpu: 50m, memory: 128Mi }
     limits:   { cpu: "500m", memory: 512Mi }
@@ -66,7 +66,7 @@ aiService:
 web:
   replicaCount: 1
   image:
-    repository: verdant-web
+    repository: parlor-web
   publicApiUrl: "http://localhost:8000"
   resources:
     requests: { cpu: 50m, memory: 128Mi }
@@ -76,7 +76,7 @@ botWorker:
   enabled: true
   replicaCount: 1
   image:
-    repository: verdant-meeting-worker
+    repository: parlor-meeting-worker
   enabledPlatforms: "googlemeet"
   storageRequired: "false"
   resources:

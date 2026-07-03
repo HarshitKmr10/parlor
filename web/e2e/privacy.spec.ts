@@ -9,7 +9,7 @@ test.describe("privacy & redaction", () => {
     // Sub-toggles appear when redaction is on.
     await expect(page.getByText(/email addresses/i)).toBeVisible();
 
-    await page.getByPlaceholder(/Verdant, pgvector/i).fill("Verdant, pgvector, ARR");
+    await page.getByPlaceholder(/Parlor, pgvector/i).fill("Parlor, pgvector, ARR");
     await page.getByRole("button", { name: /save privacy settings/i }).click();
     await expect(page.getByText(/^Saved\.$/)).toBeVisible();
   });

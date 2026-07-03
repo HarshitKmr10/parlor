@@ -9,7 +9,7 @@ import { BackendDownState } from "@/components/ui/BackendDownState";
 import { TasksIcon } from "@/components/ui/icons";
 
 export const metadata: Metadata = {
-  title: "Action items — Verdant",
+  title: "Action items — Parlor",
 };
 
 export default async function ActionItemsPage() {
@@ -44,7 +44,7 @@ export default async function ActionItemsPage() {
         <EmptyState
           icon={<TasksIcon className="h-6 w-6" />}
           title="No action items yet"
-          description="As Verdant summarizes your meetings, the commitments it detects collect here so nothing slips."
+          description="As Parlor summarizes your meetings, the commitments it detects collect here so nothing slips."
         />
       )}
     </div>

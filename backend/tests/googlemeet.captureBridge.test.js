@@ -60,7 +60,7 @@ describe('googlemeet CaptureBridge', () => {
 
     bridge._onChunk({
       pid: 'csrc-2624522088',
-      name: 'Harshit Kumar',
+      name: 'Jane Doe',
       participant_id: 'spaces/x/devices/1',
       pcm_b64: pcmFrame(),
       ts_ms: 1_000,
@@ -187,12 +187,12 @@ describe('googlemeet CaptureBridge', () => {
 
   test('cold-start pid recovers real speaker via rosterWatcher history', async () => {
     const { factory, sessions } = makeFakeAdapterFactory();
-    // Simulate the rosterWatcher having seen "Harshit Kumar" speaking
+    // Simulate the rosterWatcher having seen "Jane Doe" speaking
     // between 1_000–2_000 ms — the bridge should pick this up when it
     // sees a cold-start pid like `track-XXXX`.
     const rosterWatcher = {
       getActiveSpeakerInWindow: (start, end) => {
-        if (start <= 1_000 && end >= 2_000) return 'Harshit Kumar';
+        if (start <= 1_000 && end >= 2_000) return 'Jane Doe';
         return null;
       },
     };
@@ -217,7 +217,7 @@ describe('googlemeet CaptureBridge', () => {
     });
 
     expect(captured).toHaveLength(1);
-    expect(captured[0].speaker).toBe('Harshit Kumar');
+    expect(captured[0].speaker).toBe('Jane Doe');
     expect(captured[0].attribution_confidence).toBe('roster_history');
   });
 

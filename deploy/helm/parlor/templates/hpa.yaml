@@ -3,14 +3,14 @@
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: {{ include "verdant.componentName" (dict "ctx" . "component" $component) }}
+  name: {{ include "parlor.componentName" (dict "ctx" . "component" $component) }}
   labels:
-    {{- include "verdant.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+    {{- include "parlor.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: {{ include "verdant.componentName" (dict "ctx" . "component" $component) }}
+    name: {{ include "parlor.componentName" (dict "ctx" . "component" $component) }}
   minReplicas: {{ .Values.backend.autoscaling.minReplicas }}
   maxReplicas: {{ .Values.backend.autoscaling.maxReplicas }}
   metrics:

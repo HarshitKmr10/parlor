@@ -204,7 +204,7 @@ Launching the bot is now real, but **being admitted** depends on the meeting:
   and Teams work without it).
 
 So a green end-to-end join is: bot-runtime image up → a **live** Meet/Teams
-link → the host admits "Verdant Notetaker" → status reaches `ongoing` and the
+link → the host admits "Parlor Notetaker" → status reaches `ongoing` and the
 local-whisper transcript fills in with no cloud keys.
 
 ---

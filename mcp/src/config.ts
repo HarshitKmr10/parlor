@@ -35,8 +35,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): VerdantConfig 
   if (!apiKey) {
     throw new ConfigError(
       "VERDANT_API_KEY is required. Set it to a workspace API key " +
-        "(create one via the Verdant app: Settings → API Keys). " +
-        "Example: VERDANT_API_KEY=vk_live_... verdant-mcp",
+        "(create one via the Parlor app: Settings → API Keys). " +
+        "Example: VERDANT_API_KEY=vk_live_... parlor-mcp",
     );
   }
 

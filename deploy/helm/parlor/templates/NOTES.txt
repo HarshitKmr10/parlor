@@ -1,5 +1,5 @@
 ============================================================================
- Verdant meeting-assistant — release {{ .Release.Name }} (ns: {{ .Release.Namespace }})
+ Parlor meeting-assistant — release {{ .Release.Name }} (ns: {{ .Release.Namespace }})
 ============================================================================
 
 Runtime mode : {{ .Values.runtimeMode }}
@@ -8,19 +8,19 @@ Postgres     : {{ if .Values.postgres.enabled }}in-cluster (pgvector){{ else }}e
 
 Components deployed:
 {{- if .Values.backend.enabled }}
-  - backend     : {{ include "verdant.componentName" (dict "ctx" . "component" "backend") }}:{{ .Values.backend.service.port }}
+  - backend     : {{ include "parlor.componentName" (dict "ctx" . "component" "backend") }}:{{ .Values.backend.service.port }}
 {{- end }}
 {{- if .Values.aiService.enabled }}
-  - ai-service  : {{ include "verdant.componentName" (dict "ctx" . "component" "ai-service") }}:{{ .Values.aiService.service.port }}
+  - ai-service  : {{ include "parlor.componentName" (dict "ctx" . "component" "ai-service") }}:{{ .Values.aiService.service.port }}
 {{- end }}
 {{- if .Values.web.enabled }}
-  - web         : {{ include "verdant.componentName" (dict "ctx" . "component" "web") }}:{{ .Values.web.service.port }}
+  - web         : {{ include "parlor.componentName" (dict "ctx" . "component" "web") }}:{{ .Values.web.service.port }}
 {{- end }}
 {{- if .Values.botWorker.enabled }}
-  - bot-worker  : {{ include "verdant.componentName" (dict "ctx" . "component" "bot-worker") }} (replicas: {{ .Values.botWorker.replicaCount }})
+  - bot-worker  : {{ include "parlor.componentName" (dict "ctx" . "component" "bot-worker") }} (replicas: {{ .Values.botWorker.replicaCount }})
 {{- end }}
 {{- if .Values.postgres.enabled }}
-  - postgres    : {{ include "verdant.fullname" . }}-postgres:{{ .Values.postgres.service.port }}
+  - postgres    : {{ include "parlor.fullname" . }}-postgres:{{ .Values.postgres.service.port }}
 {{- end }}
 
 ----------------------------------------------------------------------------
@@ -32,8 +32,8 @@ Access the dashboard
 {{- else }}
   Ingress is disabled. Port-forward to reach the services locally:
 
-    kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "verdant.componentName" (dict "ctx" . "component" "web") }} 3000:{{ .Values.web.service.port }}
-    kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "verdant.componentName" (dict "ctx" . "component" "backend") }} 8000:{{ .Values.backend.service.port }}
+    kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "parlor.componentName" (dict "ctx" . "component" "web") }} 3000:{{ .Values.web.service.port }}
+    kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "parlor.componentName" (dict "ctx" . "component" "backend") }} 8000:{{ .Values.backend.service.port }}
 
   Then open http://localhost:3000 and sign up.
 {{- end }}
@@ -42,7 +42,7 @@ Access the dashboard
 Verify health
 ----------------------------------------------------------------------------
   kubectl -n {{ .Release.Namespace }} get pods -l app.kubernetes.io/instance={{ .Release.Name }}
-  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "verdant.componentName" (dict "ctx" . "component" "backend") }} -- sh -c 'wget -qO- localhost:{{ .Values.backend.service.port }}/ready'
+  kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "parlor.componentName" (dict "ctx" . "component" "backend") }} -- sh -c 'wget -qO- localhost:{{ .Values.backend.service.port }}/ready'
 
 {{- if not .Values.secrets.existingSecret }}
 {{- if and (not .Values.postgres.enabled) (not .Values.externalDatabaseUrl) (not .Values.secrets.data.DATABASE_URL) }}

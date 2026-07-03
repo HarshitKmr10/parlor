@@ -1,5 +1,5 @@
 # =============================================================================
-# Verdant meeting-assistant — full dev stack
+# Parlor meeting-assistant — full dev stack
 # =============================================================================
 #   cp .env.example .env && make up        # build + start everything
 #   make smoke                             # run the end-to-end smoke test
@@ -22,7 +22,7 @@ services:
   # is applied from db/*.sql on first init, in order.
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: verdant-postgres
+    container_name: parlor-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-meeting}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meeting}
@@ -30,7 +30,7 @@ services:
     ports:
       - "${POSTGRES_PORT:-5434}:5432"
     volumes:
-      - verdant_pgdata:/var/lib/postgresql/data
+      - parlor_pgdata:/var/lib/postgresql/data
       # Applied alphabetically on FIRST init of an empty data dir, in order.
       - ./backend/db/bootstrap.sql:/docker-entrypoint-initdb.d/00_bootstrap.sql:ro
       - ./backend/db/0002_product_auth.sql:/docker-entrypoint-initdb.d/01_product_auth.sql:ro
@@ -59,7 +59,7 @@ services:
       timeout: 3s
       retries: 30
     networks:
-      - verdant
+      - parlor
 
   # ── AI service (summaries / embeddings / chat) ─────────────────────────────
   # Boots in mock mode with no keys. Creates the meeting_embeddings pgvector
@@ -68,7 +68,7 @@ services:
     build:
       context: ./ai-service
       dockerfile: Dockerfile
-    container_name: verdant-ai-service
+    container_name: parlor-ai-service
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,14 +98,14 @@ services:
       retries: 20
       start_period: 10s
     networks:
-      - verdant
+      - parlor
 
   # ── Backend product API (standalone mode) ──────────────────────────────────
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
-    container_name: verdant-backend
+    container_name: parlor-backend
     depends_on:
       postgres:
         condition: service_healthy
@@ -158,7 +158,7 @@ services:
       retries: 30
       start_period: 15s
     networks:
-      - verdant
+      - parlor
 
   # ── Web (Next.js standalone) ───────────────────────────────────────────────
   web:
@@ -168,7 +168,7 @@ services:
       args:
         # Baked into the client bundle at build time (browser -> backend).
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8001}
-    container_name: verdant-web
+    container_name: parlor-web
     depends_on:
       backend:
         condition: service_healthy
@@ -190,11 +190,11 @@ services:
       retries: 30
       start_period: 15s
     networks:
-      - verdant
+      - parlor
 
 volumes:
-  verdant_pgdata:
+  parlor_pgdata:
 
 networks:
-  verdant:
+  parlor:
     driver: bridge

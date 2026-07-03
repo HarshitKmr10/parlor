@@ -89,7 +89,7 @@ export function NewMeetingModal({ isOpen, onClose }: Props) {
       isOpen={isOpen}
       onClose={handleClose}
       title="New meeting"
-      description="Drop in a meeting link and Verdant's bot will join, transcribe, and summarize."
+      description="Drop in a meeting link and Parlor's bot will join, transcribe, and summarize."
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <div
@@ -140,7 +140,7 @@ export function NewMeetingModal({ isOpen, onClose }: Props) {
             type="datetime-local"
             value={scheduledAt}
             onChange={(event) => setScheduledAt(event.target.value)}
-            hint="Verdant joins automatically at this time."
+            hint="Parlor joins automatically at this time."
           />
         )}
 

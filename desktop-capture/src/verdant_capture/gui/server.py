@@ -2,7 +2,7 @@
 
 Serves a one-file HTML panel + JSON control endpoints backed by
 :class:`CaptureController`. Uses only the Python stdlib so the packaged CLI can
-launch it with no extra dependencies — `verdant-capture gui` opens it locally.
+launch it with no extra dependencies — `parlor-capture gui` opens it locally.
 """
 
 from __future__ import annotations

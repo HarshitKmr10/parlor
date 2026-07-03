@@ -63,9 +63,9 @@ describe('googlemeet RosterWatcher', () => {
     const r = rw();
     r.ingestRosterEvent({
       ts: 1_000,
-      list: [{ participantId: 'spaces/x/devices/123', name: 'Harshit Kumar', speaking: false }],
+      list: [{ participantId: 'spaces/x/devices/123', name: 'Jane Doe', speaking: false }],
     });
-    expect(r.nameForParticipantId('spaces/x/devices/123')).toBe('Harshit Kumar');
+    expect(r.nameForParticipantId('spaces/x/devices/123')).toBe('Jane Doe');
     expect(r.nameForParticipantId('unknown')).toBeNull();
   });
 

@@ -50,7 +50,7 @@ async def emit_digest(
             return {"delivered": True, "detail": "logged (SMTP not configured)"}
 
         msg = MIMEText(body)
-        msg["Subject"] = f"Verdant digest — {workspace_name}"
+        msg["Subject"] = f"Parlor digest — {workspace_name}"
         msg["From"] = settings.SMTP_FROM
         msg["To"] = str(target)
         # smtplib is blocking; for the low cadence of digests this is acceptable.

@@ -12,7 +12,7 @@ import { BackendDownState } from "@/components/ui/BackendDownState";
 import { MeetingsIcon } from "@/components/ui/icons";
 
 export const metadata: Metadata = {
-  title: "Meetings — Verdant",
+  title: "Meetings — Parlor",
 };
 
 const PAGE_SIZE = 20;
@@ -105,7 +105,7 @@ export default async function MeetingsPage({
               description={
                 status
                   ? "Try a different status, or add a new meeting to get started."
-                  : "Paste a Zoom, Meet, or Teams link and Verdant will join, transcribe, and summarize it."
+                  : "Paste a Zoom, Meet, or Teams link and Parlor will join, transcribe, and summarize it."
               }
               action={<NewMeetingButton />}
             />

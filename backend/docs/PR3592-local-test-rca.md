@@ -647,7 +647,7 @@ The following local edits remain in the working tree as candidate fixes
 | `src/api/database/connection.py` | 101-107 | adds `execute_one()` method (#15) |
 | `src/db/python/status_enum.py` | 13-15 | adds 3 missing `STATUSES` values (#13) |
 | `src/db/js/statusEnum.js` | 9 | same for JS (#14) |
-| `infra/aiops-chart/templates/meeting-joiner/api-deployment.yaml` | 58-62 | adds `command:` to launch uvicorn — *test artifact only*, not a real fix; the right fix is making the api Dockerfile build |
+| `infra/<internal-monorepo-chart>/templates/meeting-joiner/api-deployment.yaml` | 58-62 | adds `command:` to launch uvicorn — *test artifact only*, not a real fix; the right fix is making the api Dockerfile build |
 
 The first five are real bug fixes ready to be cherry-picked. The
 api-deployment one is incidental to a workaround for not having a
@@ -691,7 +691,7 @@ we even got to applying the chart.
 
 #### 17. Helm configmap uses kebab-case keys, code reads UPPER_SNAKE_CASE env vars
 
-`infra/aiops-chart/templates/meeting-joiner/configmap.yaml` defines:
+`infra/<internal-monorepo-chart>/templates/meeting-joiner/configmap.yaml` defines:
 ```yaml
 data:
   warm-pool-size: "5"

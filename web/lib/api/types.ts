@@ -93,7 +93,7 @@ export interface Citation {
   speakerName: string;
   text: string;
   tStartSec: number;
-  /** Present on workspace-wide ("Ask Verdant") answers. */
+  /** Present on workspace-wide ("Ask Parlor") answers. */
   meetingId?: string;
   meetingTitle?: string;
 }

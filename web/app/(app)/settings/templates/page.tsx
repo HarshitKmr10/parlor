@@ -8,7 +8,7 @@ import { TemplatesManager } from "@/components/settings/TemplatesManager";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Summary templates — Verdant",
+  title: "Summary templates — Parlor",
 };
 
 export default async function TemplatesPage() {

@@ -10,7 +10,7 @@ import { HighlightIcon } from "@/components/ui/icons";
 import { formatDuration, formatRelative } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Highlights — Verdant",
+  title: "Highlights — Parlor",
 };
 
 const COLOR_DOT: Record<string, string> = {

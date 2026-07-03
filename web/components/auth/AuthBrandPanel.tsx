@@ -34,7 +34,7 @@ export function AuthBrandPanel() {
             />
           </svg>
         </span>
-        Verdant
+        Parlor
       </Link>
 
       <div className="relative z-10 max-w-md">
@@ -45,7 +45,7 @@ export function AuthBrandPanel() {
         </h1>
         <hr className="divider-gold my-7" aria-hidden="true" />
         <p className="text-base leading-relaxed text-ink-soft">
-          Verdant joins your calls, transcribes in real time, and turns the
+          Parlor joins your calls, transcribes in real time, and turns the
           noise into a searchable record your whole team can rely on.
         </p>
       </div>

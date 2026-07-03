@@ -9,7 +9,7 @@ export async function GET() {
     return new NextResponse(JSON.stringify(bundle, null, 2), {
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": 'attachment; filename="verdant-export.json"',
+        "Content-Disposition": 'attachment; filename="parlor-export.json"',
       },
     });
   } catch (error: unknown) {

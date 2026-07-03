@@ -3,20 +3,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "verdant.componentName" (dict "ctx" . "component" $component) }}
+  name: {{ include "parlor.componentName" (dict "ctx" . "component" $component) }}
   labels:
-    {{- include "verdant.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+    {{- include "parlor.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
 spec:
   {{- if not .Values.backend.autoscaling.enabled }}
   replicas: {{ .Values.backend.replicaCount }}
   {{- end }}
   selector:
     matchLabels:
-      {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 6 }}
+      {{- include "parlor.selectorLabels" (dict "ctx" . "component" $component) | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 8 }}
+        {{- include "parlor.selectorLabels" (dict "ctx" . "component" $component) | nindent 8 }}
       annotations:
         # Roll pods when the shared config/secret content changes.
         checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
@@ -24,17 +24,17 @@ spec:
         checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "verdant.serviceAccountName" . }}
+      serviceAccountName: {{ include "parlor.serviceAccountName" . }}
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       securityContext:
-        {{- include "verdant.podSecurityContext" . | nindent 8 }}
+        {{- include "parlor.podSecurityContext" . | nindent 8 }}
       containers:
         - name: backend
-          image: {{ include "verdant.image" (dict "ctx" . "image" .Values.backend.image) }}
-          imagePullPolicy: {{ include "verdant.pullPolicy" (dict "ctx" . "image" .Values.backend.image) }}
+          image: {{ include "parlor.image" (dict "ctx" . "image" .Values.backend.image) }}
+          imagePullPolicy: {{ include "parlor.pullPolicy" (dict "ctx" . "image" .Values.backend.image) }}
           ports:
             - name: http
               containerPort: {{ .Values.backend.service.port }}
@@ -45,7 +45,7 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
           envFrom:
-            {{- include "verdant.envFrom" . | nindent 12 }}
+            {{- include "parlor.envFrom" . | nindent 12 }}
           livenessProbe:
             {{- toYaml .Values.backend.livenessProbe | nindent 12 }}
           readinessProbe:
@@ -68,13 +68,13 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "verdant.componentName" (dict "ctx" . "component" $component) }}
+  name: {{ include "parlor.componentName" (dict "ctx" . "component" $component) }}
   labels:
-    {{- include "verdant.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+    {{- include "parlor.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
 spec:
   type: {{ .Values.backend.service.type }}
   selector:
-    {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+    {{- include "parlor.selectorLabels" (dict "ctx" . "component" $component) | nindent 4 }}
   ports:
     - name: http
       port: {{ .Values.backend.service.port }}

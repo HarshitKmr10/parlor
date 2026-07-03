@@ -7,7 +7,7 @@ import type { UsageSummary } from "@/lib/api/types";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Usage — Verdant",
+  title: "Usage — Parlor",
 };
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {

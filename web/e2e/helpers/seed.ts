@@ -74,7 +74,7 @@ const SEEDS: MeetingSeed[] = [
     segments: [
       seg(1, "Dana", "Thanks for taking the time. To start, what does your current meeting workflow look like?", 0, 14),
       seg(2, "Evan", "Honestly it is a mess. We record calls but nobody ever goes back to watch them, so decisions get lost.", 14, 36),
-      seg(3, "Dana", "That is exactly the pain we solve. Verdant gives you searchable transcripts and automatic summaries.", 36, 56),
+      seg(3, "Dana", "That is exactly the pain we solve. Parlor gives you searchable transcripts and automatic summaries.", 36, 56),
       seg(4, "Evan", "How does pricing work for a team of about fifty people?", 56, 70),
       seg(5, "Dana", "We have a per-seat plan, and I can put together a tailored quote. What is your timeline to decide?", 70, 90),
       seg(6, "Evan", "We want to roll something out before the end of the quarter, so fairly soon.", 90, 104),
@@ -117,7 +117,7 @@ async function seedOne(acct: Account, s: MeetingSeed): Promise<SeededMeeting> {
   const meeting: Meeting = await createMeeting(acct, {
     meetingUrl: `https://meet.google.com/${s.urlSlug}-${stamp}`,
     title: s.title,
-    botName: "Verdant Bot",
+    botName: "Parlor Bot",
   });
   // Transcript must land before summarize/highlight-excerpt read it.
   seedTranscript(meeting.id, s.segments);

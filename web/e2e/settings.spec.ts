@@ -28,7 +28,7 @@ test.describe("webhooks", () => {
     await page.goto("/settings/webhooks");
     await expect(page.getByRole("heading", { name: "Webhooks" })).toBeVisible();
     await page
-      .getByPlaceholder("https://example.com/webhooks/verdant")
+      .getByPlaceholder("https://example.com/webhooks/parlor")
       .fill("https://example.com/hooks/e2e");
     await page.getByRole("button", { name: /add webhook/i }).click();
     // The new endpoint surfaces with its signing secret.

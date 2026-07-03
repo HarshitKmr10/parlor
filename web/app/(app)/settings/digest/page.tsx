@@ -8,7 +8,7 @@ import { DigestSettings } from "@/components/settings/DigestSettings";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Digest schedule — Verdant",
+  title: "Digest schedule — Parlor",
 };
 
 const DEFAULTS: DigestPreferences = {

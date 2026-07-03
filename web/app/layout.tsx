@@ -22,9 +22,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Verdant — your meetings, remembered",
+  title: "Parlor — your meetings, remembered",
   description:
-    "Verdant joins your meetings, transcribes in real time, and turns every conversation into summaries, action items, and answers you can ask for.",
+    "Parlor joins your meetings, transcribes in real time, and turns every conversation into summaries, action items, and answers you can ask for.",
 };
 
 export default function RootLayout({

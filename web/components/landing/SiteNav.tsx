@@ -37,7 +37,7 @@ export function SiteNav() {
             href="#top"
             className="font-display text-[1.35rem] font-medium tracking-tight text-ink"
           >
-            Verdant
+            Parlor
           </a>
 
           <ul className="hidden items-center gap-7 md:flex">
