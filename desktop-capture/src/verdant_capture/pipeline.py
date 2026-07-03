@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import socket
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +22,12 @@ from .stt.base import STTBackend
 
 SegmentCallback = Callable[[Segment], None]
 StatusCallback = Callable[[str], None]
+
+# Retry-with-backoff for transient (connection-level) ingest failures. Kept
+# small: capture is a live, real-time loop and shouldn't stall long per
+# segment. Permanent failures (404/405 - old backend build) never retry.
+_TRANSIENT_RETRY_ATTEMPTS = 3
+_TRANSIENT_RETRY_BASE_DELAY_SEC = 0.5
 
 
 def synthetic_meeting_url() -> str:
@@ -76,7 +83,8 @@ class CapturePipeline:
             transcript_path=transcript_path,
         )
         ingest_attempted = False
-        ingest_unavailable = False
+        ingest_unavailable = False  # permanent: 404/405, old backend build
+        backlog: list[Segment] = []  # segments not yet confirmed ingested
 
         try:
             for chunk in self._source.chunks():
@@ -94,34 +102,72 @@ class CapturePipeline:
                         and not ingest_unavailable
                     ):
                         ingest_attempted = True
-                        ok = self._try_ingest(meeting_id, segment)
-                        if not ok:
+                        outcome = self._try_ingest(meeting_id, segment)
+                        if outcome is None:
                             ingest_unavailable = True
+                            backlog.clear()
                             self._on_status(
                                 "Backend has no transcript-ingest endpoint "
                                 "(older build); keeping the local transcript "
                                 "and will still drive /summarize on stop."
                             )
+                        elif outcome is False:
+                            backlog.append(segment)
+                        else:
+                            if backlog:
+                                self._replay_backlog(meeting_id, backlog)
         except KeyboardInterrupt:
             self._on_status("Stopping (Ctrl-C)...")
             self._source.stop()
 
-        result.ingest_ok = ingest_attempted and not ingest_unavailable
+        result.ingest_ok = (
+            ingest_attempted and not ingest_unavailable and not backlog
+        )
         return result
 
-    def _try_ingest(self, meeting_id: str, segment: Segment) -> bool:
-        # The public ingest endpoint takes a batch of contract TranscriptSegments.
-        # We push each segment as it arrives (single-element batch) so the
-        # backend transcript + live WS update in near-real-time.
-        try:
-            return self._client.post_segments(  # type: ignore[union-attr]
-                meeting_id, [segment.to_contract()]
-            )
-        except BackendError as exc:
-            # A transient connection error shouldn't kill the capture; report
-            # once and stop trying to push (we still keep the local transcript).
-            self._on_status(f"Segment upload failed: {exc}")
-            return False
+    def _try_ingest(self, meeting_id: str, segment: Segment) -> Optional[bool]:
+        """Push one segment to the backend ingest endpoint.
+
+        Returns ``True`` on success, ``False`` on a transient (connection or
+        server) failure that may recover, and ``None`` when the backend has
+        no ingest endpoint at all (404/405 - permanent for this run).
+        """
+        for attempt in range(1, _TRANSIENT_RETRY_ATTEMPTS + 1):
+            try:
+                ok = self._client.post_segments(  # type: ignore[union-attr]
+                    meeting_id, [segment.to_contract()]
+                )
+            except BackendError as exc:
+                if attempt < _TRANSIENT_RETRY_ATTEMPTS:
+                    time.sleep(_TRANSIENT_RETRY_BASE_DELAY_SEC * attempt)
+                    continue
+                self._on_status(
+                    f"Segment upload failed (will keep retrying): {exc}"
+                )
+                return False
+            if not ok:
+                return None
+            return True
+        return False  # pragma: no cover - loop always returns above
+
+    def _replay_backlog(self, meeting_id: str, backlog: list[Segment]) -> None:
+        """Resend segments accumulated during a transient outage, in order."""
+        pending = list(backlog)
+        backlog.clear()
+        for segment in pending:
+            outcome = self._try_ingest(meeting_id, segment)
+            if outcome is True:
+                continue
+            # Still down (or now permanently unavailable): keep the
+            # remaining backlog (including this segment) for the next
+            # successful attempt, or drop it if ingest just went permanent.
+            backlog.append(segment)
+            if outcome is None:
+                backlog.clear()
+            return
+        self._on_status(
+            f"Backend reconnected; replayed {len(pending)} queued segment(s)."
+        )
 
     @staticmethod
     def _write_local(path: Optional[Path], segment: Segment) -> None:
