@@ -73,15 +73,35 @@ function preAdmissionFailReason(joinConfirmed, errReason) {
 }
 
 // SIGTERM handler — the K8s pod is being drained. Report a recoverable
-// exit so the rejoin orchestrator hands the meeting to a fresh pod.
+// exit so the rejoin orchestrator hands the meeting to a fresh pod. Must
+// wait for the in-flight joinMeeting() call to actually settle (its finally
+// block runs context.close()/browser.close()) before exiting the process —
+// otherwise Chromium is orphaned mid-meeting because process.exit() tears
+// down the process before that cleanup ever runs. Aborting removalCtl alone
+// is not sufficient: the removal/aloneness/track-presence watchers only
+// resolve their race when they detect an actual reason, not on abort, so
+// the in-flight call can outlive the bounded wait below. If it does, close
+// the browser/context directly — same cleanup the finally block performs.
 let _activeJoinAbort = null;
+let _activeJoinSettled = null;
+let _activeCleanup = null;
+const SIGTERM_CLEANUP_TIMEOUT_MS = parseInt(process.env.MSTEAMS_SIGTERM_CLEANUP_MS || '10000', 10);
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   try {
     stopHeartbeat({ exit_reason: 'sigterm_during_active', classification: 'recoverable' });
   } catch (_) {}
   if (_activeJoinAbort) {
     try { _activeJoinAbort.abort(); } catch (_) {}
+  }
+  if (_activeJoinSettled) {
+    await Promise.race([
+      _activeJoinSettled.catch(() => {}),
+      new Promise((resolve) => setTimeout(resolve, SIGTERM_CLEANUP_TIMEOUT_MS)),
+    ]);
+  }
+  if (_activeCleanup) {
+    try { await _activeCleanup(); } catch (_) {}
   }
   process.exit(0);
 });
@@ -109,7 +129,18 @@ function envFlag(name, defaultValue = true) {
   return String(raw).toLowerCase() !== 'false';
 }
 
-async function joinMeeting(meetingUrl, credentials = {}, options = {}) {
+// Public entrypoint. Wraps joinMeetingImpl so the SIGTERM handler can await
+// the in-flight call's actual settlement (its finally block runs
+// context.close()/browser.close()) before the process exits.
+function joinMeeting(meetingUrl, credentials = {}, options = {}) {
+  const settled = joinMeetingImpl(meetingUrl, credentials, options);
+  _activeJoinSettled = settled;
+  const clearIfCurrent = () => { if (_activeJoinSettled === settled) _activeJoinSettled = null; };
+  settled.then(clearIfCurrent, clearIfCurrent);
+  return settled;
+}
+
+async function joinMeetingImpl(meetingUrl, credentials = {}, options = {}) {
   if (!meetingUrl) throw new Error('meetingUrl required');
   const name = credentials.name || options.botName || 'Meeting Bot';
   const opts = { ...DEFAULTS, ...options };
@@ -125,8 +156,18 @@ async function joinMeeting(meetingUrl, credentials = {}, options = {}) {
   let browser;
   let context;
   let page;
+  let bridge;
   const removalCtl = new AbortController();
   _activeJoinAbort = removalCtl;
+  // Exposed for the SIGTERM handler: if the bounded wait for natural
+  // settlement (finally block, below) times out, this performs the same
+  // bridge/context/browser teardown directly so Chromium is never orphaned
+  // mid-meeting. Assigned to _activeCleanup once browser/context exist.
+  const cleanupFn = async () => {
+    try { await bridge?.stop?.(); } catch (_) { /* ignore */ }
+    try { if (context) await context.close(); } catch (_) { /* ignore */ }
+    try { if (browser) await browser.close(); } catch (_) { /* ignore */ }
+  };
   let rosterStop = null;
   let heartbeatStopped = false;
   const stopHeartbeatOnce = (finalState) => {
@@ -142,6 +183,7 @@ async function joinMeeting(meetingUrl, credentials = {}, options = {}) {
     browser = await timer.measure('browser.launch', () => launchBrowser({ logger }));
     context = await newSession(browser, { name });
     page = await context.newPage();
+    _activeCleanup = cleanupFn;
 
     // Forward in-page console + page errors to Node logs so we can see
     // what the AudioWorklet, peer-stream hook, and recorder are actually
@@ -192,7 +234,7 @@ async function joinMeeting(meetingUrl, credentials = {}, options = {}) {
       logger.info?.('[teams.transcribe] skipped (webrtc_csrc owns ASR pipeline)', { attributionMode });
     }
 
-    const bridge = new CaptureBridge({
+    bridge = new CaptureBridge({
       logger,
       transcription,
       scratchDir: scratchRoot,
@@ -538,11 +580,6 @@ async function joinMeeting(meetingUrl, credentials = {}, options = {}) {
       }
     }
 
-    // No-op stop kept for symmetry; nothing in-process to tear down now
-    // that the diarizer layer is gone (the in-page recorder dies with
-    // context.close() below).
-    try { await bridge.stop?.(); } catch (_) { /* ignore */ }
-
     await leaveMeeting(page, { logger }).catch(() => {});
 
     // segmentsForCleanup used to receive output from the deleted batch
@@ -702,8 +739,10 @@ async function joinMeeting(meetingUrl, credentials = {}, options = {}) {
     // an unknown exit as terminal.
     stopHeartbeatOnce({ exit_reason: 'subprocess_crash', classification: 'recoverable' });
     if (_activeJoinAbort === removalCtl) _activeJoinAbort = null;
+    if (_activeCleanup === cleanupFn) _activeCleanup = null;
     removalCtl.abort();
     if (rosterStop) try { rosterStop(); } catch (_) {}
+    try { await bridge?.stop?.(); } catch (_) { /* ignore */ }
     try { if (context) await context.close(); } catch (_) {}
     try { if (browser) await browser.close(); } catch (_) {}
   }
