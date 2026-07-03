@@ -66,6 +66,7 @@ except ModuleNotFoundError:
 from src.observability import configure_logging, configure_otel, get_logger
 
 from .bot_supervisor import BotSupervisor
+from .disk_hygiene import get_disk_hygiene
 from .heartbeat import (
     read_bot_state,
     read_heartbeat_age_seconds,
@@ -144,6 +145,7 @@ def _publish_meeting_state_metric(current: MeetingState) -> None:
 state_manager = SidecarStateManager()
 bot_supervisor = BotSupervisor(state_manager)
 memory_monitor = MemoryMonitor(bot_supervisor)
+disk_hygiene = get_disk_hygiene()
 _app_started_at_monotonic: float = time.monotonic()
 _last_poll_monotonic: float = _app_started_at_monotonic
 
@@ -501,6 +503,11 @@ async def abort(request: AbortRequest) -> AbortResponse:
     await state_manager.mark_ended(
         returncode=exit_code, exit_reason=composite_reason
     )
+
+    snapshot = await state_manager.snapshot()
+    if snapshot.current_meeting_id is not None:
+        await disk_hygiene.flush_and_cleanup(snapshot.current_meeting_id)
+
     return AbortResponse(exit_reason=composite_reason, exit_code=exit_code)
 
 
