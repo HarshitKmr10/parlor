@@ -30,8 +30,8 @@ export function ClosingCta() {
                 Never take meeting notes again.
               </h2>
               <p className="mx-auto mt-5 max-w-md text-lg leading-relaxed text-sage-100">
-                Free for your first 10 meetings. No credit card, no bot in the
-                room, no scramble afterward.
+                Self-hosted and free, no meeting caps. No credit card, no bot
+                in the room, no scramble afterward.
               </p>
 
               <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -46,12 +46,6 @@ export function ClosingCta() {
                     height={20}
                   />
                 </Link>
-                <a
-                  href="mailto:sales@parlor.app"
-                  className="rounded-md border border-sage-700 px-6 py-3.5 text-base font-medium text-surface-cream transition-colors duration-200 hover:bg-sage-800"
-                >
-                  Talk to sales
-                </a>
               </div>
             </div>
           </div>

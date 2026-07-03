@@ -4,7 +4,7 @@ type FooterColumn = {
 };
 
 const COLUMNS: FooterColumn[] = [
-  { heading: "Product", links: ["Features", "Pricing", "Integrations", "Changelog"] },
+  { heading: "Product", links: ["Features", "Integrations", "Changelog"] },
   { heading: "Company", links: ["About", "Customers", "Careers", "Blog"] },
   { heading: "Resources", links: ["Docs", "API", "Security", "Status"] },
 ];

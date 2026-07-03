@@ -466,24 +466,6 @@ export interface DigestReport {
   generatedAt: string;
 }
 
-/* ---- Billing ---- */
-
-export interface PlanInfo {
-  key: string;
-  name: string;
-  meetingsPerMonth: number | null;
-  seats: number;
-  priceUsd: number;
-}
-
-export interface BillingStatus {
-  plan: string;
-  status: string;
-  meetingsThisMonth: number;
-  meetingQuota: number | null;
-  plans: PlanInfo[];
-}
-
 /* ---- Usage analytics ---- */
 
 export interface UsageSummary {

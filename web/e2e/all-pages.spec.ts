@@ -15,7 +15,6 @@ function routes(): string[] {
     "/ask",
     "/integrations",
     "/settings",
-    "/settings/billing",
     "/settings/usage",
     "/settings/audit",
     "/settings/compliance",
