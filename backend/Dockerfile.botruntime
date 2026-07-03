@@ -1,5 +1,5 @@
 # =============================================================================
-# Verdant bot-runtime image (standalone backend/ layout).
+# Parlor bot-runtime image (standalone backend/ layout).
 # =============================================================================
 # One image that serves the FastAPI product API AND can actually spawn the
 # real Playwright/Node meeting bot locally (LocalBotRunner subprocess path),

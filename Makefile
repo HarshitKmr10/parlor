@@ -1,5 +1,5 @@
 # =============================================================================
-# Verdant meeting-assistant — full dev stack
+# Parlor meeting-assistant — full dev stack
 # =============================================================================
 #   make up        build + start the FULL SEPARATED stack (mirrors prod):
 #                  web + backend (API) + meeting-worker (bot) + ai-service +

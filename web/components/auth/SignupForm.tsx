@@ -102,7 +102,7 @@ export function SignupForm() {
         value={workspaceName}
         onChange={(event) => setWorkspaceName(event.target.value)}
         error={fieldErrors.workspaceName}
-        hint="Your team's home in Verdant. You can rename it later."
+        hint="Your team's home in Parlor. You can rename it later."
         required
       />
 

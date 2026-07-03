@@ -47,7 +47,7 @@ export function ClosingCta() {
                   />
                 </Link>
                 <a
-                  href="mailto:sales@verdant.app"
+                  href="mailto:sales@parlor.app"
                   className="rounded-md border border-sage-700 px-6 py-3.5 text-base font-medium text-surface-cream transition-colors duration-200 hover:bg-sage-800"
                 >
                   Talk to sales

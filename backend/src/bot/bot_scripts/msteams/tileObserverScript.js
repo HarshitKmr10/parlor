@@ -97,7 +97,7 @@ const SCRIPT = `
     const tileTitle = el.getAttribute && el.getAttribute('title');
     if (isPlausibleName(tileTitle)) return tileTitle.trim();
     // Last resort for the new Teams tile shape: the participant-avatar
-    // element renders an <img src=".../avatar?displayName=Harshit%20Kumar
+    // element renders an <img src=".../avatar?displayName=Jane%20Doe
     // &size=HR196x196">. The displayName query param is the cleanest
     // possible source of the participant's name when no aria label is set.
     let avatarImg;

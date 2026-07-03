@@ -7,9 +7,9 @@ All three scripts are idempotent; re-applying on an existing DB is safe.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "verdant.fullname" . }}-dbinit
+  name: {{ include "parlor.fullname" . }}-dbinit
   labels:
-    {{- include "verdant.labels" . | nindent 4 }}
+    {{- include "parlor.labels" . | nindent 4 }}
   annotations:
     # Run as a hook (weight before the Job) so it exists when the Job mounts it.
     "helm.sh/hook": post-install,post-upgrade

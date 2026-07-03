@@ -227,7 +227,7 @@ export function CapturePolicyCard({ initialPolicy }: Props) {
             value={disclosure}
             onChange={(e) => setDisclosure(e.target.value)}
             rows={3}
-            placeholder="This meeting is being recorded and summarized by Verdant."
+            placeholder="This meeting is being recorded and summarized by Parlor."
             className="rounded-md border border-border-default bg-surface-0 px-3 py-2.5 font-sans text-sm text-ink outline-none transition-colors placeholder:text-ink-faint focus:border-border-strong"
           />
           <p className="text-xs text-ink-muted">

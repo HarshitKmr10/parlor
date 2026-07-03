@@ -48,7 +48,7 @@ export function MeetingMock() {
             <span className="h-2.5 w-2.5 rounded-full bg-surface-3" />
             <span className="h-2.5 w-2.5 rounded-full bg-surface-3" />
           </div>
-          <span className="font-mono text-xs text-ink-muted">verdant.live</span>
+          <span className="font-mono text-xs text-ink-muted">parlor.live</span>
           <span className="flex items-center gap-1.5 rounded-full bg-error-bg px-2.5 py-1">
             <span className="h-1.5 w-1.5 rounded-full bg-error" />
             <span className="font-mono text-[0.6875rem] font-medium tracking-wide text-error">REC</span>

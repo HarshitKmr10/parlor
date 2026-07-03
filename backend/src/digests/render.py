@@ -12,7 +12,7 @@ def _fmt_hours(sec: float) -> str:
 def render_digest_text(digest: Mapping[str, Any], workspace_name: str = "your workspace") -> str:
     """A compact, readable digest body. Works for both email and Slack."""
     lines = [
-        f"Verdant digest for {workspace_name}",
+        f"Parlor digest for {workspace_name}",
         "",
         f"Meetings: {digest['meeting_count']} ({digest['completed_count']} completed)",
         f"Time captured: {_fmt_hours(digest['total_duration_sec'])}",

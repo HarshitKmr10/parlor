@@ -39,6 +39,10 @@ auth.json
 secrets/auth/
 **/google-auth-state/
 
+# Local bot debug screenshots dumped during manual Google Meet join testing
+# (timestamped run dirs of before/after/error .png captures — never commit)
+**/bot_scripts/googlemeet/meeting_data/
+
 # Local agent tooling (Claude Code skills/commands/settings — machine-local)
 .claude/
 

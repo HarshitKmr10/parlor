@@ -8,7 +8,7 @@ import { ComplianceSettings } from "@/components/settings/ComplianceSettings";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Retention & compliance — Verdant",
+  title: "Retention & compliance — Parlor",
 };
 
 const DEFAULTS: RetentionSettings = { retentionDays: null, legalHold: false };

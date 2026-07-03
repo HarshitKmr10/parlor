@@ -10,7 +10,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 
-_SIG_HEADER = "X-Verdant-Signature"
+_SIG_HEADER = "X-Parlor-Signature"
 _DEFAULT_TOLERANCE_SEC = 300
 
 

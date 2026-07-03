@@ -14,10 +14,10 @@ const { classifyCleanupOutput } = require(path.join('..', 'src', 'bot', 'bot_scr
 describe('classifyCleanupOutput', () => {
   test('appends real-name segment with timing', () => {
     const verdict = classifyCleanupOutput({
-      speaker: 'Harshit Kumar', text: 'hi', start_ms: 1_000, end_ms: 2_000, reason: 'keep',
+      speaker: 'Jane Doe', text: 'hi', start_ms: 1_000, end_ms: 2_000, reason: 'keep',
     });
     expect(verdict.decision).toBe('append');
-    expect(verdict.speaker).toBe('Harshit Kumar');
+    expect(verdict.speaker).toBe('Jane Doe');
     expect(verdict.startMs).toBe(1_000);
     expect(verdict.endMs).toBe(2_000);
   });

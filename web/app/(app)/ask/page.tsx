@@ -11,7 +11,7 @@ import { formatDateTime } from "@/lib/format";
 import { WorkspaceAsk } from "@/components/ask/WorkspaceAsk";
 
 export const metadata: Metadata = {
-  title: "Ask — Verdant",
+  title: "Ask — Parlor",
 };
 
 export default async function AskPage() {
@@ -32,7 +32,7 @@ export default async function AskPage() {
     <div className="mx-auto max-w-3xl">
       <header className="mb-7">
         <p className="eyebrow mb-1.5">Knowledge</p>
-        <h1 className="font-display text-2xl text-ink">Ask Verdant</h1>
+        <h1 className="font-display text-2xl text-ink">Ask Parlor</h1>
         <p className="mt-1.5 max-w-xl text-sm text-ink-muted">
           Ask one question across every meeting, or pick a single meeting to
           dig in. Answers are grounded in transcripts with traceable citations.
@@ -55,7 +55,7 @@ export default async function AskPage() {
         <EmptyState
           icon={<AskIcon className="h-6 w-6" />}
           title="Nothing to ask yet"
-          description="Once you've captured a meeting, you can ask Verdant anything about it."
+          description="Once you've captured a meeting, you can ask Parlor anything about it."
           action={
             <Link
               href="/meetings"

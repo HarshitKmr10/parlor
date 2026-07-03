@@ -16,7 +16,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-[1180px] px-5 py-14 sm:px-8">
         <div className="grid grid-cols-2 gap-10 sm:grid-cols-4">
           <div className="col-span-2 sm:col-span-1">
-            <p className="font-display text-xl font-medium tracking-tight text-ink">Verdant</p>
+            <p className="font-display text-xl font-medium tracking-tight text-ink">Parlor</p>
             <p className="mt-3 max-w-[14rem] text-sm leading-relaxed text-ink-muted">
               The AI meeting assistant that remembers so you don&apos;t have to.
             </p>
@@ -44,7 +44,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-12 flex flex-col gap-3 border-t border-border-subtle pt-6 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-ink-muted">© 2026 Verdant Labs, Inc.</p>
+          <p className="text-xs text-ink-muted">© 2026 Parlor Labs, Inc.</p>
           <ul className="flex gap-6">
             <li>
               <a href="#" className="text-xs text-ink-muted transition-colors hover:text-ink">

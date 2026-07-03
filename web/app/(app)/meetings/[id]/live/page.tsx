@@ -18,7 +18,7 @@ import { BackendDownState } from "@/components/ui/BackendDownState";
 import { LiveContainer } from "./LiveContainer";
 
 export const metadata: Metadata = {
-  title: "Live meeting — Verdant",
+  title: "Live meeting — Parlor",
 };
 
 type Params = Promise<{ id: string }>;

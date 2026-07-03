@@ -46,7 +46,7 @@ export function GenerateSummary({ meetingId, canSummarize }: Props) {
         description={
           canSummarize
             ? "Generate AI insights — a summary, key points, action items, and chapters — from this meeting's transcript."
-            : "Once this meeting has a transcript, Verdant can generate a summary, action items, and chapters."
+            : "Once this meeting has a transcript, Parlor can generate a summary, action items, and chapters."
         }
         action={
           canSummarize ? (

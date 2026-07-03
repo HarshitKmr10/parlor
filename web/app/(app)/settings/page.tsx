@@ -13,7 +13,7 @@ import { CalendarConnections } from "@/components/integrations/CalendarConnectio
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Settings — Verdant",
+  title: "Settings — Parlor",
 };
 
 export default async function SettingsPage() {
@@ -55,7 +55,7 @@ export default async function SettingsPage() {
         <div>
           <SettingsSection
             title="Profile"
-            description="How you appear across Verdant."
+            description="How you appear across Parlor."
           >
             <ProfilePanel />
           </SettingsSection>
@@ -76,7 +76,7 @@ export default async function SettingsPage() {
 
           <SettingsSection
             title="Calendars"
-            description="Connect calendars so Verdant can auto-join your meetings."
+            description="Connect calendars so Parlor can auto-join your meetings."
           >
             <CalendarConnections
               accounts={calendarAccounts}
@@ -89,7 +89,7 @@ export default async function SettingsPage() {
 
           <SettingsSection
             title="Summary templates"
-            description="Tailor how Verdant summarizes each kind of meeting — sales calls, standups, interviews."
+            description="Tailor how Parlor summarizes each kind of meeting — sales calls, standups, interviews."
           >
             <Link
               href="/settings/templates"

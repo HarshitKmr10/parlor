@@ -7,7 +7,7 @@ test.describe("landing page", () => {
   test("renders the hero and primary navigation", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("h1")).toBeVisible();
-    await expect(page).toHaveTitle(/Verdant/i);
+    await expect(page).toHaveTitle(/Parlor/i);
   });
 
   test("routes a visitor to sign up", async ({ page }) => {

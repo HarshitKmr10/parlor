@@ -3,7 +3,7 @@ import { ssoExchange } from "@/lib/api/sso";
 import { writeSessionCookies } from "@/lib/auth/session";
 
 /**
- * OIDC redirect target. Exchanges the code+state for a Verdant session via the
+ * OIDC redirect target. Exchanges the code+state for a Parlor session via the
  * backend, sets the httpOnly session cookies, and lands the user on the
  * dashboard — mirroring the password login flow (the web owns the cookies).
  */

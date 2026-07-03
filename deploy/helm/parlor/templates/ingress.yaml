@@ -1,14 +1,14 @@
 {{- if .Values.ingress.enabled }}
-{{- $webSvc := include "verdant.componentName" (dict "ctx" . "component" "web") }}
-{{- $apiSvc := include "verdant.componentName" (dict "ctx" . "component" "backend") }}
+{{- $webSvc := include "parlor.componentName" (dict "ctx" . "component" "web") }}
+{{- $apiSvc := include "parlor.componentName" (dict "ctx" . "component" "backend") }}
 {{- $webPort := .Values.web.service.port }}
 {{- $apiPort := .Values.backend.service.port }}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "verdant.fullname" . }}
+  name: {{ include "parlor.fullname" . }}
   labels:
-    {{- include "verdant.labels" . | nindent 4 }}
+    {{- include "parlor.labels" . | nindent 4 }}
   {{- with .Values.ingress.annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}

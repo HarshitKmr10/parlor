@@ -40,7 +40,7 @@ function Wordmark() {
           />
         </svg>
       </span>
-      Verdant
+      Parlor
     </Link>
   );
 }
@@ -58,7 +58,7 @@ export function AppShell({ children }: Props) {
         <SidebarNav />
         <div className="border-t border-border-subtle p-3">
           <p className="px-3 py-1 text-xs text-ink-faint">
-            Verdant · your meetings, remembered
+            Parlor · your meetings, remembered
           </p>
         </div>
       </aside>

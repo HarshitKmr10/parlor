@@ -19,7 +19,7 @@ test.describe("retention & compliance", () => {
   test("export route returns a JSON attachment", async ({ page }) => {
     const res = await page.request.get("/api/export");
     expect(res.ok()).toBeTruthy();
-    expect(res.headers()["content-disposition"]).toContain("verdant-export.json");
+    expect(res.headers()["content-disposition"]).toContain("parlor-export.json");
     const body = await res.json();
     expect(body).toHaveProperty("meetings");
   });

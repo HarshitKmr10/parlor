@@ -13,7 +13,7 @@ import { ClockIcon, ListIcon, MeetingsIcon } from "@/components/ui/icons";
 import { formatHours } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Dashboard — Verdant",
+  title: "Dashboard — Parlor",
 };
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -111,7 +111,7 @@ export default async function DashboardPage() {
               <EmptyState
                 icon={<MeetingsIcon className="h-6 w-6" />}
                 title="No meetings yet"
-                description="Add a meeting link and Verdant will join, transcribe, and summarize it for you."
+                description="Add a meeting link and Parlor will join, transcribe, and summarize it for you."
                 action={<NewMeetingButton />}
               />
             ) : (

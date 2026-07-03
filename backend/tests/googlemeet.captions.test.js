@@ -33,10 +33,10 @@ function makeBridge(extras = {}) {
 describe('CaptureBridge._onCaption', () => {
   test('emits gmeet_captions segment with caption-author attribution', async () => {
     const { bridge, captured } = makeBridge();
-    await bridge._onCaption({ speaker: 'Harshit Kumar', text: 'hello there', ts_ms: 1_000 });
+    await bridge._onCaption({ speaker: 'Jane Doe', text: 'hello there', ts_ms: 1_000 });
     expect(captured).toHaveLength(1);
     const seg = captured[0];
-    expect(seg.speaker).toBe('Harshit Kumar');
+    expect(seg.speaker).toBe('Jane Doe');
     expect(seg.text).toBe('hello there');
     expect(seg.kind).toBe('caption');
     expect(seg.provider).toBe('gmeet_captions');
@@ -46,7 +46,7 @@ describe('CaptureBridge._onCaption', () => {
 
   test('drops caption hallucinations (Thanks for watching, etc.)', async () => {
     const { bridge, captured } = makeBridge();
-    await bridge._onCaption({ speaker: 'Harshit', text: 'Thanks for watching', ts_ms: 1_000 });
+    await bridge._onCaption({ speaker: 'Jane', text: 'Thanks for watching', ts_ms: 1_000 });
     expect(captured).toHaveLength(0);
     expect(bridge.stats.captionHallucinated).toBe(1);
   });
@@ -60,13 +60,13 @@ describe('CaptureBridge._onCaption', () => {
   test('falls back to rosterWatcher.getActiveSpeakerInWindow when speaker missing', async () => {
     const rosterWatcher = {
       getActiveSpeakerInWindow: (start, end) => (
-        start === -3_000 && end === 1_000 ? 'Harshit Kumar' : null
+        start === -3_000 && end === 1_000 ? 'Jane Doe' : null
       ),
       snapshot: () => ({ list: [] }),
     };
     const { bridge, captured } = makeBridge({ rosterWatcher });
     await bridge._onCaption({ speaker: null, text: 'hello there', ts_ms: 1_000 });
-    expect(captured[0].speaker).toBe('Harshit Kumar');
+    expect(captured[0].speaker).toBe('Jane Doe');
     expect(captured[0].attribution_confidence).toBe('roster_history');
   });
 

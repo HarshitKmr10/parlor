@@ -1,7 +1,7 @@
 [tool.poetry]
-name = "meeting-joiner"
+name = "parlor-backend"
 version = "1.0.0"
-description = "MS Teams Meeting Bot Service for joining meetings and processing transcripts"
+description = "Parlor backend — botless-first, mock-mode-first self-hosted AI meeting notetaker (auth, meetings, bot runtime)."
 authors = ["Your Name <you@example.com>"]
 readme = "README_PRODUCTION.md"
 package-mode = false

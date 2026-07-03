@@ -12,7 +12,7 @@ import { CalendarGlyph } from "@/components/integrations/logos";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Integrations — Verdant",
+  title: "Integrations — Parlor",
 };
 
 export default async function IntegrationsPage() {
@@ -39,7 +39,7 @@ export default async function IntegrationsPage() {
         <p className="eyebrow mb-1.5">Connect your stack</p>
         <h1 className="font-display text-2xl text-ink">Integrations</h1>
         <p className="mt-1.5 max-w-xl text-sm text-ink-muted">
-          Bring Verdant into the tools your team already lives in — calendars to
+          Bring Parlor into the tools your team already lives in — calendars to
           auto-join, and destinations to push summaries.
         </p>
       </header>
@@ -54,7 +54,7 @@ export default async function IntegrationsPage() {
         >
           <IntegrationCard
             name="Connect my calendar"
-            description="Per-user. Connect your own Google or Microsoft calendar so Verdant joins the meetings on it automatically."
+            description="Per-user. Connect your own Google or Microsoft calendar so Parlor joins the meetings on it automatically."
             logo={<CalendarGlyph className="h-6 w-6 text-sage-600" />}
           >
             <CalendarConnections

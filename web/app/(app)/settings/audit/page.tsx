@@ -10,7 +10,7 @@ import { ListIcon } from "@/components/ui/icons";
 import { formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Audit log — Verdant",
+  title: "Audit log — Parlor",
 };
 
 const ACTION_COLOR: Record<string, string> = {

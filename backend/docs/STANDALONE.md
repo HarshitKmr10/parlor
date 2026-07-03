@@ -1,17 +1,17 @@
 # Running meeting-joiner standalone
 
 The `meeting-joiner/` directory is designed to be vendorable: copy it into
-another repo, configure env, and deploy. No dependency on the surrounding
-aiops monorepo at runtime.
+another repo, configure env, and deploy. No dependency on any surrounding
+monorepo at runtime.
 
 This document covers the two install paths:
 
 1. **Vendor into existing repo** — clone or subtree-merge the directory.
 2. **Run from this folder** — `docker compose up` quickstart, then K8s.
 
-For the monorepo deployment path (the day-to-day FuturePath production
-deploy), see `../infra/specs/meetingjoiner.yml` and the deployment
-runbook in `../runbooks/`. None of that applies in the standalone case.
+Some organizations also run this service as part of a larger internal
+monorepo with its own deployment manifests and runbooks — none of that
+applies in the standalone case covered here.
 
 ---
 
@@ -84,9 +84,9 @@ step, no `core/` dependency.
 
 ```bash
 # From your repo root:
-git remote add aiops https://github.com/FuturePathAI/aiops.git
-git fetch aiops staging
-git read-tree --prefix=meeting-joiner -u aiops/staging:meeting-joiner
+git remote add upstream https://github.com/your-org/your-monorepo.git
+git fetch upstream main
+git read-tree --prefix=meeting-joiner -u upstream/main:meeting-joiner
 git commit -m "vendor meeting-joiner"
 ```
 

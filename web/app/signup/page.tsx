@@ -4,8 +4,8 @@ import { SignupForm } from "@/components/auth/SignupForm";
 import { SsoButton } from "@/components/auth/SsoButton";
 
 export const metadata: Metadata = {
-  title: "Create your account — Verdant",
-  description: "Start capturing and searching every meeting with Verdant.",
+  title: "Create your account — Parlor",
+  description: "Start capturing and searching every meeting with Parlor.",
 };
 
 export default function SignupPage() {

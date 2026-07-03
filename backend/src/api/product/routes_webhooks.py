@@ -150,7 +150,7 @@ async def send_test_event(
         "id": event_id,
         "type": "webhook.test",
         "createdAt": datetime.now(timezone.utc).isoformat(),
-        "data": {"message": "This is a test event from Verdant."},
+        "data": {"message": "This is a test event from Parlor."},
     }
     row = await repo.enqueue(
         endpoint_id=endpoint_id,

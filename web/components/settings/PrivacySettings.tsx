@@ -96,7 +96,7 @@ export function PrivacySettings({ initial }: { initial: NlpSettings }) {
         <input
           value={vocab}
           onChange={(e) => setVocab(e.target.value)}
-          placeholder="Verdant, pgvector, ARR, Kubernetes"
+          placeholder="Parlor, pgvector, ARR, Kubernetes"
           className="rounded-md border border-border-default bg-surface-0 px-3 py-2 text-sm text-ink"
         />
         <span className="text-xs text-ink-faint">

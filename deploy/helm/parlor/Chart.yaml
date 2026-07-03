@@ -1,7 +1,7 @@
 apiVersion: v2
-name: verdant
+name: parlor
 description: >-
-  Verdant meeting-assistant — a fully self-hostable AI meeting stack
+  Parlor meeting-assistant — a fully self-hostable AI meeting stack
   (FastAPI backend, AI summarization/RAG service, Next.js web, Chromium
   bot worker / warm pool, and an optional in-cluster pgvector Postgres).
 type: application
@@ -21,12 +21,12 @@ keywords:
   - nextjs
   - self-hosted
 
-home: https://github.com/your-org/verdant
+home: https://github.com/your-org/parlor
 sources:
-  - https://github.com/your-org/verdant
+  - https://github.com/your-org/parlor
 
 maintainers:
-  - name: Verdant
+  - name: Parlor
     email: ops@example.com
 
 # This chart bundles its own optional Postgres (postgres.enabled). For

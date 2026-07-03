@@ -7,7 +7,7 @@ type CardProps = {
   children: ReactNode;
 };
 
-/** Verdant-styled settings card used across the Google Workspace surface. */
+/** Parlor-styled settings card used across the Google Workspace surface. */
 export function Card({ title, description, badge, children }: CardProps) {
   return (
     <section className="rounded-lg border border-border-subtle bg-surface-0 p-5 shadow-soft-sm sm:p-6">

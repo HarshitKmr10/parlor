@@ -4,20 +4,20 @@
 # Copy to values-prod.yaml (KEEP IT OUT OF VERSION CONTROL — it can hold the
 # DB DSN), fill in the placeholders, and install:
 #
-#   cp deploy/helm/verdant/values-prod.yaml.example values-prod.yaml
+#   cp deploy/helm/parlor/values-prod.yaml.example values-prod.yaml
 #   # edit values-prod.yaml
-#   helm install verdant ./deploy/helm/verdant -f values-prod.yaml
+#   helm install parlor ./deploy/helm/parlor -f values-prod.yaml
 #
 # RECOMMENDED: do NOT put secrets in this file at all. Instead create a Secret
 # out-of-band and reference it via secrets.existingSecret:
 #
-#   kubectl -n verdant create secret generic verdant-secrets \
+#   kubectl -n parlor create secret generic parlor-secrets \
 #     --from-literal=JWT_SECRET="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')" \
-#     --from-literal=DATABASE_URL="postgresql://user:pass@db-host:5432/verdant" \
+#     --from-literal=DATABASE_URL="postgresql://user:pass@db-host:5432/parlor" \
 #     --from-literal=ANTHROPIC_API_KEY="sk-ant-..." \
 #     --from-literal=CALENDAR_TOKEN_KEY="$(python -c 'from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())')"
 #
-#   # then set:  secrets.existingSecret: verdant-secrets
+#   # then set:  secrets.existingSecret: parlor-secrets
 # =============================================================================
 
 global:
@@ -34,7 +34,7 @@ externalDatabaseUrl: ""          # OR supply via the existingSecret DATABASE_URL
 
 # ── Secrets: reference an out-of-band Secret (preferred). ──
 secrets:
-  existingSecret: "verdant-secrets"
+  existingSecret: "parlor-secrets"
   # If you instead want the chart to render the Secret, clear existingSecret
   # and fill data below (and keep this file out of git):
   data: {}
@@ -50,11 +50,11 @@ logLevel: INFO
 backend:
   replicaCount: 2
   image:
-    repository: verdant-meeting-api    # joined with global.imageRegistry
+    repository: parlor-meeting-api    # joined with global.imageRegistry
   allowedOrigins:
-    - "https://verdant.example.com"
-  allowedHosts: "verdant.example.com,api.verdant.example.com"
-  calendarOauthRedirectBase: "https://api.verdant.example.com"
+    - "https://parlor.example.com"
+  allowedHosts: "parlor.example.com,api.parlor.example.com"
+  calendarOauthRedirectBase: "https://api.parlor.example.com"
   resources:
     requests: { cpu: 250m, memory: 512Mi }
     limits:   { cpu: "1", memory: 1Gi }
@@ -67,7 +67,7 @@ backend:
 aiService:
   replicaCount: 2
   image:
-    repository: verdant-ai-service
+    repository: parlor-ai-service
   resources:
     requests: { cpu: 250m, memory: 512Mi }
     limits:   { cpu: "1", memory: 2Gi }
@@ -75,8 +75,8 @@ aiService:
 web:
   replicaCount: 2
   image:
-    repository: verdant-web
-  publicApiUrl: "https://api.verdant.example.com"
+    repository: parlor-web
+  publicApiUrl: "https://api.parlor.example.com"
   resources:
     requests: { cpu: 100m, memory: 256Mi }
     limits:   { cpu: "500m", memory: 512Mi }
@@ -88,7 +88,7 @@ botWorker:
   enabled: true
   replicaCount: 3                # warm-pool size
   image:
-    repository: verdant-meeting-worker
+    repository: parlor-meeting-worker
   enabledPlatforms: "googlemeet,zoom,msteams"
   storageRequired: "true"
   resources:
@@ -116,8 +116,8 @@ ingress:
     cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/proxy-body-size: "25m"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"   # websockets (/live)
-  host: verdant.example.com
-  apiHost: api.verdant.example.com
+  host: parlor.example.com
+  apiHost: api.parlor.example.com
   tls:
     enabled: true
-    secretName: verdant-tls
+    secretName: parlor-tls

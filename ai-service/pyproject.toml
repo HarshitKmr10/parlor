@@ -1,7 +1,7 @@
 [project]
-name = "meeting-saas-ai-service"
+name = "parlor-ai-service"
 version = "1.0.0"
-description = "Internal AI microservice: meeting summaries, extraction, embeddings, and chat-with-meeting (RAG)."
+description = "Parlor AI microservice: meeting summaries, extraction, embeddings, and chat-with-meeting (RAG). Runs in mock mode with zero LLM keys."
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115,<1.0",

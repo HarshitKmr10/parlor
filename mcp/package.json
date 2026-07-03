@@ -1,11 +1,11 @@
 {
-  "name": "verdant-mcp",
+  "name": "parlor-mcp",
   "version": "0.1.0",
-  "description": "MCP server for the Verdant AI meeting assistant — query a workspace's meeting knowledge base over the Verdant backend product API.",
+  "description": "MCP server for the Parlor AI meeting assistant — query a workspace's meeting knowledge base over the Parlor backend product API.",
   "license": "MIT",
   "type": "module",
   "bin": {
-    "verdant-mcp": "dist/server.js"
+    "parlor-mcp": "dist/server.js"
   },
   "files": [
     "dist"

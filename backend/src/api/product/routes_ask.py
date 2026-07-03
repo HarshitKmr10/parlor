@@ -1,4 +1,4 @@
-"""Workspace-wide "Ask Verdant" API.
+"""Workspace-wide "Ask Parlor" API.
 
   POST /api/v1/ask  { question, history? }  -> { answer, citations[] }
 

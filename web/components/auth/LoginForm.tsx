@@ -83,7 +83,7 @@ export function LoginForm() {
       </Button>
 
       <p className="text-center text-sm text-ink-muted">
-        New to Verdant?{" "}
+        New to Parlor?{" "}
         <Link
           href="/signup"
           className="font-medium text-sage-700 underline-offset-2 hover:underline"

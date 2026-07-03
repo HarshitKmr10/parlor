@@ -10,7 +10,7 @@ const STEPS: Step[] = [
   {
     numeral: "01",
     title: "Connect your calendar",
-    description: "Link Google or Outlook in a click. Verdant sees what's scheduled and nothing else.",
+    description: "Link Google or Outlook in a click. Parlor sees what's scheduled and nothing else.",
   },
   {
     numeral: "02",

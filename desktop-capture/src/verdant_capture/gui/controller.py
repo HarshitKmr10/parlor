@@ -7,7 +7,7 @@ from typing import Any, Callable, List, Mapping, Optional
 
 
 def build_capture_args(form: Mapping[str, Any]) -> List[str]:
-    """Map a GUI form dict to ``verdant-capture capture`` CLI args (pure).
+    """Map a GUI form dict to ``parlor-capture capture`` CLI args (pure).
 
     Only emits flags for provided/meaningful values so CLI defaults apply.
     """

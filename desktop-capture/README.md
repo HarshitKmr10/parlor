@@ -1,8 +1,8 @@
-# verdant-capture — botless desktop capture
+# parlor-capture — botless desktop capture
 
-Granola-style **"no bot joins the call"** capture for the Verdant meeting
+Granola-style **"no bot joins the call"** capture for the Parlor meeting
 assistant. It records your machine's **system/meeting audio** locally,
-transcribes it, and streams the transcript to the Verdant backend so the
+transcribes it, and streams the transcript to the Parlor backend so the
 transcript → summary flow works **without a server-side bot joining the
 meeting**.
 

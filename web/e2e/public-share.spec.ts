@@ -12,7 +12,7 @@ test.describe("public share recap", () => {
 
     await page.goto(`/share/${withShare!.shareToken}`);
     await expect(page.getByRole("heading", { name: withShare!.title })).toBeVisible();
-    await expect(page.getByRole("link", { name: /try verdant/i })).toBeVisible();
+    await expect(page.getByRole("link", { name: /try parlor/i })).toBeVisible();
   });
 
   test("shows a friendly error for an invalid token", async ({ page }) => {

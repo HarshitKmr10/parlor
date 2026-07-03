@@ -8,7 +8,7 @@ import { WebhooksManager } from "@/components/settings/WebhooksManager";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Webhooks — Verdant",
+  title: "Webhooks — Parlor",
 };
 
 export default async function WebhooksPage() {

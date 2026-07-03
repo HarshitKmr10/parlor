@@ -1,6 +1,6 @@
 {{- if .Values.postgres.enabled }}
 {{- $component := "postgres" }}
-{{- $name := printf "%s-postgres" (include "verdant.fullname" .) }}
+{{- $name := printf "%s-postgres" (include "parlor.fullname" .) }}
 {{/*
 Optional in-cluster pgvector Postgres for dev / small self-host. NOT intended
 for serious production — use a managed DB (postgres.enabled=false) there.
@@ -13,7 +13,7 @@ kind: PersistentVolumeClaim
 metadata:
   name: {{ $name }}
   labels:
-    {{- include "verdant.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+    {{- include "parlor.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
 spec:
   accessModes:
     {{- toYaml .Values.postgres.persistence.accessModes | nindent 4 }}
@@ -30,18 +30,18 @@ kind: Deployment
 metadata:
   name: {{ $name }}
   labels:
-    {{- include "verdant.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+    {{- include "parlor.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
 spec:
   replicas: 1
   strategy:
     type: Recreate
   selector:
     matchLabels:
-      {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 6 }}
+      {{- include "parlor.selectorLabels" (dict "ctx" . "component" $component) | nindent 6 }}
   template:
     metadata:
       labels:
-        {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 8 }}
+        {{- include "parlor.selectorLabels" (dict "ctx" . "component" $component) | nindent 8 }}
     spec:
       {{- with .Values.global.imagePullSecrets }}
       imagePullSecrets:
@@ -49,8 +49,8 @@ spec:
       {{- end }}
       containers:
         - name: postgres
-          image: {{ include "verdant.image" (dict "ctx" . "image" .Values.postgres.image) }}
-          imagePullPolicy: {{ include "verdant.pullPolicy" (dict "ctx" . "image" .Values.postgres.image) }}
+          image: {{ include "parlor.image" (dict "ctx" . "image" .Values.postgres.image) }}
+          imagePullPolicy: {{ include "parlor.pullPolicy" (dict "ctx" . "image" .Values.postgres.image) }}
           ports:
             - name: postgres
               containerPort: 5432
@@ -94,11 +94,11 @@ kind: Service
 metadata:
   name: {{ $name }}
   labels:
-    {{- include "verdant.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+    {{- include "parlor.componentLabels" (dict "ctx" . "component" $component) | nindent 4 }}
 spec:
   type: ClusterIP
   selector:
-    {{- include "verdant.selectorLabels" (dict "ctx" . "component" $component) | nindent 4 }}
+    {{- include "parlor.selectorLabels" (dict "ctx" . "component" $component) | nindent 4 }}
   ports:
     - name: postgres
       port: {{ .Values.postgres.service.port }}

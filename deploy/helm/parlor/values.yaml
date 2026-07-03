@@ -1,5 +1,5 @@
 # =============================================================================
-# Verdant — default values
+# Parlor — default values
 # =============================================================================
 # These defaults aim for a "safe-but-blank" production-shaped install:
 #   - no in-cluster Postgres (point at a managed DB)
@@ -36,7 +36,7 @@ commonLabels: {}
 # NO REAL SECRETS LIVE IN THIS CHART. Provide them one of two ways:
 #
 #   1. existingSecret: reference a Secret you created out-of-band, e.g.
-#        kubectl create secret generic verdant-secrets \
+#        kubectl create secret generic parlor-secrets \
 #          --from-literal=JWT_SECRET=... --from-literal=ANTHROPIC_API_KEY=...
 #      Set secrets.existingSecret to its name and leave secrets.data empty.
 #
@@ -113,7 +113,7 @@ backend:
   replicaCount: 1
   image:
     registry: ""                        # overrides global.imageRegistry when set
-    repository: ghcr.io/your-org/verdant-meeting-api
+    repository: ghcr.io/your-org/parlor-meeting-api
     tag: ""                             # overrides global.imageTag when set
     pullPolicy: ""                      # overrides global.imagePullPolicy when set
   service:
@@ -121,11 +121,11 @@ backend:
     port: 8000
   # CORS origins the API accepts (comma-joined into ALLOWED_ORIGINS).
   allowedOrigins:
-    - "https://verdant.example.com"
+    - "https://parlor.example.com"
   # Trusted hosts (ALLOWED_HOSTS). "*" is fine behind a trusted ingress.
   allowedHosts: "*"
   # Public base URL the OAuth providers redirect back to (calendar connect).
-  calendarOauthRedirectBase: "https://api.verdant.example.com"
+  calendarOauthRedirectBase: "https://api.parlor.example.com"
   resources:
     requests:
       cpu: 100m
@@ -171,7 +171,7 @@ aiService:
   replicaCount: 1
   image:
     registry: ""
-    repository: ghcr.io/your-org/verdant-ai-service
+    repository: ghcr.io/your-org/parlor-ai-service
     tag: ""
     pullPolicy: ""
   service:
@@ -213,7 +213,7 @@ web:
   replicaCount: 1
   image:
     registry: ""
-    repository: ghcr.io/your-org/verdant-web
+    repository: ghcr.io/your-org/parlor-web
     tag: ""
     pullPolicy: ""
   service:
@@ -221,7 +221,7 @@ web:
     port: 3000
   # Browser → backend. MUST be the publicly reachable API URL (baked into the
   # client bundle at build time; this env is the SSR/runtime fallback).
-  publicApiUrl: "https://api.verdant.example.com"
+  publicApiUrl: "https://api.parlor.example.com"
   # SSR / route handlers → backend over in-cluster DNS. Empty => derived from
   # the backend Service name automatically.
   apiInternalUrl: ""
@@ -265,7 +265,7 @@ botWorker:
   replicaCount: 1
   image:
     registry: ""
-    repository: ghcr.io/your-org/verdant-meeting-worker
+    repository: ghcr.io/your-org/parlor-meeting-worker
     tag: ""
     pullPolicy: ""
   service:
@@ -415,10 +415,10 @@ ingress:
     # cert-manager.io/cluster-issuer: letsencrypt-prod
     # nginx.ingress.kubernetes.io/proxy-body-size: "25m"
   # Single host with path-based routing (web at /, API at /api).
-  host: verdant.example.com
+  host: parlor.example.com
   # Optional dedicated API host. When set, API routes use this host instead of
   # the /api path on the web host.
   apiHost: ""
   tls:
     enabled: false
-    secretName: verdant-tls
+    secretName: parlor-tls

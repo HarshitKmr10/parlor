@@ -600,7 +600,7 @@ class Citation(CamelModel):
     speaker_name: str
     text: str
     t_start_sec: float
-    # Populated on workspace-wide ("Ask Verdant") answers so each citation can
+    # Populated on workspace-wide ("Ask Parlor") answers so each citation can
     # link back to its source meeting.
     meeting_id: Optional[str] = None
     meeting_title: Optional[str] = None

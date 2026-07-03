@@ -12,7 +12,7 @@ import { SearchIcon } from "@/components/ui/icons";
 import { formatDuration } from "@/lib/format";
 
 export const metadata: Metadata = {
-  title: "Search — Verdant",
+  title: "Search — Parlor",
 };
 
 type SearchParams = Promise<{ q?: string }>;
@@ -55,7 +55,7 @@ export default async function SearchPage({
         <EmptyState
           icon={<SearchIcon className="h-6 w-6" />}
           title="Search across every meeting"
-          description="Look up a decision, a name, or a phrase — Verdant searches titles, transcripts, and summaries."
+          description="Look up a decision, a name, or a phrase — Parlor searches titles, transcripts, and summaries."
         />
       ) : results && results.items.length > 0 ? (
         <>

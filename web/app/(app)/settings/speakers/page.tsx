@@ -8,7 +8,7 @@ import { SpeakersManager } from "@/components/settings/SpeakersManager";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
-  title: "Speakers — Verdant",
+  title: "Speakers — Parlor",
 };
 
 export default async function SpeakersPage() {

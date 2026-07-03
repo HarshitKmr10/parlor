@@ -1,18 +1,18 @@
-# Verdant Helm chart
+# Parlor Helm chart
 
-Deploy the full Verdant meeting-assistant stack to any Kubernetes cluster with
+Deploy the full Parlor meeting-assistant stack to any Kubernetes cluster with
 a single `helm install`. Self-hosted, no managed services required for dev.
 
-Chart lives in [`verdant/`](./verdant).
+Chart lives in [`parlor/`](./parlor).
 
 ## Stack
 
 | Component    | Image (default repo)              | Port | Role |
 |--------------|-----------------------------------|------|------|
-| `backend`    | `verdant-meeting-api`             | 8000 | FastAPI product API (`/api/v1`, auth, meetings, calendar) |
-| `ai-service` | `verdant-ai-service`              | 8100 | Summaries, embeddings, RAG chat over pgvector |
-| `web`        | `verdant-web`                     | 3000 | Next.js dashboard |
-| `bot-worker` | `verdant-meeting-worker`          | 3001 | Chromium meeting bot / warm pool |
+| `backend`    | `parlor-meeting-api`             | 8000 | FastAPI product API (`/api/v1`, auth, meetings, calendar) |
+| `ai-service` | `parlor-ai-service`              | 8100 | Summaries, embeddings, RAG chat over pgvector |
+| `web`        | `parlor-web`                     | 3000 | Next.js dashboard |
+| `bot-worker` | `parlor-meeting-worker`          | 3001 | Chromium meeting bot / warm pool |
 | `postgres`   | `pgvector/pgvector:pg16`          | 5432 | Optional in-cluster pgvector DB (dev only) |
 
 Each component is its own Deployment + Service. The chart also renders a shared
@@ -27,10 +27,10 @@ applies `backend/db/*.sql` (idempotent) as a Helm hook.
   clusters, build them and load into the node:
   ```bash
   # kind
-  kind load docker-image verdant-meeting-api:dev verdant-ai-service:dev \
-                          verdant-web:dev verdant-meeting-worker:dev
+  kind load docker-image parlor-meeting-api:dev parlor-ai-service:dev \
+                          parlor-web:dev parlor-meeting-worker:dev
   # k3s (containerd)
-  docker save verdant-meeting-api:dev | sudo k3s ctr images import -
+  docker save parlor-meeting-api:dev | sudo k3s ctr images import -
   ```
 
 ---
@@ -40,12 +40,12 @@ applies `backend/db/*.sql` (idempotent) as a Helm hook.
 Everything in-cluster, mock AI, standalone bots, no external DB, no API keys.
 
 ```bash
-helm install verdant ./deploy/helm/verdant \
-  -f deploy/helm/verdant/values-dev.yaml \
-  --namespace verdant --create-namespace
+helm install parlor ./deploy/helm/parlor \
+  -f deploy/helm/parlor/values-dev.yaml \
+  --namespace parlor --create-namespace
 ```
 
-What [`values-dev.yaml`](./verdant/values-dev.yaml) sets:
+What [`values-dev.yaml`](./parlor/values-dev.yaml) sets:
 
 - `postgres.enabled=true` — in-cluster pgvector, auto-bootstrapped by the
   db-init Job. The DSN is computed automatically and injected as `DATABASE_URL`.
@@ -56,16 +56,16 @@ What [`values-dev.yaml`](./verdant/values-dev.yaml) sets:
 - `ingress.enabled=false` — reach the UI by port-forward:
 
 ```bash
-kubectl -n verdant port-forward svc/verdant-web 3000:3000
-kubectl -n verdant port-forward svc/verdant-backend 8000:8000
+kubectl -n parlor port-forward svc/parlor-web 3000:3000
+kubectl -n parlor port-forward svc/parlor-backend 8000:8000
 # open http://localhost:3000 and sign up
 ```
 
 Verify:
 
 ```bash
-kubectl -n verdant get pods -l app.kubernetes.io/instance=verdant
-kubectl -n verdant exec deploy/verdant-backend -- wget -qO- localhost:8000/ready
+kubectl -n parlor get pods -l app.kubernetes.io/instance=parlor
+kubectl -n parlor exec deploy/parlor-backend -- wget -qO- localhost:8000/ready
 ```
 
 ---
@@ -73,30 +73,30 @@ kubectl -n verdant exec deploy/verdant-backend -- wget -qO- localhost:8000/ready
 ## (b) Production — external DB + live LLM + warm-pool + ingress/TLS
 
 ```bash
-cp deploy/helm/verdant/values-prod.yaml.example values-prod.yaml   # keep out of git
+cp deploy/helm/parlor/values-prod.yaml.example values-prod.yaml   # keep out of git
 # edit values-prod.yaml (image registry, hosts, etc.)
 
 # Create secrets out-of-band (preferred over putting them in any values file):
-kubectl create namespace verdant
-kubectl -n verdant create secret generic verdant-secrets \
+kubectl create namespace parlor
+kubectl -n parlor create secret generic parlor-secrets \
   --from-literal=JWT_SECRET="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')" \
-  --from-literal=DATABASE_URL="postgresql://user:pass@db-host:5432/verdant" \
+  --from-literal=DATABASE_URL="postgresql://user:pass@db-host:5432/parlor" \
   --from-literal=ANTHROPIC_API_KEY="sk-ant-..." \
   --from-literal=OPENAI_API_KEY="sk-..." \
   --from-literal=CALENDAR_TOKEN_KEY="$(python -c 'from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())')" \
   --from-literal=AWS_ACCESS_KEY_ID="..." \
   --from-literal=AWS_SECRET_ACCESS_KEY="..."
 
-helm install verdant ./deploy/helm/verdant \
+helm install parlor ./deploy/helm/parlor \
   -f values-prod.yaml \
-  --namespace verdant
+  --namespace parlor
 ```
 
-What [`values-prod.yaml.example`](./verdant/values-prod.yaml.example) sets:
+What [`values-prod.yaml.example`](./parlor/values-prod.yaml.example) sets:
 
 - `postgres.enabled=false` + external DB via the `DATABASE_URL` secret key
   (or `externalDatabaseUrl`). Your DB **must** have the `pgvector` extension.
-- `secrets.existingSecret=verdant-secrets` — the chart renders NO Secret of its
+- `secrets.existingSecret=parlor-secrets` — the chart renders NO Secret of its
   own; it consumes yours via `envFrom`.
 - `aiMode=live`, `aiProviderOrder`, real provider keys.
 - `runtimeMode=k8s` — enables the warm-pool dispatcher. The chart's
@@ -190,10 +190,10 @@ Bot-worker-specific: `botWorker.botName`, `botWorker.enabledPlatforms`,
 - All probes target the app health endpoints (`/health`, `/ready` for backend;
   the bot-worker liveness checks the `Xvfb`/`pulseaudio` processes per the
   upstream manifest).
-- The bundled SQL under `verdant/files/db/` is copied from `backend/db/`. If the
+- The bundled SQL under `parlor/files/db/` is copied from `backend/db/`. If the
   schema changes upstream, refresh those copies.
 - Lint & render locally:
   ```bash
-  helm lint deploy/helm/verdant
-  helm template verdant deploy/helm/verdant -f deploy/helm/verdant/values-dev.yaml
+  helm lint deploy/helm/parlor
+  helm template parlor deploy/helm/parlor -f deploy/helm/parlor/values-dev.yaml
   ```

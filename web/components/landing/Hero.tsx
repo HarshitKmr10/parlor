@@ -29,7 +29,7 @@ export function Hero() {
 
           <Reveal delay={120}>
             <p className="mt-6 max-w-md text-lg leading-relaxed text-ink-soft">
-              Verdant joins every call, transcribes in real time, and turns the
+              Parlor joins every call, transcribes in real time, and turns the
               conversation into summaries, action items, and answers you can
               simply ask for.
             </p>

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PUBLIC_API_BASE_URL } from "@/lib/api/config";
 
 export const metadata: Metadata = {
-  title: "Developers — Verdant",
+  title: "Developers — Parlor",
 };
 
 const QUICKSTART = `# 1. Authenticate (or use a workspace API key from Settings)
@@ -65,7 +65,7 @@ export default function DevelopersPage() {
         <p className="eyebrow mb-1.5">Platform</p>
         <h1 className="font-display text-2xl text-ink">Developers</h1>
         <p className="mt-1.5 max-w-xl text-sm text-ink-muted">
-          Build on Verdant with a REST API, HMAC-signed webhooks, and an MCP
+          Build on Parlor with a REST API, HMAC-signed webhooks, and an MCP
           server. Authenticate with a workspace API key from Settings.
         </p>
       </header>
@@ -89,7 +89,7 @@ export default function DevelopersPage() {
           <code>{`npx @openapitools/openapi-generator-cli generate \\
   -i ${openapiUrl} \\
   -g typescript-fetch \\
-  -o ./verdant-sdk`}</code>
+  -o ./parlor-sdk`}</code>
         </pre>
         <p className="mt-3 text-sm text-ink-muted">
           Swap <code className="rounded bg-surface-2 px-1">typescript-fetch</code> for{" "}

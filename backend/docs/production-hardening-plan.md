@@ -107,7 +107,7 @@ pod-per-meeting + warm pool. Ported from techops sandbox.
 - **`src/sidecar/`** — FastAPI service co-located in each pod. Exposes
   `/configure` (start the bot), `/health` (warm-pool reaper polls this),
   `/abort` (graceful shutdown + transcript flush), `/metrics`.
-- **`infra/aiops-chart/templates/meeting-joiner/`** — 16-file Helm
+- **`infra/<internal-monorepo-chart>/templates/meeting-joiner/`** — 16-file Helm
   chart: configmap, two PriorityClasses, ServiceAccount + RBAC,
   NetworkPolicy, ValidatingAdmissionPolicy, API Deployment + Service +
   HPA + PDB, Ingress, prepulled-image DaemonSet, optional
@@ -202,7 +202,7 @@ get the same shape via `meeting-joiner/db/bootstrap.sql`.
 
 ## 5. K8s Manifest Inventory
 
-All new under `infra/aiops-chart/templates/meeting-joiner/`:
+All new under `infra/<internal-monorepo-chart>/templates/meeting-joiner/`:
 
 | File | Purpose |
 |---|---|

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# End-to-end cross-service smoke test for the Verdant meeting-assistant stack.
+# End-to-end cross-service smoke test for the Parlor meeting-assistant stack.
 # =============================================================================
 # Proves the FULL flow against the running docker-compose stack:
 #

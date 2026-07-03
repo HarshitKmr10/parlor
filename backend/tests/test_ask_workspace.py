@@ -1,4 +1,4 @@
-"""Unit tests for workspace-wide 'Ask Verdant' citation enrichment."""
+"""Unit tests for workspace-wide 'Ask Parlor' citation enrichment."""
 
 from unittest.mock import AsyncMock
 

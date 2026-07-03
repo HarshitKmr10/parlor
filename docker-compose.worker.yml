@@ -1,5 +1,5 @@
 # =============================================================================
-# Verdant separated meeting-worker override — mirrors production.
+# Parlor separated meeting-worker override — mirrors production.
 # =============================================================================
 # Decouples the bot from the backend API. The backend stays the lightweight
 # Dockerfile.dev API image; the bot runs in its OWN `meeting-worker` container
@@ -49,7 +49,7 @@ services:
       # Heavy bot-runtime image: Python + Node + pnpm node_modules + Playwright
       # Chromium + Xvfb/pulseaudio/ffmpeg + local whisper cache.
       dockerfile: Dockerfile.botruntime
-    container_name: verdant-meeting-worker
+    container_name: parlor-meeting-worker
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,7 +98,7 @@ services:
       TRANSFORMERS_CACHE: /opt/hf-cache
 
       # Bot identity / platform config (no secrets).
-      BOT_NAME: ${BOT_NAME:-Verdant Notetaker}
+      BOT_NAME: ${BOT_NAME:-Parlor Notetaker}
       MEETING_JOINER_ENABLED_PLATFORMS: googlemeet
       GOOGLEMEET_TRANSCRIPT_SOURCE: gmeet_captions
       MEETING_JOINER_STORAGE_REQUIRED: "false"
@@ -118,4 +118,4 @@ services:
     # shm too small (default 64MB) makes Chromium crash with renderer OOM.
     shm_size: "1gb"
     networks:
-      - verdant
+      - parlor

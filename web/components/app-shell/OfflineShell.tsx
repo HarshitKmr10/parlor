@@ -17,7 +17,7 @@ export function OfflineShell({ children }: Props) {
           href="/dashboard"
           className="font-display text-[1.4rem] font-medium tracking-tight text-ink"
         >
-          Verdant
+          Parlor
         </Link>
       </header>
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-12 sm:px-6">

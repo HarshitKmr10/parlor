@@ -7,9 +7,9 @@ value we wire into the backend env. See _helpers.tpl / configMapName.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ include "verdant.configMapName" . }}
+  name: {{ include "parlor.configMapName" . }}
   labels:
-    {{- include "verdant.labels" . | nindent 4 }}
+    {{- include "parlor.labels" . | nindent 4 }}
 data:
   # ── Service basics ──
   LOG_LEVEL: {{ .Values.logLevel | quote }}
@@ -23,7 +23,7 @@ data:
   MEETING_JOINER_USE_WARM_POOL: {{ eq .Values.runtimeMode "k8s" | quote }}
 
   # ── Backend service wiring ──
-  AI_SERVICE_URL: "http://{{ include "verdant.componentName" (dict "ctx" . "component" "ai-service") }}:{{ .Values.aiService.service.port }}"
+  AI_SERVICE_URL: "http://{{ include "parlor.componentName" (dict "ctx" . "component" "ai-service") }}:{{ .Values.aiService.service.port }}"
   ALLOWED_ORIGINS: {{ join "," .Values.backend.allowedOrigins | quote }}
   ALLOWED_HOSTS: {{ .Values.backend.allowedHosts | quote }}
   CALENDAR_OAUTH_REDIRECT_BASE: {{ .Values.backend.calendarOauthRedirectBase | quote }}
@@ -51,9 +51,9 @@ data:
   # ── Warm-pool dispatcher (k8s runtime). The dispatcher reads these to know
   #    which namespace/SA/images/ConfigMap/Secret to use for bot pods. ──
   MEETING_NAMESPACE: {{ default .Release.Namespace .Values.botWorker.warmPool.namespace | quote }}
-  MEETING_SERVICE_ACCOUNT_NAME: {{ include "verdant.serviceAccountName" . | quote }}
-  MEETING_WORKER_IMAGE: {{ include "verdant.image" (dict "ctx" . "image" .Values.botWorker.image) | quote }}
-  MEETING_JOINER_CONFIGMAP: {{ include "verdant.configMapName" . | quote }}
-  MEETING_JOINER_SECRET: {{ include "verdant.secretName" . | quote }}
+  MEETING_SERVICE_ACCOUNT_NAME: {{ include "parlor.serviceAccountName" . | quote }}
+  MEETING_WORKER_IMAGE: {{ include "parlor.image" (dict "ctx" . "image" .Values.botWorker.image) | quote }}
+  MEETING_JOINER_CONFIGMAP: {{ include "parlor.configMapName" . | quote }}
+  MEETING_JOINER_SECRET: {{ include "parlor.secretName" . | quote }}
   WARM_POOL_SIZE: {{ .Values.botWorker.warmPool.size | quote }}
   WARM_POOL_MAX: {{ .Values.botWorker.warmPool.max | quote }}

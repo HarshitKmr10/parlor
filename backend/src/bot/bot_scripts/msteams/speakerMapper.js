@@ -61,8 +61,9 @@ function attributeFromTrack({ peerId, trackId, peerLabel, roster, activeSpeakerN
   // fallback: "exactly one human in the panel" → that's the speaker by
   // elimination. Otherwise fall back to a generic peer label.
   //
-  // Two bugs fixed here vs the prior implementation that surfaced on
-  // staging meeting 73fa5bf7-... where bot was named "Test" + Harshit:
+  // Two bugs fixed here vs the prior implementation that surfaced during
+  // testing, when the bot's own display name ("Test") and a human
+  // participant's first name ("Jane") both showed up in the roster:
   //   1. `list` is a string[], NOT an array of {name} objects, so the
   //      old `.map((p) => p?.name)` mapped EVERY entry to undefined and
   //      `humans` was always empty → always fell through to peer_label.
@@ -96,7 +97,7 @@ function attributeFromTrack({ peerId, trackId, peerLabel, roster, activeSpeakerN
       };
     }
   }
-  // EXPLICIT user request (staging meeting fa13d898-...): if we don't
+  // EXPLICIT product decision: if we don't
   // know who is speaking right now, attribute the segment to the LAST
   // person we confidently bound. Never emit "Speaker N" / raw peerId
   // labels — they're strictly worse than a stale-but-real name (which

@@ -1,4 +1,4 @@
-"""``verdant-capture`` CLI — botless desktop audio capture for Verdant.
+"""``parlor-capture`` CLI — botless desktop audio capture for Parlor.
 
 Captures local system/meeting audio, transcribes it (local faster-whisper, a
 mock backend, or a remote STT), and streams transcript segments to the Verdant
@@ -92,7 +92,7 @@ def main(
     ),
 ) -> None:
     if version:
-        console.print(f"verdant-capture {__version__}")
+        console.print(f"parlor-capture {__version__}")
         raise typer.Exit()
     if list_devices:
         _print_devices()
@@ -305,7 +305,7 @@ def _run_capture(
     # 4. Run pipeline
     transcript_path = transcript_out
     if transcript_path is None and (local or client is None):
-        transcript_path = Path.cwd() / "verdant-transcript.jsonl"
+        transcript_path = Path.cwd() / "parlor-transcript.jsonl"
 
     def _on_segment(seg: Segment) -> None:
         if live:

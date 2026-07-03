@@ -15,7 +15,7 @@ import { BackendDownState } from "@/components/ui/BackendDownState";
 import { GoogleWorkspaceManager } from "@/components/google-workspace/GoogleWorkspaceManager";
 
 export const metadata: Metadata = {
-  title: "Org-wide Google Meet capture — Verdant",
+  title: "Org-wide Google Meet capture — Parlor",
 };
 
 const NOT_CONFIGURED = "google_workspace_not_configured";
@@ -94,7 +94,7 @@ export default async function GoogleWorkspacePage() {
         <p className="eyebrow mb-1.5">Admin · Org-wide capture</p>
         <h1 className="font-display text-2xl text-ink">Google Workspace</h1>
         <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-muted">
-          Authorize Verdant once, as a Workspace admin, to capture{" "}
+          Authorize Parlor once, as a Workspace admin, to capture{" "}
           <strong className="font-medium text-ink-soft">every</strong> Google
           Meet across your org — scheduled and ad-hoc — through a single
           domain-authorized service account. This is distinct from the per-user{" "}

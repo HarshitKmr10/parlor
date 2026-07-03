@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Botless (desktop-capture) end-to-end smoke test for the Verdant stack.
+# Botless (desktop-capture) end-to-end smoke test for the Parlor stack.
 # =============================================================================
 # Proves the BOTLESS path against the running docker-compose stack — the flow
 # the desktop-capture client drives, with NO bot joining a call and NO psql
