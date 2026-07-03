@@ -1,9 +1,12 @@
 """RAG chat: retrieve relevant segments, build a grounded prompt, answer.
 
-Live mode embeds the question and runs cosine vector search. Mock mode uses
-keyword search (the mock embedder is hash-based, so cosine search still works,
-but keyword search yields more legible mock citations). Either way the answer
-is grounded in retrieved segments and returned with citations.
+Live mode embeds the question and runs hybrid retrieval -- vector similarity
+fused with keyword ranking via Reciprocal Rank Fusion (``EmbeddingStore.
+hybrid_search``) -- rather than vector search alone. Mock mode uses keyword
+search (the mock embedder is hash-based, so cosine search still works, but
+keyword search yields more legible mock citations), falling back to vector
+search if there are no keyword hits at all. Either way the answer is grounded
+in retrieved segments and returned with citations.
 """
 
 from __future__ import annotations
@@ -74,11 +77,14 @@ async def answer_question(
                 top_k=top_k,
             )
     else:
+        # Live mode: always fuse vector + keyword via RRF -- never an
+        # either/or fallback.
         embedding = (await router.embed([question]))[0]
-        retrieved = await store.search(
+        retrieved = await store.hybrid_search(
             workspace_id=workspace_id,
             meeting_id=meeting_id,
             embedding=embedding,
+            question=question,
             top_k=top_k,
         )
 
