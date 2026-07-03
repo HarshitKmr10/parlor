@@ -114,8 +114,10 @@ class CapturePipeline:
                         elif outcome is False:
                             backlog.append(segment)
                         else:
-                            if backlog:
-                                self._replay_backlog(meeting_id, backlog)
+                            if backlog and self._replay_backlog(
+                                meeting_id, backlog
+                            ):
+                                ingest_unavailable = True
         except KeyboardInterrupt:
             self._on_status("Stopping (Ctrl-C)...")
             self._source.stop()
@@ -150,13 +152,20 @@ class CapturePipeline:
             return True
         return False  # pragma: no cover - loop always returns above
 
-    def _replay_backlog(self, meeting_id: str, backlog: list[Segment]) -> None:
+    def _replay_backlog(self, meeting_id: str, backlog: list[Segment]) -> bool:
         """Resend segments accumulated during a transient outage, in order.
 
         Every item in ``pending`` gets an attempt this pass, even after an
         earlier item fails again: a still-transient failure re-queues just
         that segment (not the whole tail) and keeps going, so a later
         segment that would have succeeded is never silently discarded.
+
+        Returns ``True`` when a permanent (404/405) failure was discovered
+        during this replay pass. Callers must treat that the same as a
+        permanent failure discovered on the main loop's own direct
+        ``_try_ingest`` call: propagate it into ``ingest_unavailable`` so a
+        run that permanently lost segments mid-replay never reports
+        ``ingest_ok`` as ``True``.
         """
         pending = list(backlog)
         backlog.clear()
@@ -188,6 +197,7 @@ class CapturePipeline:
             self._on_status(
                 f"Backend reconnected; replayed {replayed} queued segment(s)."
             )
+        return went_permanent
 
     @staticmethod
     def _write_local(path: Optional[Path], segment: Segment) -> None:
