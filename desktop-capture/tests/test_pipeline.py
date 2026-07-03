@@ -24,9 +24,14 @@ class FakeIngestClient:
 
     ``outcomes`` is consumed one entry per call to decide how that call
     behaves: ``True``/``False`` returns directly (mirroring the real
-    client's permanent-404/405-vs-success return value), and an
-    ``Exception`` instance is raised (mirroring a transient
-    :class:`BackendError`). Once exhausted, the last outcome repeats.
+    client's permanent-404/405-vs-success return value), and a
+    ``BaseException`` instance is raised. An :class:`Exception` (e.g.
+    :class:`BackendError`) mirrors a transient failure the pipeline itself
+    catches and retries; a bare ``BaseException`` (e.g.
+    ``KeyboardInterrupt``) mirrors an interrupt landing mid-call, which the
+    pipeline does *not* catch and must instead propagate while still
+    preserving any not-yet-processed backlog items. Once exhausted, the
+    last outcome repeats.
     """
 
     def __init__(self, outcomes: list[Any]) -> None:
@@ -38,7 +43,7 @@ class FakeIngestClient:
         self.calls.append(segments)
         outcome = self._outcomes.pop(0) if self._outcomes else self._last
         self._last = outcome
-        if isinstance(outcome, Exception):
+        if isinstance(outcome, BaseException):
             raise outcome
         return outcome
 
@@ -349,5 +354,102 @@ def test_permanent_failure_discovered_during_replay_stops_retrying_that_run(
     # the bug, ``ingest_ok`` would read ``True`` here (a false-positive
     # success signal) because ``run()`` never learned the replay went
     # permanent, and segment 4 would then have been ingested normally.
+    assert result.ingest_ok is False
+    assert len(result.segments) == 4
+
+
+def test_replay_backlog_preserves_unprocessed_items_on_interrupt(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression test for #125: a ``KeyboardInterrupt`` (or any exception)
+    unwinding out of ``_try_ingest`` mid-replay-loop must not silently drop
+    items from ``pending`` that haven't been re-classified yet. Both the
+    in-flight segment (whose outcome is unknown when the exception hits)
+    and every segment still waiting behind it must land back in ``backlog``.
+    """
+    monkeypatch.setattr(
+        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+    )
+    source = AudioSource(chunk_seconds=1.0, duration_sec=1.0, mock=True)
+    stt = build_backend("mock")
+    client = FakeIngestClient([])
+    pipeline = CapturePipeline(source=source, stt=stt, client=client)
+
+    seg_a = segment_from_stt(
+        STTResult(text="a", t_start_sec=0.0, t_end_sec=1.0, speaker="Speaker 1")
+    )
+    seg_b = segment_from_stt(
+        STTResult(text="b", t_start_sec=1.0, t_end_sec=2.0, speaker="Speaker 1")
+    )
+    seg_c = segment_from_stt(
+        STTResult(text="c", t_start_sec=2.0, t_end_sec=3.0, speaker="Speaker 1")
+    )
+    backlog = [seg_a, seg_b, seg_c]
+
+    original_try_ingest = pipeline._try_ingest
+    calls: list[Segment] = []
+
+    def _try_ingest_interrupt_on_b(meeting_id: str, segment: Segment) -> Any:
+        calls.append(segment)
+        if segment is seg_b:
+            raise KeyboardInterrupt()
+        return original_try_ingest(meeting_id, segment)
+
+    monkeypatch.setattr(pipeline, "_try_ingest", _try_ingest_interrupt_on_b)
+
+    with pytest.raises(KeyboardInterrupt):
+        pipeline._replay_backlog("meeting-1", backlog)
+
+    # seg_a succeeded (replayed) before the interrupt landed while
+    # processing seg_b.
+    assert calls == [seg_a, seg_b]
+    # seg_b (in flight when the interrupt hit) and seg_c (never reached)
+    # must both survive back into `backlog` -- never silently dropped.
+    assert backlog == [seg_b, seg_c]
+
+
+def test_run_preserves_backlog_when_interrupted_mid_replay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End-to-end regression test for #125's exact repro: 3 segments land in
+    the backlog after transient failures, a 4th succeeds and triggers a
+    replay, and a ``KeyboardInterrupt`` lands on the very first replay
+    attempt. Under the bug, ``_replay_backlog`` had already cleared its
+    live ``backlog`` reference before the loop started, so the interrupt
+    would silently drop all three queued segments and (per the issue's
+    concrete repro) the top-level ``KeyboardInterrupt`` handler in
+    ``cli.py`` would swallow the interrupt and report success. This test
+    stays at the ``run()`` level -- the earliest point the fix is
+    externally observable -- and asserts ``ingest_ok`` never lies.
+    """
+    monkeypatch.setattr(
+        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+    )
+    outcomes = [
+        # Segment 1: every retry attempt fails transiently -> backlog.
+        BackendError("boom"),
+        BackendError("boom"),
+        BackendError("boom"),
+        # Segment 2: every retry attempt fails transiently -> backlog.
+        BackendError("boom"),
+        BackendError("boom"),
+        BackendError("boom"),
+        # Segment 3: every retry attempt fails transiently -> backlog.
+        BackendError("boom"),
+        BackendError("boom"),
+        BackendError("boom"),
+        # Segment 4: succeeds immediately -> triggers replay of [1, 2, 3].
+        True,
+        # Replay of segment 1: interrupted mid-attempt (e.g. Ctrl-C).
+        KeyboardInterrupt(),
+    ]
+    client, result = _run_with_fake_client(outcomes, num_segments=4)
+
+    # 3 (seg1) + 3 (seg2) + 3 (seg3) + 1 (seg4) + 1 (replay seg1, raises) = 11.
+    assert len(client.calls) == 11
+    # The crux of the regression: an interrupt mid-replay must never be
+    # allowed to report a false-positive success. Under the bug this would
+    # read True (segments 1-3 silently vanished from the backlog), which is
+    # exactly the false "Segments streamed to backend" the issue describes.
     assert result.ingest_ok is False
     assert len(result.segments) == 4
