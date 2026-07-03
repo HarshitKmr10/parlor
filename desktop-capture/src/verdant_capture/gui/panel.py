@@ -1,10 +1,22 @@
 """The one-file HTML control panel (no external assets — CSP-safe, offline)."""
 
-PANEL_HTML = """<!doctype html>
+from __future__ import annotations
+
+#: Header the client JS echoes back on state-changing requests so the server
+#: can confirm the request came from the page it just served (see gui/server.py).
+CSRF_TOKEN_HEADER = "X-Verdant-Capture-Token"
+
+#: Placeholder swapped for the real per-launch token by ``render_panel``.
+#: Using a plain ``str.replace`` (not ``str.format``) keeps every literal
+#: ``{``/``}`` in the CSS and JS below untouched.
+_TOKEN_PLACEHOLDER = "__VERDANT_CAPTURE_TOKEN__"
+
+_PANEL_HTML_TEMPLATE = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="verdant-capture-token" content="__VERDANT_CAPTURE_TOKEN__" />
 <title>Verdant Capture</title>
 <style>
   :root { --sage:#5c6b4a; --ink:#2a2e22; --bg:#fcfbf7; --line:#e6e1d4; }
@@ -82,17 +94,30 @@ PANEL_HTML = """<!doctype html>
     $('start').disabled = on; $('stop').disabled = !on;
   }
   async function refresh() { try { render(await (await fetch('/api/status')).json()); } catch {} }
+  const CSRF_TOKEN_HEADER = 'X-Verdant-Capture-Token';
+  const CSRF_TOKEN = document.querySelector('meta[name="verdant-capture-token"]').content;
+  const authHeaders = () => ({ [CSRF_TOKEN_HEADER]: CSRF_TOKEN });
   $('start').onclick = async () => {
     const form = {
       title: $('title').value, meetingUrl: $('meetingUrl').value, device: $('device').value,
       stt: $('stt').value, chunkSeconds: $('chunkSeconds').value,
       mockAudio: $('mockAudio').checked, local: $('local').checked,
     };
-    const r = await fetch('/api/start', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(form) });
+    const r = await fetch('/api/start', { method:'POST', headers:{'Content-Type':'application/json', ...authHeaders()}, body: JSON.stringify(form) });
     if (r.ok) render(await r.json()); else alert((await r.json()).error || 'Failed to start');
   };
-  $('stop').onclick = async () => { render(await (await fetch('/api/stop', {method:'POST'})).json()); };
+  $('stop').onclick = async () => { render(await (await fetch('/api/stop', {method:'POST', headers: authHeaders()})).json()); };
   loadDevices(); refresh(); setInterval(refresh, 3000);
 </script>
 </body>
 </html>"""
+
+
+def render_panel(token: str) -> str:
+    """Render the control panel HTML with a per-launch CSRF token embedded.
+
+    The token is echoed by the client JS as the ``CSRF_TOKEN_HEADER`` header
+    on ``/api/start`` and ``/api/stop`` so the server can reject requests
+    that didn't come from a page it just served (see gui/server.py).
+    """
+    return _PANEL_HTML_TEMPLATE.replace(_TOKEN_PLACEHOLDER, token)
