@@ -307,7 +307,8 @@ class ZoomBotRunner:
                 meeting_password=self.meeting_password,
                 bot_name=self.bot_name,
                 meeting_db_id=self.meeting_db_id,
-                transcript_file=self.transcript_file
+                transcript_file=self.transcript_file,
+                on_exit_reason=self._record_exit_reason,
             )
 
             self.bot.init()

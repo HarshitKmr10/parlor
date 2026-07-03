@@ -6,6 +6,7 @@ import logging
 import os
 import jwt
 from datetime import datetime, timedelta
+from typing import Callable, Optional
 
 # Initialize logger first before any imports that might need it
 logger = logging.getLogger(__name__)
@@ -51,17 +52,39 @@ def generate_jwt(client_id, client_secret):
     return token
 
 
+# Maps MEETING_STATUS_FAILED's iResult codes (see error_messages in
+# meeting_status_changed) to a short exit_reason string recorded on the
+# meeting_joiner row, mirroring the Playwright bots' exit-reason pattern.
+FAILURE_REASON_BY_CODE = {
+    3: "join_rejected_password",
+    4: "join_rejected_invalid_params",
+    5: "join_rejected_not_found",
+    6: "join_rejected_invalid_user_type",
+    7: "join_rejected_not_started",
+    8: "auth_failed",
+    9: "join_rejected_locked",
+    10: "join_rejected_restricted",
+    11: "join_rejected_jbh",
+    12: "join_rejected_device",
+    13: "join_rejected_internal_error",
+    14: "join_rejected_removed",
+    15: "join_rejected_full",
+}
+
+
 class SimpleZoomBot:
     """Simple Zoom bot based on the working transcription_bot.py"""
 
     def __init__(self, client_id, client_secret, meeting_id, meeting_password,
-                 bot_name="Transcription Bot", meeting_db_id=None, transcript_file=None):
+                 bot_name="Transcription Bot", meeting_db_id=None, transcript_file=None,
+                 on_exit_reason: Optional[Callable[[str, dict], None]] = None):
         self.client_id = client_id
         self.client_secret = client_secret
         self.meeting_id = meeting_id
         self.meeting_password = meeting_password
         self.bot_name = bot_name
         self.meeting_db_id = meeting_db_id
+        self.on_exit_reason = on_exit_reason
 
         # Services
         self.meeting_service = None
@@ -89,6 +112,17 @@ class SimpleZoomBot:
         self.participants_ctrl_event = None
 
         logger.info(f"SimpleZoomBot initialized for meeting {meeting_id} (DB ID: {meeting_db_id})")
+
+    def _report_exit_reason(self, reason: str, details: Optional[dict] = None) -> None:
+        """Best-effort forward of an exit reason to the caller-supplied
+        callback (e.g. ZoomBotRunner._record_exit_reason). Never raises —
+        failures here must not interfere with SDK teardown/auth handling."""
+        if not self.on_exit_reason:
+            return
+        try:
+            self.on_exit_reason(reason, details or {})
+        except Exception as err:
+            logger.debug(f"on_exit_reason callback failed: {err}")
 
     def cleanup(self):
         logger.info("Cleaning up bot...")
@@ -308,6 +342,7 @@ class SimpleZoomBot:
             logger.info("Auth completed successfully, joining meeting...")
             return self.join_meeting()
 
+        self._report_exit_reason("auth_failed", {"result": str(result)})
         raise Exception(f"Failed to authorize. result = {result}")
 
     def meeting_status_changed(self, status, iResult):
@@ -345,6 +380,10 @@ class SimpleZoomBot:
             logger.error("   2. Verify Zoom OAuth app is configured as 'Meeting SDK' type")
             logger.error("   3. Ensure OAuth app has meeting:write and meeting:read:admin scopes")
             logger.error("   4. Check if meeting requires waiting room or host approval")
+            self._report_exit_reason(
+                FAILURE_REASON_BY_CODE.get(iResult, "join_rejected"),
+                {"code": iResult, "message": error_msg},
+            )
             return
 
         if status == zoom.MEETING_STATUS_INMEETING:
@@ -377,7 +416,10 @@ class SimpleZoomBot:
         if status == zoom.MEETING_STATUS_IDLE:
             return
 
-        self.meeting_service.Leave(zoom.LEAVE_MEETING)
+        try:
+            self.meeting_service.Leave(zoom.LEAVE_MEETING)
+        except:
+            pass
 
     def create_services(self):
         logger.info("Creating Zoom SDK services...")
