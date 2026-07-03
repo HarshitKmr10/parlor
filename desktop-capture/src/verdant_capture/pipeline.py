@@ -178,10 +178,10 @@ class CapturePipeline:
         ``ingest_ok`` as ``True``.
         """
         pending = list(backlog)
-        backlog.clear()
         went_permanent = False
         replayed = 0
         try:
+            backlog.clear()
             while pending:
                 if went_permanent:
                     # Ingest just went permanently unavailable mid-replay:
