@@ -398,11 +398,17 @@ async def complete_meeting(
     Used by botless desktop-capture to finalize a session. Idempotent: if the
     meeting is already terminal, this is a no-op that returns the current state.
     Transitioning to ``completed`` fires the embed→summarize→recap pipeline.
+
+    Uses the guarded ``complete_if_active`` (a conditional UPDATE) rather than
+    an unconditional ``update_meeting_status`` so two concurrent finalize
+    requests can't both observe a non-terminal status and both fire the
+    pipeline — only the request whose write actually lands (first past the
+    row lock) triggers it. See #60.
     """
     record, scoped = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     if record.status.value not in ("completed", "failed"):
-        await service.update_meeting_status(meeting_id, InternalStatus.COMPLETED)
-        _fire_completion_pipeline(meeting_id)
+        if await service.complete_if_active(meeting_id):
+            _fire_completion_pipeline(meeting_id)
     refreshed = await service.get_meeting_by_id(meeting_id) or record
     meeting = to_meeting(refreshed, title=scoped.get("title"))
     meeting.workspace_id = workspace.id
@@ -532,10 +538,13 @@ async def stop_meeting(
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> Meeting:
+    """Stop a meeting. Uses the guarded ``complete_if_active`` (a conditional
+    UPDATE) rather than an unconditional write so a concurrent finalize
+    request can't double-fire the completion pipeline. See #60."""
     record, scoped = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     if record.status.value not in ("completed", "failed"):
-        await service.update_meeting_status(meeting_id, InternalStatus.COMPLETED)
-        _fire_completion_pipeline(meeting_id)
+        if await service.complete_if_active(meeting_id):
+            _fire_completion_pipeline(meeting_id)
     refreshed = await service.get_meeting_by_id(meeting_id) or record
     meeting = to_meeting(refreshed, title=scoped.get("title"))
     meeting.workspace_id = workspace.id
