@@ -1,6 +1,7 @@
 # Parlor
 
 [![License: FSL-1.1-Apache-2.0](https://img.shields.io/badge/license-FSL--1.1--Apache--2.0-blue)](./LICENSE)
+[![CI](https://github.com/<your-fork>/parlor/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-fork>/parlor/actions/workflows/ci.yml)
 
 **Your meetings never leave your machine — unless you want them to.**
 
@@ -19,6 +20,19 @@ embeddings, chat — comes up and works end to end with deterministic
 placeholder output before you have touched a single LLM provider key. Add a
 key later to switch from mock to live models; nothing else about the setup
 changes.
+
+> [!NOTE]
+> Parlor is self-hosted and community-supported on a best-effort basis —
+> there's no formal SLA or paid support tier attached to this repository.
+> See [`SECURITY.md`](./SECURITY.md) for how to report a vulnerability and
+> [`CONTRIBUTING.md`](./CONTRIBUTING.md) for how pull requests get reviewed.
+>
+> Parlor is built and open-sourced by the same team that also builds a
+> separate, closed-source product for enterprises. That product is not part
+> of this repository, shares no code with it beyond what you see here, and
+> nothing in Parlor requires it — see
+> ["What's different from the company's other products?"](#whats-different-from-the-companys-other-products)
+> below.
 
 ## Try it in 2 minutes
 
@@ -64,6 +78,41 @@ up-api` is the fast path for trying the product or iterating on it.
 - **Self-hosted only.** No hosted trial, no managed tier, no telemetry phoning
   home — the product is the Docker Compose file (or the Helm chart under
   `deploy/helm/parlor/` for Kubernetes).
+
+## What's different from the company's other products?
+
+> **A note on scope, not marketing:** the maintainers also build a separate,
+> closed-source product for enterprises. The section below is intentionally
+> conservative about what it says regarding that product — treat it as a
+> placeholder for a maintainer to refine, not as settled positioning copy.
+
+- **Parlor is fully open-source.** There's no "open core" split — everything
+  in this repository, including bot-join capture, RAG chat, and webhooks, is
+  available under [FSL-1.1-Apache-2.0](./LICENSE) with no license key and no
+  gated "enterprise edition" of Parlor itself.
+- **Parlor is self-hosted only.** There is no hosted or managed version of
+  Parlor, and none is planned as part of this project — see the callout near
+  the top of this README.
+- **Parlor's scope stops at the meeting layer.** It captures, transcribes,
+  summarizes, and lets you chat with your own meetings (per-meeting and
+  across your workspace), and exposes that over webhooks and an MCP server.
+  It does not include the maintainers' other, separately built and
+  closed-source product line — that product is not part of this repository
+  and this README intentionally does not describe it further.
+
+## Built with
+
+| Layer | Stack |
+|---|---|
+| Backend API | Python 3.12, [FastAPI](https://fastapi.tiangolo.com/) ^0.120, Pydantic v2, `asyncpg`, Poetry |
+| AI service | Python 3.11+, FastAPI, Pydantic v2, Anthropic + OpenAI SDKs (optional), `asyncpg` |
+| Web | [Next.js](https://nextjs.org/) 16 (App Router), React 19, TypeScript 5, Tailwind CSS 4, SWR |
+| Database | PostgreSQL 16 + [pgvector](https://github.com/pgvector/pgvector) (`pgvector/pgvector:pg16`), one shared instance for both API and vector search |
+| Bot runtime (optional) | Node.js + Playwright/Chromium, Xvfb, PulseAudio, ffmpeg |
+| Local/offline transcription | `@xenova/transformers` running a bundled tiny Whisper model — no cloud STT account required |
+| Testing | pytest (backend, ai-service), Playwright (`web/e2e`) |
+| Deployment | Docker Compose (dev/self-host), Helm chart under `deploy/helm/parlor/` (Kubernetes) |
+| MCP integration | `mcp/` — a stdio MCP server (TypeScript) exposing `search_meetings` / `get_meeting` / `ask_meetings` |
 
 ## Architecture
 
@@ -149,6 +198,20 @@ make up-api
 > `AI_PORT=8101`, `POSTGRES_PORT=5434` — chosen to avoid the commonly-occupied
 > 3000 / 8000 / 8100 / 5432. Change them in `.env` if they clash on your host.
 > Inter-service traffic uses Docker DNS and is unaffected by host-port changes.
+
+### API docs and developer tools
+
+After you've signed up in the web app, visit **`/developers`**
+(`http://localhost:3001/developers` with default ports) for copy-pasteable
+`curl` quickstarts (auth, listing meetings, cross-meeting Ask, webhooks,
+botless VTT capture) and links to the backend's live API docs:
+
+- Swagger UI — `${API_URL}/docs`
+- ReDoc — `${API_URL}/redoc`
+- Raw OpenAPI schema — `${API_URL}/openapi.json`
+
+Workspace API keys (for MCP clients or your own scripts) are created from
+Settings inside the app (`POST /api/v1/workspaces/{id}/api-keys`).
 
 ## Going from mock → live LLMs
 
@@ -243,9 +306,6 @@ automatically relicenses to Apache 2.0, with no strings attached. See
 ## Contributing
 
 See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for how to run the tests and submit
-a pull request (DCO sign-off required, no CLA). Security issues should be
-reported privately — see [`SECURITY.md`](./SECURITY.md).
-
----
-
-<sub>Built by the team behind a digital-twin platform for enterprises.</sub>
+a pull request (DCO sign-off required, no CLA), and the
+[`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md) for community expectations.
+Security issues should be reported privately — see [`SECURITY.md`](./SECURITY.md).

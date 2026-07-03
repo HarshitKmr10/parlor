@@ -1,0 +1,137 @@
+name: CI
+
+# Runs everything that can reasonably run WITHOUT a full `docker compose up`
+# of the separated stack (see README "Architecture" / backend/docs/BOT-RUNTIME.md).
+# Playwright e2e (`web/e2e`, `pnpm test:e2e`) needs the real multi-container
+# stack (backend + meeting-worker + ai-service + postgres) up and is
+# intentionally NOT run here yet — see the note at the bottom of this file.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      # backend/requirements-dev.txt is the standalone (non-monorepo) subset
+      # of backend/pyproject.toml — see its header comment. `poetry install`
+      # is NOT used here because pyproject.toml references a `../core` path
+      # dependency that only exists inside the original internal monorepo.
+      - name: Install backend dependencies
+        run: |
+          python -m venv backend/.venv
+          backend/.venv/bin/pip install --upgrade pip
+          backend/.venv/bin/pip install -r backend/requirements-dev.txt
+          # pytest/pytest-asyncio live in pyproject's poetry dev group, which
+          # requirements-dev.txt deliberately excludes — install them directly.
+          backend/.venv/bin/pip install "pytest>=7.4,<9" "pytest-asyncio>=0.23,<1"
+
+      # scripts/loop-gate.sh is this repo's own test gate: it runs backend
+      # pytest with PYTHONPATH set correctly and whitelists the handful of
+      # pre-existing tests that need a live `meeting-worker:9000` Docker DNS
+      # host (compose-worker dispatcher + rejoin orchestrator integration
+      # tests) — those need the full stack from `make up`, not CI. Any
+      # failure outside that whitelist fails the job. See the script for the
+      # exact whitelist and CONTRIBUTING.md for the rationale.
+      - name: Run backend test gate
+        run: scripts/loop-gate.sh backend
+
+  ai-service:
+    name: ai-service (pytest)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: meeting
+          POSTGRES_PASSWORD: meeting
+          POSTGRES_DB: meeting
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U meeting"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install ai-service dependencies
+        working-directory: ai-service
+        run: pip install -e '.[dev]'
+
+      # ai-service/tests/test_store.py's pgvector-backed fixtures probe
+      # DATABASE_URL themselves and skip (not fail) if Postgres isn't
+      # reachable; pointing it at the service container above lets those
+      # tests actually run instead of skipping in CI.
+      - name: Run ai-service tests
+        working-directory: ai-service
+        env:
+          DATABASE_URL: postgresql://meeting:meeting@localhost:5432/meeting
+        run: pytest -q
+
+  web:
+    name: web (lint + typecheck)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+
+      - name: Install web dependencies
+        working-directory: web
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        working-directory: web
+        run: pnpm lint
+
+      - name: Typecheck
+        working-directory: web
+        run: pnpm exec tsc --noEmit --pretty false
+
+# Deliberately NOT included in this workflow, with reasoning (see the PR that
+# introduced this file / README for more):
+#
+# - `pnpm test:e2e` (Playwright, web/e2e): needs the full separated stack
+#   (`make up`: backend + meeting-worker + ai-service + postgres) running
+#   first. That's a heavier, slower job (the meeting-worker image alone is
+#   Node + Chromium + Xvfb/pulse/ffmpeg + a whisper cache) and is a
+#   reasonable candidate for a separate, follow-up workflow — e.g. one that
+#   runs `make up`, waits on `make ps`, then `pnpm test:e2e` — rather than
+#   blocking every PR on it. Not wired up here.
+# - `desktop-capture` tests (`cd desktop-capture && pytest`): not included
+#   because its `sounddevice` dependency needs PortAudio system libraries not
+#   present on the default runner image, adding CI complexity for a small,
+#   currently-optional client. Worth adding as its own job (with
+#   `apt-get install portaudio19-dev` or similar) as a follow-up.
+# - ai-service/backend Docker-image builds: not verified here; `make build`
+#   / `make up` remain the way to confirm the containers themselves build.
