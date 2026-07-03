@@ -85,7 +85,7 @@ async def embed(
         )
     except Exception as exc:
         logger.error("embed store write failed: %s", exc)
-        raise _error(502, "store_error", str(exc)) from exc
+        raise _error(502, "store_error", "Failed to persist embeddings.") from exc
 
     return EmbedResponse(embedded=count)
 
