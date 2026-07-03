@@ -151,23 +151,43 @@ class CapturePipeline:
         return False  # pragma: no cover - loop always returns above
 
     def _replay_backlog(self, meeting_id: str, backlog: list[Segment]) -> None:
-        """Resend segments accumulated during a transient outage, in order."""
+        """Resend segments accumulated during a transient outage, in order.
+
+        Every item in ``pending`` gets an attempt this pass, even after an
+        earlier item fails again: a still-transient failure re-queues just
+        that segment (not the whole tail) and keeps going, so a later
+        segment that would have succeeded is never silently discarded.
+        """
         pending = list(backlog)
         backlog.clear()
+        went_permanent = False
+        replayed = 0
         for segment in pending:
+            if went_permanent:
+                # Ingest just went permanently unavailable mid-replay:
+                # further backend calls would only repeat the same 404/405,
+                # so stop attempting them. These segments are intentionally
+                # not re-queued (a permanent failure will never succeed on
+                # retry), matching the main loop's ``backlog.clear()`` when
+                # ``_try_ingest`` first returns ``None``.
+                continue
             outcome = self._try_ingest(meeting_id, segment)
             if outcome is True:
+                replayed += 1
                 continue
-            # Still down (or now permanently unavailable): keep the
-            # remaining backlog (including this segment) for the next
-            # successful attempt, or drop it if ingest just went permanent.
-            backlog.append(segment)
             if outcome is None:
-                backlog.clear()
-            return
-        self._on_status(
-            f"Backend reconnected; replayed {len(pending)} queued segment(s)."
-        )
+                # Permanent as of this segment: stop calling the backend
+                # for the rest of ``pending`` (handled by the guard above)
+                # and don't re-queue this one either.
+                went_permanent = True
+                continue
+            # Still a transient failure: re-queue only this segment and
+            # keep attempting the rest of ``pending``.
+            backlog.append(segment)
+        if replayed:
+            self._on_status(
+                f"Backend reconnected; replayed {replayed} queued segment(s)."
+            )
 
     @staticmethod
     def _write_local(path: Optional[Path], segment: Segment) -> None:

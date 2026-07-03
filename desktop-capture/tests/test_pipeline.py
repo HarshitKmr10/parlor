@@ -144,3 +144,103 @@ def test_transient_failure_without_recovery_keeps_backlog(
     client, result = _run_with_fake_client([BackendError("down")], num_segments=2)
     assert result.ingest_ok is False
     assert len(client.calls) >= 1
+
+
+def test_replay_does_not_drop_later_items_when_earlier_item_fails_again(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression test for #51: a still-failing item during replay must not
+    silently discard the untried items queued behind it.
+
+    Segments 1 and 2 both fail transiently and land in the backlog. Segment
+    3 then succeeds immediately, which triggers a replay of the backlog in
+    order: segment 1 fails again (still transient) and segment 2 succeeds.
+    Segment 2 must end up ingested (or, if it hadn't succeeded, still
+    present in the backlog) -- never silently vanish.
+    """
+    monkeypatch.setattr(
+        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+    )
+    outcomes = [
+        # Segment 1: every retry attempt fails transiently -> backlog.
+        BackendError("boom"),
+        BackendError("boom"),
+        BackendError("boom"),
+        # Segment 2: every retry attempt fails transiently -> backlog.
+        BackendError("boom"),
+        BackendError("boom"),
+        BackendError("boom"),
+        # Segment 3: succeeds immediately -> triggers replay of [1, 2].
+        True,
+        # Replay of segment 1: fails again on every retry -> re-queued.
+        BackendError("boom"),
+        BackendError("boom"),
+        BackendError("boom"),
+        # Replay of segment 2: succeeds. Under the bug, this call never
+        # happens because the loop bailed out after segment 1's failure.
+        True,
+    ]
+    client, result = _run_with_fake_client(outcomes, num_segments=3)
+
+    # 3 (seg1) + 3 (seg2) + 1 (seg3) + 3 (replay seg1) + 1 (replay seg2) = 11.
+    # Under the bug, the last call (replay of segment 2) never happens, so
+    # this would be 10 instead -- the most direct signal that segment 2 was
+    # dropped rather than retried.
+    assert len(client.calls) == 11
+
+    # Segment 2 succeeded on replay, so it must not still be stuck in an
+    # internal backlog waiting for a retry that will never come. The only
+    # externally observable proxy for "nothing left un-ingested" is
+    # ingest_ok; under the bug this would still read False here because
+    # segment 1 legitimately remains queued, masking segment 2's silent
+    # loss as an indistinguishable "still down" state.
+    assert result.ingest_ok is False  # segment 1 is still legitimately queued
+    assert len(result.segments) == 3
+
+
+def test_replay_retries_all_pending_items_even_when_one_stays_down(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A more direct check on ``_replay_backlog`` itself: with a mixed-outcome
+    backlog of 3, an item that fails again must not stop the remaining
+    not-yet-tried items from being attempted this same pass.
+    """
+    monkeypatch.setattr(
+        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+    )
+    source = AudioSource(chunk_seconds=1.0, duration_sec=1.0, mock=True)
+    stt = build_backend("mock")
+    client = FakeIngestClient([])
+    pipeline = CapturePipeline(source=source, stt=stt, client=client)
+
+    seg_a = segment_from_stt(
+        STTResult(text="a", t_start_sec=0.0, t_end_sec=1.0, speaker="Speaker 1")
+    )
+    seg_b = segment_from_stt(
+        STTResult(text="b", t_start_sec=1.0, t_end_sec=2.0, speaker="Speaker 1")
+    )
+    seg_c = segment_from_stt(
+        STTResult(text="c", t_start_sec=2.0, t_end_sec=3.0, speaker="Speaker 1")
+    )
+    backlog = [seg_a, seg_b, seg_c]
+
+    # seg_a: still transiently failing (3 retry attempts).
+    # seg_b: succeeds immediately.
+    # seg_c: succeeds immediately.
+    client._outcomes = [
+        BackendError("boom"),
+        BackendError("boom"),
+        BackendError("boom"),
+        True,
+        True,
+    ]
+
+    pipeline._replay_backlog("meeting-1", backlog)
+
+    # seg_b and seg_c must have been attempted (and ingested) despite seg_a
+    # failing again first. Under the bug, only seg_a would be attempted (3
+    # calls) and the loop would return, leaving seg_b/seg_c untouched.
+    assert len(client.calls) == 5
+    # seg_a is still down and must be the only item re-queued for the next
+    # retry -- seg_b and seg_c succeeded and must not reappear here.
+    assert backlog == [seg_a]
