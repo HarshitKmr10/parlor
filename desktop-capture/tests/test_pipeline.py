@@ -235,7 +235,7 @@ def test_replay_retries_all_pending_items_even_when_one_stays_down(
         True,
     ]
 
-    pipeline._replay_backlog("meeting-1", backlog)
+    went_permanent = pipeline._replay_backlog("meeting-1", backlog)
 
     # seg_b and seg_c must have been attempted (and ingested) despite seg_a
     # failing again first. Under the bug, only seg_a would be attempted (3
@@ -244,3 +244,110 @@ def test_replay_retries_all_pending_items_even_when_one_stays_down(
     # seg_a is still down and must be the only item re-queued for the next
     # retry -- seg_b and seg_c succeeded and must not reappear here.
     assert backlog == [seg_a]
+    # Nothing here was ever a permanent (404/405) failure -- only transient
+    # errors and successes -- so the replay must not report one.
+    assert went_permanent is False
+
+
+def test_replay_backlog_reports_permanent_failure_discovered_mid_replay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Direct check on ``_replay_backlog``'s return value: when an item
+    comes back permanent (404/405) mid-replay, the method must report that
+    discovery to its caller so ``run()`` can propagate it into
+    ``ingest_unavailable`` -- mirroring the main loop's own handling of a
+    direct permanent result from ``_try_ingest``.
+    """
+    monkeypatch.setattr(
+        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+    )
+    source = AudioSource(chunk_seconds=1.0, duration_sec=1.0, mock=True)
+    stt = build_backend("mock")
+    client = FakeIngestClient([])
+    pipeline = CapturePipeline(source=source, stt=stt, client=client)
+
+    seg_a = segment_from_stt(
+        STTResult(text="a", t_start_sec=0.0, t_end_sec=1.0, speaker="Speaker 1")
+    )
+    seg_b = segment_from_stt(
+        STTResult(text="b", t_start_sec=1.0, t_end_sec=2.0, speaker="Speaker 1")
+    )
+    backlog = [seg_a, seg_b]
+
+    # seg_a: comes back permanent (404/405) on replay.
+    client._outcomes = [None]
+
+    went_permanent = pipeline._replay_backlog("meeting-1", backlog)
+
+    assert went_permanent is True
+    # Only seg_a's single attempt should have called the backend; seg_b is
+    # intentionally never attempted once ingest is known permanently gone.
+    assert len(client.calls) == 1
+    # Neither segment is re-queued -- a permanent failure never retries.
+    assert backlog == []
+
+
+def test_permanent_failure_discovered_during_replay_stops_retrying_that_run(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression test for #51 (reviewer follow-up): a permanent (404/405)
+    failure discovered *inside* a replay pass -- not on the main loop's own
+    direct ``_try_ingest`` call -- must still flip ``ingest_unavailable`` for
+    the rest of the run, exactly like ``test_permanent_ingest_failure_stops_
+    retrying_that_run`` does for a first-attempt permanent failure.
+
+    Segments 1 and 2 both fail transiently and land in the backlog. Segment
+    3 then succeeds immediately, which triggers a replay of the backlog in
+    order: segment 1 comes back permanent (404/405) mid-replay. Under the
+    bug, that discovery stayed local to ``_replay_backlog`` and never
+    reached ``run()``, so ``ingest_ok`` would read ``True`` even though
+    segments 1 and 2 were both permanently lost and never ingested.
+
+    Segment 4 exists purely to prove the "no further ingest attempts happen
+    after that for the remainder of the run" half of the fix: once the
+    replay discovers the permanent failure, ``run()`` must never call the
+    backend again this run, including for brand-new segments produced
+    afterward.
+    """
+    monkeypatch.setattr(
+        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+    )
+    outcomes = [
+        # Segment 1: every retry attempt fails transiently -> backlog.
+        BackendError("boom"),
+        BackendError("boom"),
+        BackendError("boom"),
+        # Segment 2: every retry attempt fails transiently -> backlog.
+        BackendError("boom"),
+        BackendError("boom"),
+        BackendError("boom"),
+        # Segment 3: succeeds immediately -> triggers replay of [1, 2].
+        True,
+        # Replay of segment 1: backend has no ingest endpoint at all now
+        # (permanent, 404/405-equivalent).
+        None,
+        # Segment 4 would be next, but must never be attempted: once the
+        # replay discovers the permanent failure, ``ingest_unavailable``
+        # must gate every subsequent segment for the rest of the run. If
+        # the fix is missing, this outcome would be consumed as a
+        # (successful) attempt on segment 4, which the assertions below
+        # would catch via the call count and ``result.ingest_ok``.
+        True,
+    ]
+    client, result = _run_with_fake_client(outcomes, num_segments=4)
+
+    # 3 (seg1) + 3 (seg2) + 1 (seg3) + 1 (replay seg1, permanent -> no
+    # retries) = 8. Segment 2's replay must never be attempted (the
+    # permanent discovery stops the rest of the backlog this pass), and
+    # segment 4 must never be attempted either (ingest_unavailable now
+    # gates the main loop for the rest of the run).
+    assert len(client.calls) == 8
+
+    # The crux of this regression: a permanent failure discovered mid-replay
+    # must propagate into ``ingest_unavailable`` just like a permanent
+    # failure discovered on the main loop's first-ever attempt does. Under
+    # the bug, ``ingest_ok`` would read ``True`` here (a false-positive
+    # success signal) because ``run()`` never learned the replay went
+    # permanent, and segment 4 would then have been ingested normally.
+    assert result.ingest_ok is False
+    assert len(result.segments) == 4
