@@ -130,6 +130,36 @@ def test_run_threads_main_loop_exception_into_exit_status(
     assert captured_status["status"] == expected_status
 
 
+def test_run_wires_record_exit_reason_into_simple_zoom_bot():
+    """Regression for #93: ZoomBotRunner must pass its own
+    _record_exit_reason as SimpleZoomBot's on_exit_reason callback, so
+    auth/join failures inside the bot can be persisted on the meeting row."""
+    runner = _runner()
+    fake_bot = MagicMock()
+    fake_bot.init.return_value = None
+
+    captured_kwargs = {}
+
+    def fake_simple_zoom_bot(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return fake_bot
+
+    with patch(
+        "src.bot.zoom_sdk_bot.zoom_bot_runner.SimpleZoomBot",
+        side_effect=fake_simple_zoom_bot,
+    ), patch(
+        "src.bot.zoom_sdk_bot.zoom_bot_runner.GLib",
+        create=True,
+    ) as fake_glib, patch(
+        "src.bot.zoom_sdk_bot.zoom_bot_runner.signal.signal"
+    ):
+        fake_glib.MainLoop.return_value = MagicMock()
+        with patch.object(runner, "exit_process"):
+            runner.run()
+
+    assert captured_kwargs.get("on_exit_reason") == runner._record_exit_reason
+
+
 def test_run_init_failure_exits_status_two():
     """run()'s init-failure branch: SimpleZoomBot.init() raising must exit
     with status 2 (SDK init exception), distinct from a clean shutdown."""
