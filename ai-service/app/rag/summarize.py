@@ -70,6 +70,19 @@ def _format_segments(segments: list[TranscriptSegment]) -> str:
     return "\n".join(lines)
 
 
+def _split_oversized_segment(
+    seg: TranscriptSegment, overhead: int
+) -> list[TranscriptSegment]:
+    """Split a single segment whose own text exceeds the chunk budget into
+    multiple sub-segment copies, each bounded by ``MAX_CHARS_PER_CHUNK``."""
+    window = max(MAX_CHARS_PER_CHUNK - overhead, 1)
+    text = seg.text
+    return [
+        seg.model_copy(update={"text": text[i : i + window]})
+        for i in range(0, len(text), window)
+    ] or [seg]
+
+
 def _chunk_segments(
     segments: list[TranscriptSegment],
 ) -> list[list[TranscriptSegment]]:
@@ -79,6 +92,15 @@ def _chunk_segments(
     size = 0
     for seg in segments:
         seg_len = len(seg.text) + len(seg.speaker_name) + 16
+        if seg_len > MAX_CHARS_PER_CHUNK:
+            if current:
+                chunks.append(current)
+                current = []
+                size = 0
+            overhead = len(seg.speaker_name) + 16
+            for sub in _split_oversized_segment(seg, overhead):
+                chunks.append([sub])
+            continue
         if current and size + seg_len > MAX_CHARS_PER_CHUNK:
             chunks.append(current)
             current = []
