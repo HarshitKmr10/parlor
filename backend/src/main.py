@@ -1418,10 +1418,10 @@ async def cancel_meeting(
             raise MeetingNotFoundError(f"Meeting {meeting_id} not found")
 
         if meeting.status == "not_joined":
-            # Meeting hasn't started yet - just mark as completed
-            await meeting_service.update_meeting_status(
-                meeting_id, MeetingStatus.COMPLETED
-            )
+            # Meeting hasn't started yet - just mark as completed. Guarded
+            # (not unconditional) so a concurrent writer that already moved
+            # the meeting past `not_joined` isn't stomped — see #83.
+            await meeting_service.complete_if_active(meeting_id)
             return {"message": "Meeting cancelled successfully"}
         elif meeting.status in ("ongoing", "joining", "interrupted"):
             logger.info(
@@ -1441,9 +1441,17 @@ async def cancel_meeting(
                         acked = await warm_pool.abort_meeting_pod(
                             pod_name, reason="user_stop"
                         )
-                    await meeting_service.update_meeting_status(
-                        meeting_id, MeetingStatus.COMPLETED
-                    )
+                    # Guarded write: if a reaper-triggered rejoin has already
+                    # claimed this meeting for a replacement bot (status no
+                    # longer one this stop request observed), don't stomp its
+                    # in-flight state and orphan the new pod — see #83.
+                    completed = await meeting_service.complete_if_active(meeting_id)
+                    if not completed:
+                        return {
+                            "message": "Meeting stop skipped: meeting was already "
+                            "reclaimed by a rejoin or finalized elsewhere",
+                            "pod_name": pod_name,
+                        }
                     return {
                         "message": "Meeting stopped"
                         + ("" if acked else " (sidecar abort not acked; pod deleted)"),
@@ -1463,10 +1471,14 @@ async def cancel_meeting(
             stop_result = await meeting_processor_bridge.stop_meeting(meeting_id)
 
             if stop_result.get("success"):
-                # Update status after successful termination
-                await meeting_service.update_meeting_status(
-                    meeting_id, MeetingStatus.COMPLETED
-                )
+                # Update status after successful termination. Guarded — see #83.
+                completed = await meeting_service.complete_if_active(meeting_id)
+                if not completed:
+                    return {
+                        "message": "Meeting stop skipped: meeting was already "
+                        "reclaimed by a rejoin or finalized elsewhere",
+                        "platform": stop_result.get("platform"),
+                    }
                 return {
                     "message": stop_result.get(
                         "message", "Meeting stopped successfully"
@@ -1484,9 +1496,13 @@ async def cancel_meeting(
                             f"Failed to send stop signal for meeting {meeting_id}: {e}"
                         )
 
-                await meeting_service.update_meeting_status(
-                    meeting_id, MeetingStatus.COMPLETED
-                )
+                # Guarded — see #83.
+                completed = await meeting_service.complete_if_active(meeting_id)
+                if not completed:
+                    return {
+                        "message": "Meeting stop skipped: meeting was already "
+                        "reclaimed by a rejoin or finalized elsewhere"
+                    }
                 return {
                     "message": f"Meeting marked as stopped ({stop_result.get('error', 'stop failed')})"
                 }

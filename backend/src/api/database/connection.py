@@ -169,6 +169,41 @@ class DatabaseConnection:
             logger.error("claim_for_rejoin failed for %s: %s", meeting_id, e)
             return False
 
+    async def complete_if_active(self, meeting_id: str) -> bool:
+        """Atomic guard for the user-initiated stop path (``DELETE /meetings/{id}``).
+
+        Flips the meeting to ``completed`` ONLY if it isn't already terminal,
+        in one row-locked UPDATE — mirrors :meth:`claim_for_rejoin`. Returns
+        ``True`` if this caller's write took effect, ``False`` if the meeting
+        was already ``completed``/``failed``. Without this guard, a
+        reaper-triggered rejoin that has already claimed the meeting (flipping
+        it to ``interrupted``/``joining``/``ongoing`` for a replacement bot)
+        can lose a race with a stale stop request: the unconditional write
+        would stamp ``completed`` over the replacement's in-flight state,
+        orphaning the new pod (nothing ever marks it done).
+        """
+        await self._ensure_connected()
+        try:
+            meeting_table = (
+                qualified_name("meeting_joiner")
+                if self._driver == "pg"
+                else "meeting_joiner"
+            )
+            row = await self.execute_one(
+                f"""
+                UPDATE {meeting_table}
+                   SET status = 'completed', updated_at = NOW()
+                 WHERE id = $1::uuid
+                   AND status NOT IN ('completed', 'failed')
+                RETURNING id
+                """,
+                meeting_id,
+            )
+            return row is not None
+        except Exception as e:
+            logger.error("complete_if_active failed for %s: %s", meeting_id, e)
+            return False
+
     async def create_meeting(
         self,
         meeting_url: str,

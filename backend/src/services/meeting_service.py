@@ -87,6 +87,10 @@ class MeetingService:
         """Single-flight guard for rejoin — see DatabaseConnection.claim_for_rejoin."""
         return await self.db.claim_for_rejoin(meeting_id)
 
+    async def complete_if_active(self, meeting_id: str) -> bool:
+        """Guarded stop-completion — see DatabaseConnection.complete_if_active."""
+        return await self.db.complete_if_active(meeting_id)
+
     async def update_transcript(
         self, meeting_id: str, transcript_data: Dict[str, Any]
     ) -> Optional[MeetingRecord]:
