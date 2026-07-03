@@ -38,6 +38,43 @@ def test_argv_matrix():
         _argv_for_platform("webex")
 
 
+def test_build_env_parses_zoom_meeting_number_and_password():
+    """Regression for #79: MEETING_ID carries the DB row id, not a joinable
+    Zoom meeting number, so zoom_bot_runner.py needs the real number +
+    password parsed out of meeting_url and passed via dedicated env vars."""
+    runner = LocalBotRunner(
+        meeting_id="db-row-uuid",
+        meeting_url="https://zoom.us/j/1234567890?pwd=abcdef",
+        platform="zoom",
+        bot_name=None,
+        transcript_source=None,
+        org_id="org-1",
+    )
+
+    env = runner._build_env()
+
+    assert env["ZOOM_MEETING_NUMBER"] == "1234567890"
+    assert env["ZOOM_MEETING_PWD"] == "abcdef"
+    # MEETING_ID keeps carrying the DB row id — it is not overloaded.
+    assert env["MEETING_ID"] == "db-row-uuid"
+
+
+def test_build_env_skips_zoom_env_vars_for_non_zoom_platforms():
+    runner = LocalBotRunner(
+        meeting_id="db-row-uuid",
+        meeting_url=MEET_URL,
+        platform="googlemeet",
+        bot_name=None,
+        transcript_source=None,
+        org_id="org-1",
+    )
+
+    env = runner._build_env()
+
+    assert "ZOOM_MEETING_NUMBER" not in env
+    assert "ZOOM_MEETING_PWD" not in env
+
+
 @pytest.mark.asyncio
 async def test_disabled_mode_marks_failed_without_spawn(monkeypatch):
     monkeypatch.setattr(local_bot_runner.settings, "MEETING_BOT_MODE", "disabled")

@@ -71,6 +71,7 @@ from .heartbeat import (
     read_heartbeat_age_seconds,
     reset_bot_state_files,
 )
+from .memory_monitor import MemoryMonitor
 from .models import (
     AbortRequest,
     AbortResponse,
@@ -142,6 +143,7 @@ def _publish_meeting_state_metric(current: MeetingState) -> None:
 # ---------------------------------------------------------------------------
 state_manager = SidecarStateManager()
 bot_supervisor = BotSupervisor(state_manager)
+memory_monitor = MemoryMonitor(bot_supervisor)
 _app_started_at_monotonic: float = time.monotonic()
 _last_poll_monotonic: float = _app_started_at_monotonic
 
@@ -303,6 +305,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     poller_task = asyncio.create_task(
         _health_poller_loop(), name="sidecar-health-poller"
     )
+    # Soft-cap OOM guard: polls the bot's RSS and pre-empts it gracefully
+    # before the kubelet's hard memory limit hits. Safe to start before a
+    # bot PID exists — MemoryMonitor._tick() no-ops until spawn() runs.
+    await memory_monitor.start()
     try:
         yield
     finally:
@@ -312,6 +318,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await poller_task
         except asyncio.CancelledError:
             pass
+        await memory_monitor.stop()
         # Best-effort terminate of any still-running bot. The reaper will
         # finish the job if we miss the window.
         if bot_supervisor.is_alive():
@@ -351,75 +358,84 @@ async def configure(request: ConfigureRequest) -> ConfigureResponse:
     Rejects with HTTP 409 unless the pod is in WARM. The API layer should
     only target warm pods, but we guard server-side too so a misrouted
     request can't trash an in-progress meeting.
+
+    The whole check-spawn-mark_configuring sequence runs under
+    ``bot_supervisor.configure_lock`` so two concurrent requests can't both
+    observe WARM/ENDED and race into ``spawn()`` (TOCTOU double-spawn on one
+    warm-pool pod) — the second request blocks until the first has already
+    flipped state to CONFIGURING, then correctly sees the pod as busy.
     """
-    snapshot = await state_manager.snapshot()
-    # Accept a new meeting when the worker is WARM (fresh) OR ENDED (previous
-    # meeting finished, bot already exited) — this makes the compose worker
-    # REUSABLE across meetings. Reject only while a bot is actively
-    # assigned/running (CONFIGURING/JOINING/IN_MEETING/STUCK) so we never trash
-    # an in-progress meeting.
-    if snapshot.meeting_state not in (MeetingState.WARM, MeetingState.ENDED):
-        logger.warning(
-            "sidecar.configure.rejected_busy",
-            current_state=snapshot.meeting_state.value,
-            requested_meeting_id=request.meeting_id,
-        )
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "accepted": False,
-                "meeting_id": request.meeting_id,
-                "current_state": snapshot.meeting_state.value,
-                "detail": (
-                    "worker is busy with an active meeting; refusing to start "
-                    "a second bot"
-                ),
-            },
-        )
-    # Reusing an ENDED worker: clear the previous meeting's heartbeat/state
-    # files so /health reflects the NEW meeting, not the finished one.
-    if snapshot.meeting_state == MeetingState.ENDED:
-        reset_bot_state_files()
+    async with bot_supervisor.configure_lock:
+        snapshot = await state_manager.snapshot()
+        # Accept a new meeting when the worker is WARM (fresh) OR ENDED
+        # (previous meeting finished, bot already exited) — this makes the
+        # compose worker REUSABLE across meetings. Reject only while a bot is
+        # actively assigned/running (CONFIGURING/JOINING/IN_MEETING/STUCK) so
+        # we never trash an in-progress meeting.
+        if snapshot.meeting_state not in (MeetingState.WARM, MeetingState.ENDED):
+            logger.warning(
+                "sidecar.configure.rejected_busy",
+                current_state=snapshot.meeting_state.value,
+                requested_meeting_id=request.meeting_id,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "accepted": False,
+                    "meeting_id": request.meeting_id,
+                    "current_state": snapshot.meeting_state.value,
+                    "detail": (
+                        "worker is busy with an active meeting; refusing to "
+                        "start a second bot"
+                    ),
+                },
+            )
+        # Reusing an ENDED worker: clear the previous meeting's heartbeat/state
+        # files so /health reflects the NEW meeting, not the finished one.
+        if snapshot.meeting_state == MeetingState.ENDED:
+            reset_bot_state_files()
 
-    try:
-        validation_config = config_for_configure_request(
-            platform=request.platform,
-            transcript_source=request.transcript_source,
+        try:
+            validation_config = config_for_configure_request(
+                platform=request.platform,
+                transcript_source=request.transcript_source,
+            )
+        except ValueError as exc:
+            # Unsupported platform slipped past pydantic — unlikely but defensive.
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
+
+        try:
+            validate_secrets(validation_config)
+        except (MissingSecretError, ValueError) as exc:
+            logger.error(
+                "sidecar.configure.secret_validation_failed",
+                meeting_id=request.meeting_id,
+                platform=request.platform,
+                transcript_source=request.transcript_source,
+                error=str(exc),
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+            ) from exc
+
+        try:
+            pid = await bot_supervisor.spawn(request)
+        except ValueError as exc:
+            # Unsupported subprocess platform slipped past pydantic.
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
+            ) from exc
+        except RuntimeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+            ) from exc
+
+        await state_manager.mark_configuring(request, pid)
+        return ConfigureResponse(
+            accepted=True, meeting_id=request.meeting_id, pid=pid
         )
-    except ValueError as exc:
-        # Unsupported platform slipped past pydantic — unlikely but defensive.
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-        ) from exc
-
-    try:
-        validate_secrets(validation_config)
-    except (MissingSecretError, ValueError) as exc:
-        logger.error(
-            "sidecar.configure.secret_validation_failed",
-            meeting_id=request.meeting_id,
-            platform=request.platform,
-            transcript_source=request.transcript_source,
-            error=str(exc),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
-        ) from exc
-
-    try:
-        pid = await bot_supervisor.spawn(request)
-    except ValueError as exc:
-        # Unsupported subprocess platform slipped past pydantic.
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
-        ) from exc
-    except RuntimeError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
-        ) from exc
-
-    await state_manager.mark_configuring(request, pid)
-    return ConfigureResponse(accepted=True, meeting_id=request.meeting_id, pid=pid)
 
 
 @app.get("/health", response_model=HealthResponse)
