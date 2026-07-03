@@ -117,3 +117,64 @@ async def test_concurrent_configure_calls_reject_second_with_409(monkeypatch):
 
     snapshot = await state_manager.snapshot()
     assert snapshot.meeting_state == MeetingState.CONFIGURING
+
+
+@pytest.mark.asyncio
+async def test_terminate_awaits_monitor_and_log_pump_tasks(monkeypatch):
+    """Regression for #89: monitor/log-pump asyncio tasks must be cancelled
+    and awaited on terminate(), not left as fire-and-forget references."""
+    import src.sidecar.bot_supervisor as bot_supervisor_module
+
+    monkeypatch.setattr(
+        bot_supervisor_module, "_argv_for_platform", lambda _platform: ["sleep", "5"]
+    )
+
+    state_manager = SidecarStateManager()
+    supervisor = BotSupervisor(state_manager)
+    await supervisor.spawn(_zoom_request())
+
+    monitor_task = supervisor._monitor_task
+    log_pump_tasks = list(supervisor._log_pump_tasks)
+    assert monitor_task is not None
+    assert log_pump_tasks
+
+    _returncode, reason = await supervisor.terminate(grace_seconds=1)
+
+    assert reason in ("graceful_exit", "sigkill_after_timeout")
+    assert monitor_task.done()
+    assert all(task.done() for task in log_pump_tasks)
+    assert supervisor._monitor_task is None
+    assert supervisor._log_pump_tasks == []
+
+
+@pytest.mark.asyncio
+async def test_spawn_cleans_up_stale_tasks_from_previous_run(monkeypatch):
+    """Regression for #89: spawn() must cancel/await any still-tracked
+    monitor/log-pump tasks from a previous cycle instead of silently
+    overwriting the references."""
+    import src.sidecar.bot_supervisor as bot_supervisor_module
+
+    monkeypatch.setattr(
+        bot_supervisor_module, "_argv_for_platform", lambda _platform: ["true"]
+    )
+
+    state_manager = SidecarStateManager()
+    supervisor = BotSupervisor(state_manager)
+    await supervisor.spawn(_zoom_request(meeting_id="meeting-1"))
+
+    old_monitor_task = supervisor._monitor_task
+    old_log_pump_tasks = list(supervisor._log_pump_tasks)
+    assert old_monitor_task is not None
+
+    # Let the (instantly-exiting) "true" process finish and get reaped by
+    # the monitor task before spawning again.
+    await asyncio.sleep(0.2)
+
+    await supervisor.spawn(_zoom_request(meeting_id="meeting-2"))
+
+    assert old_monitor_task.done()
+    assert all(task.done() for task in old_log_pump_tasks)
+    assert supervisor._monitor_task is not old_monitor_task
+
+    # Clean up the second run's tasks so nothing leaks past the test.
+    await supervisor._cleanup_tasks()
