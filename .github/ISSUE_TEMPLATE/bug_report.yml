@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in Parlor isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug. Please check open issues
+        first to avoid duplicates.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: The exact commands or actions that trigger it.
+      placeholder: |
+        1. `cp .env.example .env`
+        2. `make up-api`
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - backend (FastAPI API / bot runtime)
+        - ai-service (summaries / embeddings / chat)
+        - web (Next.js UI)
+        - desktop-capture (botless local capture)
+        - mcp (MCP server)
+        - deploy (Docker Compose / Helm)
+        - other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Docker/Compose version, `AI_MODE` (mock or live), and how you're running the stack (`make up` vs `make up-api` vs native).
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Output of `make logs` (or the relevant service), with any secrets redacted.
+      render: shell

@@ -1,0 +1,105 @@
+version: 2
+
+updates:
+  # ── backend/ (Python, pip-installed via requirements-dev.txt in CI/native
+  #    dev; poetry.lock also exists for the monorepo/full-image path — pip
+  #    ecosystem covers both since Dependabot's pip ecosystem reads
+  #    requirements*.txt and pyproject.toml/poetry.lock in the same directory) ──
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    # A newly published version can be malicious or unstable (supply-chain
+    # attacks routinely ship, then get pulled, within days) — wait a week
+    # before Dependabot opens a PR for it, giving the ecosystem time to
+    # flag a bad release before it reaches this repo.
+    cooldown:
+      default-days: 7
+    groups:
+      backend-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - backend
+
+  # ── ai-service/ (Python, pyproject.toml + pip install -e '.[dev]') ────────
+  - package-ecosystem: pip
+    directory: /ai-service
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      ai-service-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - ai-service
+
+  # ── web/ (pnpm; lockfile at web/pnpm-lock.yaml) ───────────────────────────
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      web-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - web
+
+  # ── desktop-capture/ (Python, pyproject.toml) ─────────────────────────────
+  - package-ecosystem: pip
+    directory: /desktop-capture
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      desktop-capture-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - desktop-capture
+
+  # ── mcp/ (npm; lockfile at mcp/package-lock.json) ─────────────────────────
+  - package-ecosystem: npm
+    directory: /mcp
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      mcp-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - mcp
+
+  # ── GitHub Actions themselves (.github/workflows/*.yml action versions) ──
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - ci
