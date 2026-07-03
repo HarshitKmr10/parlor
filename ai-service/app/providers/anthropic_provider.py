@@ -42,6 +42,7 @@ class AnthropicProvider(LLMProvider):
         schema: dict[str, Any],
         premium: bool = True,
         max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
     ) -> str:
         try:
             response = await self._client.messages.create(
@@ -75,6 +76,7 @@ class AnthropicProvider(LLMProvider):
         user: str,
         premium: bool = True,
         max_tokens: int = 2000,
+        mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
     ) -> str:
         try:
             response = await self._client.messages.create(

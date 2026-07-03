@@ -18,6 +18,12 @@ from .errors import ApiError
 
 _TIMEOUT = httpx.Timeout(60.0, connect=5.0)
 
+# /assist backs live in-call suggestions: a caller polling every few seconds
+# during an active meeting must never block for the full batch timeout above.
+# A slow/unreachable ai-service should degrade to "no suggestion this cycle"
+# well within one polling interval instead of stalling the request.
+_ASSIST_TIMEOUT = httpx.Timeout(5.0, connect=3.0)
+
 
 def _json_default(obj: Any) -> str:
     """Encode types the stdlib json encoder rejects (e.g. transcript segment
@@ -28,11 +34,16 @@ def _json_default(obj: Any) -> str:
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
-async def _post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
+async def _post(
+    path: str,
+    payload: dict[str, Any],
+    *,
+    timeout: httpx.Timeout | None = None,
+) -> dict[str, Any]:
     url = f"{settings.AI_SERVICE_URL.rstrip('/')}{path}"
     body = json.dumps(payload, default=_json_default).encode("utf-8")
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=timeout or _TIMEOUT) as client:
             resp = await client.post(
                 url, content=body, headers={"Content-Type": "application/json"}
             )
@@ -79,4 +90,4 @@ async def chat(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 async def assist(payload: dict[str, Any]) -> dict[str, Any]:
-    return await _post("/assist", payload)
+    return await _post("/assist", payload, timeout=_ASSIST_TIMEOUT)

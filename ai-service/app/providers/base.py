@@ -40,8 +40,14 @@ class LLMProvider(abc.ABC):
         schema: dict[str, Any],
         premium: bool = True,
         max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,
     ) -> str:
-        """Return a JSON string conforming to ``schema``."""
+        """Return a JSON string conforming to ``schema``.
+
+        ``mock_context`` is only consumed by :class:`MockProvider`; live
+        providers accept and ignore it so the router can pass it uniformly
+        to whichever provider ends up handling the call.
+        """
 
     @abc.abstractmethod
     async def complete_text(
@@ -51,8 +57,10 @@ class LLMProvider(abc.ABC):
         user: str,
         premium: bool = True,
         max_tokens: int = 2000,
+        mock_context: dict[str, Any] | None = None,
     ) -> str:
-        """Return a free-form text completion."""
+        """Return a free-form text completion. See ``complete_json`` for
+        ``mock_context``."""
 
     @abc.abstractmethod
     async def embed(self, texts: list[str]) -> list[list[float]]:

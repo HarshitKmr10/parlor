@@ -50,8 +50,20 @@ DEFAULT_TOP_K = 6
 # Map-reduce chunking thresholds (approximate characters, ~4 chars/token).
 MAX_CHARS_PER_CHUNK = 48_000
 
-# Request timeout for provider calls (seconds).
+# Request timeout for provider calls (seconds). This is the ceiling for a
+# single provider attempt's own HTTP client, not the whole fallback chain.
 PROVIDER_TIMEOUT = 60.0
+
+# Total wall-clock budget (seconds) for one router call across its ENTIRE
+# fallback chain (all live providers + the mock safety net). The known caller
+# is the backend's ai_client._post, whose own httpx timeout is 60s
+# (backend/src/api/product/ai_client.py) -- with PROVIDER_TIMEOUT=60s per
+# attempt and up to 4 chained attempts (3 live providers + mock), a fully
+# hanging first provider could otherwise consume the backend's entire budget
+# before a fallback is even tried. This budget is kept comfortably under the
+# backend's 60s so a slow/hanging provider still leaves time to fall through
+# to the next one (and ultimately the mock) before the backend gives up.
+REQUEST_TIME_BUDGET = 45.0
 
 
 def _split_csv(value: str) -> list[str]:

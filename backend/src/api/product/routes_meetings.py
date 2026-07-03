@@ -517,12 +517,23 @@ async def get_meeting_assist(
 ) -> MeetingAssist:
     """Proactive during-call assist: recap-so-far, suggested questions, and
     coverage gaps computed from the transcript captured so far. Deterministic
-    via the ai-service /assist path."""
+    via the ai-service /assist path.
+
+    Called repeatedly while a meeting is live, so it uses a short ai-service
+    timeout (``ai_client._ASSIST_TIMEOUT``) rather than the generic batch
+    timeout. A slow/unreachable ai-service degrades to an empty "no
+    suggestion this cycle" response instead of blocking the caller for up to
+    the batch timeout — the next poll will simply try again.
+    """
     record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     segments = [
         s.model_dump(by_alias=True) for s in segments_from_transcript(record.transcript)
     ]
-    data = await ai_client.assist({"meetingId": meeting_id, "segments": segments})
+    try:
+        data = await ai_client.assist({"meetingId": meeting_id, "segments": segments})
+    except ApiError as exc:
+        logger.warning("assist degraded (no suggestion this cycle) for %s: %s", meeting_id, exc)
+        return MeetingAssist(segment_count=len(segments))
     return MeetingAssist(
         summary_so_far=str(data.get("summarySoFar", "")),
         suggested_questions=list(data.get("suggestedQuestions") or []),
