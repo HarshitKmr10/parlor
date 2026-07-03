@@ -40,6 +40,10 @@ changes.
 > ["What's different from FuturePath AI's other products?"](#whats-different-from-futurepath-ais-other-products)
 > below.
 
+<p align="center">
+  <img src="docs/screenshots/landing.png" alt="Parlor landing page" width="820">
+</p>
+
 ## Try it in 2 minutes
 
 Requires Docker Engine + Compose v2 (`docker compose version`). Nothing else —
@@ -55,10 +59,25 @@ make up-api                # backend + ai-service + web + postgres
 Wait for `make up-api` to report the stack healthy (usually well under a
 minute after images are built), then open **http://localhost:3001** and sign
 up — there's no separate admin CLI or setup wizard, the first account you
-create in the app is your workspace owner. This was verified end to end while
-writing this README: `make up-api` → sign up via the UI (or
-`POST /api/v1/auth/signup`) → create a meeting → ask the AI service to
-summarize it, all with `AI_MODE=mock` and no keys anywhere in `.env`.
+create in the app is your workspace owner. This exact path was verified end
+to end, fresh, timed at 68 seconds from `docker compose up --build` to all
+services healthy: sign up via the UI → `POST /api/v1/meetings/botless` (the
+botless creation path — the UI's "New meeting" button expects a real
+Zoom/Meet/Teams link and dispatches a bot, which needs the heavier
+`Dockerfile.botruntime` image, not this fast path) →
+`POST /api/v1/meetings/{id}/transcript` → `POST /api/v1/meetings/{id}/complete`
+→ a mock summary with real key-point/action-item extraction appeared in
+under 2 seconds → `POST /api/v1/ask` answered a question about it with a
+citation back to the exact transcript segment. All of it with `AI_MODE=mock`
+and no keys anywhere in `.env`.
+
+<p align="center">
+  <img src="docs/screenshots/dashboard.png" alt="Parlor dashboard" width="49%">
+  <img src="docs/screenshots/meeting-summary.png" alt="Parlor AI meeting summary with action items" width="49%">
+</p>
+<p align="center">
+  <img src="docs/screenshots/ask.png" alt="Ask Parlor — cross-meeting Q&amp;A with citations" width="70%">
+</p>
 
 `make up` (instead of `make up-api`) additionally brings up the real
 Playwright/Chromium bot-join worker in its own container, mirroring

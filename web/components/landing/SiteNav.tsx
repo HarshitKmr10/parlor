@@ -6,8 +6,7 @@ import { useEffect, useState } from "react";
 
 const NAV_LINKS = [
   { label: "Product", href: "#features" },
-  { label: "Customers", href: "#customers" },
-  { label: "Docs", href: "#docs" },
+  { label: "Docs", href: "/developers" },
 ] as const;
 
 const SCROLL_THRESHOLD = 12;

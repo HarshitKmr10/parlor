@@ -20,7 +20,7 @@ export default function SignupPage() {
               Create your workspace
             </h1>
             <p className="mt-1.5 text-sm text-ink-muted">
-              Free to start. Your first meeting is on us.
+              Self-hosted and free — no meeting caps, no credit card.
             </p>
           </div>
           <SignupForm />

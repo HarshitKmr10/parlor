@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Reveal } from "./Reveal";
 import { MeetingMock } from "./MeetingMock";
-import { PlayIcon } from "./icons";
+import { ArrowIcon } from "./icons";
 
 export function Hero() {
   return (
@@ -44,11 +44,11 @@ export function Hero() {
                 Start free
               </Link>
               <a
-                href="#demo"
+                href="https://github.com/HarshitKmr10/parlor"
                 className="group inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0/70 px-5 py-3 text-base font-medium text-ink transition-colors duration-200 hover:border-border-strong hover:bg-surface-0"
               >
-                <PlayIcon className="h-5 w-5 text-sage-600" width={20} height={20} />
-                Watch a demo
+                View on GitHub
+                <ArrowIcon className="h-4 w-4 text-sage-600" width={16} height={16} />
               </a>
             </div>
           </Reveal>
