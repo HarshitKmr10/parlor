@@ -128,6 +128,12 @@ class BotSupervisor:
         if self._proc is not None and self._proc.returncode is None:
             raise RuntimeError("bot subprocess already running")
 
+        # A previous cycle's monitor/log-pump tasks may still be lingering
+        # (e.g. terminate() was never called, or the process exited on its
+        # own). Cancel and await them before overwriting the references so
+        # they're never silently orphaned.
+        await self._cleanup_tasks()
+
         # Wipe stale signal files from any previous run in this pod.
         try:
             ABORT_SIGNAL_PATH.unlink(missing_ok=True)
@@ -216,6 +222,23 @@ class BotSupervisor:
             exit_reason=exit_reason,
         )
 
+    async def _cleanup_tasks(self) -> None:
+        """Cancel and await the monitor + log-pump tasks so they're never
+        left as unawaited fire-and-forget references."""
+        tasks: List[asyncio.Task[None]] = list(self._log_pump_tasks)
+        if self._monitor_task is not None:
+            tasks.append(self._monitor_task)
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        for task in tasks:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        self._monitor_task = None
+        self._log_pump_tasks = []
+
     def is_alive(self) -> bool:
         """True iff the bot subprocess exists and hasn't exited yet."""
         if self._proc is None:
@@ -257,6 +280,7 @@ class BotSupervisor:
             # Already gone; surface whatever returncode we have so the
             # caller can still log a coherent response.
             existing = self._proc.returncode if self._proc is not None else None
+            await self._cleanup_tasks()
             return existing, "already_exited"
 
         # Signal-file flush BEFORE SIGTERM so the bot sees the file as soon
@@ -273,6 +297,7 @@ class BotSupervisor:
             self._proc.send_signal(signal.SIGTERM)
         except ProcessLookupError:
             # Race: process exited between is_alive check and the signal.
+            await self._cleanup_tasks()
             return self._proc.returncode, "already_exited"
 
         self._logger.info(
@@ -285,6 +310,7 @@ class BotSupervisor:
             returncode = await asyncio.wait_for(
                 self._proc.wait(), timeout=grace_seconds
             )
+            await self._cleanup_tasks()
             return returncode, "graceful_exit"
         except asyncio.TimeoutError:
             self._logger.warning(
@@ -296,4 +322,5 @@ class BotSupervisor:
             except ProcessLookupError:
                 pass
             returncode = await self._proc.wait()
+            await self._cleanup_tasks()
             return returncode, "sigkill_after_timeout"
