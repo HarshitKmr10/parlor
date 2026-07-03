@@ -27,11 +27,11 @@ changes.
 > See [`SECURITY.md`](./SECURITY.md) for how to report a vulnerability and
 > [`CONTRIBUTING.md`](./CONTRIBUTING.md) for how pull requests get reviewed.
 >
-> Parlor is built and open-sourced by the same team that also builds a
-> separate, closed-source product for enterprises. That product is not part
-> of this repository, shares no code with it beyond what you see here, and
-> nothing in Parlor requires it — see
-> ["What's different from the company's other products?"](#whats-different-from-the-companys-other-products)
+> Parlor is built and open-sourced by [FuturePath AI](https://github.com/FuturePathAI),
+> which also builds a separate, closed-source product for enterprises. That
+> product is not part of this repository, shares no code with it beyond what
+> you see here, and nothing in Parlor requires it — see
+> ["What's different from FuturePath AI's other products?"](#whats-different-from-futurepath-ais-other-products)
 > below.
 
 ## Try it in 2 minutes
@@ -79,12 +79,13 @@ up-api` is the fast path for trying the product or iterating on it.
   home — the product is the Docker Compose file (or the Helm chart under
   `deploy/helm/parlor/` for Kubernetes).
 
-## What's different from the company's other products?
+## What's different from FuturePath AI's other products?
 
-> **A note on scope, not marketing:** the maintainers also build a separate,
-> closed-source product for enterprises. The section below is intentionally
-> conservative about what it says regarding that product — treat it as a
-> placeholder for a maintainer to refine, not as settled positioning copy.
+> **A note on scope, not marketing:** FuturePath AI, the team behind Parlor,
+> also builds a separate, closed-source product for enterprises. The section
+> below is intentionally conservative about what it says regarding that
+> product — treat it as a placeholder for a maintainer to refine, not as
+> settled positioning copy.
 
 - **Parlor is fully open-source.** There's no "open core" split — everything
   in this repository, including bot-join capture, RAG chat, and webhooks, is
@@ -96,7 +97,7 @@ up-api` is the fast path for trying the product or iterating on it.
 - **Parlor's scope stops at the meeting layer.** It captures, transcribes,
   summarizes, and lets you chat with your own meetings (per-meeting and
   across your workspace), and exposes that over webhooks and an MCP server.
-  It does not include the maintainers' other, separately built and
+  It does not include FuturePath AI's other, separately built and
   closed-source product line — that product is not part of this repository
   and this README intentionally does not describe it further.
 
