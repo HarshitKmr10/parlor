@@ -1,8 +1,69 @@
-# Verdant — Meeting Assistant (full dev stack)
+# Parlor
 
-Verdant is an AI meeting assistant: it joins meetings, captures transcripts,
-and produces summaries, action items, and chat-with-your-meeting (RAG) answers.
-This repo wires the whole product into a single `docker compose` dev stack.
+[![License: FSL-1.1-Apache-2.0](https://img.shields.io/badge/license-FSL--1.1--Apache--2.0-blue)](./LICENSE)
+
+**Your meetings never leave your machine — unless you want them to.**
+
+Parlor is a self-hosted AI meeting notetaker. Its default capture mode is
+**botless**: instead of a bot joining your Zoom/Meet/Teams call as a visible,
+recording third participant, Parlor's desktop client captures your machine's
+own meeting audio locally and turns it into a transcript, summary, action
+items, and a chat-with-your-meeting Q&A — without anything joining the call on
+your behalf. (A server-side bot-join mode also exists, for when you'd rather
+dispatch a bot into a call than run local capture — see
+[`backend/docs/BOT-RUNTIME.md`](backend/docs/BOT-RUNTIME.md).)
+
+The other thing this project leads with: a genuine **zero-API-key mock mode**.
+Clone it, run one command, and the whole stack — auth, meetings, AI summaries,
+embeddings, chat — comes up and works end to end with deterministic
+placeholder output before you have touched a single LLM provider key. Add a
+key later to switch from mock to live models; nothing else about the setup
+changes.
+
+## Try it in 2 minutes
+
+Requires Docker Engine + Compose v2 (`docker compose version`). Nothing else —
+no API key, no account, no cloud service.
+
+```bash
+git clone https://github.com/<your-fork>/parlor.git
+cd parlor
+cp .env.example .env      # safe local defaults, already in mock mode
+make up-api                # backend + ai-service + web + postgres
+```
+
+Wait for `make up-api` to report the stack healthy (usually well under a
+minute after images are built), then open **http://localhost:3001** and sign
+up — there's no separate admin CLI or setup wizard, the first account you
+create in the app is your workspace owner. This was verified end to end while
+writing this README: `make up-api` → sign up via the UI (or
+`POST /api/v1/auth/signup`) → create a meeting → ask the AI service to
+summarize it, all with `AI_MODE=mock` and no keys anywhere in `.env`.
+
+`make up` (instead of `make up-api`) additionally brings up the real
+Playwright/Chromium bot-join worker in its own container, mirroring
+production — see [Make targets](#make-targets) below. The first build of that
+image is large and slow (Node + Chromium + a local Whisper cache); `make
+up-api` is the fast path for trying the product or iterating on it.
+
+## Features
+
+- **Botless local capture** (`desktop-capture/`) — system-audio transcription
+  with no bot joining the call, Granola-style. macOS-first today.
+- **Zero-API-key mock mode** — the full stack (auth, meetings, summaries,
+  embeddings, chat) runs and is demoable with `AI_MODE=mock` and no LLM keys.
+- **AI summaries, action items, and chapters** per meeting, plus **chat with a
+  meeting** (and across all your meetings) with cited, timestamped answers —
+  backed by pgvector RAG.
+- **Keyless local transcription** available via a bundled tiny Whisper model
+  — no cloud STT account required for the audio-capture path.
+- **Optional bot-join capture** for Zoom (SDK), Google Meet, and Microsoft
+  Teams, if you'd rather dispatch a bot than run local capture.
+- **MCP server** (`mcp/`) exposing your meeting knowledge base to Claude
+  Desktop, Claude Code, ChatGPT, and other MCP clients.
+- **Self-hosted only.** No hosted trial, no managed tier, no telemetry phoning
+  home — the product is the Docker Compose file (or the Helm chart under
+  `deploy/helm/parlor/` for Kubernetes).
 
 ## Architecture
 
@@ -55,7 +116,7 @@ runtime stack.
 - Docker Engine + Compose v2 (`docker compose version`)
 - `bash`, `curl`, `jq` (for the smoke test)
 
-## Quick start
+## Quick start (full stack, with the real bot-join worker)
 
 ```bash
 cp .env.example .env     # safe local defaults; or `make up` creates it for you
@@ -71,7 +132,8 @@ make up-api
 
 > The first `make up` build is large/slow — the `meeting-worker` image carries
 > Node + Playwright Chromium + node_modules + Xvfb/pulse/ffmpeg + a local whisper
-> cache. Use `make up-api` for quick backend/product iteration.
+> cache. Use `make up-api` for quick backend/product iteration or for just
+> trying the product.
 
 ### URLs (defaults; override in `.env`)
 
@@ -162,7 +224,28 @@ integrations (Google/Microsoft calendar OAuth, Slack, SMTP) are documented in
   the internal DNS name (`http://backend:8000`) would require a small,
   backward-compatible code change to add a server-only base-URL override; it was
   intentionally left out to avoid modifying service source for this stack-up.
-- The bot-join / live-capture path is not exercised here (it needs the heavier
-  worker image with Chromium + Zoom SDK). Transcript + embeddings are seeded as
-  documented test shims so the AI pipeline is provable offline.
-```
+- The bot-join / live-capture path is not exercised by the smoke test (it needs
+  the heavier worker image with Chromium + Zoom SDK). Transcript + embeddings
+  are seeded as documented test shims so the AI pipeline is provable offline.
+
+## License
+
+Parlor is licensed under the **[Functional Source License 1.1, Apache 2.0
+Future License](./LICENSE)** (FSL-1.1-Apache-2.0) — the same license family
+Sentry uses. In short: you can use, self-host, modify, and redistribute this
+software for almost any purpose, including running it for your own team or
+building on it — the one thing the license doesn't permit is re-offering it
+(or a substitute for it) to third parties as a competing hosted or managed
+service. Two years after each version is published, that version
+automatically relicenses to Apache 2.0, with no strings attached. See
+[`LICENSE`](./LICENSE) for the full text.
+
+## Contributing
+
+See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for how to run the tests and submit
+a pull request (DCO sign-off required, no CLA). Security issues should be
+reported privately — see [`SECURITY.md`](./SECURITY.md).
+
+---
+
+<sub>Built by the team behind a digital-twin platform for enterprises.</sub>
