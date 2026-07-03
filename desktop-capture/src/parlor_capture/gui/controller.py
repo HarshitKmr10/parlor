@@ -40,7 +40,7 @@ def build_capture_args(form: Mapping[str, Any]) -> List[str]:
 def _default_launcher(args: List[str]):
     import subprocess  # noqa: PLC0415
 
-    return subprocess.Popen([sys.executable, "-m", "verdant_capture", *args])
+    return subprocess.Popen([sys.executable, "-m", "parlor_capture", *args])
 
 
 class CaptureController:

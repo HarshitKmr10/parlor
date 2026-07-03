@@ -2,7 +2,7 @@
 
 import pytest
 
-from verdant_capture.gui import CaptureController, build_capture_args
+from parlor_capture.gui import CaptureController, build_capture_args
 
 
 def test_build_args_minimal_defaults():

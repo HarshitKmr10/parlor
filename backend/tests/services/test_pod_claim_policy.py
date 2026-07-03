@@ -1,6 +1,6 @@
 """Unit tests for pod claim age policy.
 
-Direct port of the techops test pattern, adapted to meeting-joiner defaults.
+Direct port of an internal sandbox-orchestration test pattern, adapted to meeting-joiner defaults.
 The math is intentionally identical — proves we haven't introduced a regression
 while porting.
 """

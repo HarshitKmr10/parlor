@@ -11,12 +11,12 @@ from typing import Any
 
 import pytest
 
-from verdant_capture.audio.capture import AudioSource
-from verdant_capture.client.segments import Segment, segment_from_stt
-from verdant_capture.errors import BackendError
-from verdant_capture.pipeline import CapturePipeline, synthetic_meeting_url
-from verdant_capture.stt import build_backend
-from verdant_capture.stt.base import STTResult
+from parlor_capture.audio.capture import AudioSource
+from parlor_capture.client.segments import Segment, segment_from_stt
+from parlor_capture.errors import BackendError
+from parlor_capture.pipeline import CapturePipeline, synthetic_meeting_url
+from parlor_capture.stt import build_backend
+from parlor_capture.stt.base import STTResult
 
 
 class FakeIngestClient:
@@ -107,7 +107,7 @@ def test_permanent_ingest_failure_stops_retrying_that_run(
 ) -> None:
     """404/405 (old backend build) permanently disables ingest for the run."""
     monkeypatch.setattr(
-        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+        "parlor_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
     )
     client, result = _run_with_fake_client([None], num_segments=3)
     assert result.ingest_ok is False
@@ -121,7 +121,7 @@ def test_transient_ingest_failure_retries_and_recovers(
 ) -> None:
     """A connection error should retry with backoff, not disable ingest."""
     monkeypatch.setattr(
-        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+        "parlor_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
     )
     # First segment: every retry attempt fails transiently, so it lands in
     # the backlog. Second segment: succeeds immediately, which should also
@@ -144,7 +144,7 @@ def test_transient_failure_without_recovery_keeps_backlog(
 ) -> None:
     """If the backend never comes back, ingest_ok stays False (not crash)."""
     monkeypatch.setattr(
-        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+        "parlor_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
     )
     client, result = _run_with_fake_client([BackendError("down")], num_segments=2)
     assert result.ingest_ok is False
@@ -164,7 +164,7 @@ def test_replay_does_not_drop_later_items_when_earlier_item_fails_again(
     present in the backlog) -- never silently vanish.
     """
     monkeypatch.setattr(
-        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+        "parlor_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
     )
     outcomes = [
         # Segment 1: every retry attempt fails transiently -> backlog.
@@ -211,7 +211,7 @@ def test_replay_retries_all_pending_items_even_when_one_stays_down(
     not-yet-tried items from being attempted this same pass.
     """
     monkeypatch.setattr(
-        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+        "parlor_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
     )
     source = AudioSource(chunk_seconds=1.0, duration_sec=1.0, mock=True)
     stt = build_backend("mock")
@@ -264,7 +264,7 @@ def test_replay_backlog_reports_permanent_failure_discovered_mid_replay(
     direct permanent result from ``_try_ingest``.
     """
     monkeypatch.setattr(
-        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+        "parlor_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
     )
     source = AudioSource(chunk_seconds=1.0, duration_sec=1.0, mock=True)
     stt = build_backend("mock")
@@ -315,7 +315,7 @@ def test_permanent_failure_discovered_during_replay_stops_retrying_that_run(
     afterward.
     """
     monkeypatch.setattr(
-        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+        "parlor_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
     )
     outcomes = [
         # Segment 1: every retry attempt fails transiently -> backlog.
@@ -368,7 +368,7 @@ def test_replay_backlog_preserves_unprocessed_items_on_interrupt(
     and every segment still waiting behind it must land back in ``backlog``.
     """
     monkeypatch.setattr(
-        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+        "parlor_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
     )
     source = AudioSource(chunk_seconds=1.0, duration_sec=1.0, mock=True)
     stt = build_backend("mock")
@@ -423,7 +423,7 @@ def test_run_preserves_backlog_when_interrupted_mid_replay(
     externally observable -- and asserts ``ingest_ok`` never lies.
     """
     monkeypatch.setattr(
-        "verdant_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
+        "parlor_capture.pipeline._TRANSIENT_RETRY_BASE_DELAY_SEC", 0.0
     )
     outcomes = [
         # Segment 1: every retry attempt fails transiently -> backlog.

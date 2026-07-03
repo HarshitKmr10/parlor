@@ -138,7 +138,7 @@ echo "▶ waiting for ${WARM_POOL_SIZE:-2} warm-pool pods to be Ready"
 deadline=$(( $(date +%s) + TIMEOUT_SECS ))
 while [ "$(date +%s)" -lt "$deadline" ]; do
   ready=$(kubectl -n "$NAMESPACE" get pods \
-    -l 'app=meeting-worker,meeting-joiner.aiopshq.dev/status=warm' \
+    -l 'app=meeting-worker,meeting-joiner.parlor.dev/status=warm' \
     -o jsonpath='{range .items[?(@.status.phase=="Running")]}{.metadata.name}{"\n"}{end}' \
     2>/dev/null | wc -l | tr -d ' ')
   if [ "$ready" -ge 2 ]; then

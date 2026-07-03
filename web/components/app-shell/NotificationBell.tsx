@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getJson, postJson } from "@/lib/api/browser";
 import { BellIcon } from "@/components/ui/icons";
@@ -16,25 +16,43 @@ export function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const panelRef = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const res = await getJson<NotificationListResponse>("/api/notifications", signal);
-      setItems(res.items);
-      setUnread(res.unread);
-    } catch {
-      // Silent — the bell is non-critical chrome.
-    }
-  }, []);
-
+  // Poll for notifications. `cancelled`/`inFlight` are plain closure locals
+  // (not refs) because this effect never re-runs mid-lifetime (empty deps) —
+  // they live exactly as long as the subscription they guard. Every setState
+  // call is gated on `cancelled` so a response that resolves after unmount
+  // (or after a newer poll superseded it) can never update state, and
+  // `inFlight` stops overlapping polls from racing each other out of order.
   useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
     const controller = new AbortController();
-    void load(controller.signal);
+
+    const load = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const res = await getJson<NotificationListResponse>(
+          "/api/notifications",
+          controller.signal,
+        );
+        if (cancelled) return;
+        setItems(res.items);
+        setUnread(res.unread);
+      } catch {
+        // Silent — the bell is non-critical chrome.
+      } finally {
+        inFlight = false;
+      }
+    };
+
+    void load();
     const id = setInterval(() => void load(), POLL_MS);
     return () => {
+      cancelled = true;
       controller.abort();
       clearInterval(id);
     };
-  }, [load]);
+  }, []);
 
   // Close on outside click.
   useEffect(() => {

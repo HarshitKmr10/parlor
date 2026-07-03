@@ -1,7 +1,7 @@
 """Pluggable speech-to-text backends.
 
 The :class:`STTBackend` protocol is the seam: implementations turn an
-:class:`~verdant_capture.audio.capture.AudioChunk` into zero or more
+:class:`~parlor_capture.audio.capture.AudioChunk` into zero or more
 :class:`STTResult` pieces. Pick one with :func:`build_backend`.
 
 Backends:

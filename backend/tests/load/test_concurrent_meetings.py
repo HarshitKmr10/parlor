@@ -14,7 +14,7 @@ Target:
 - No OOM kills, no rejoin storms.
 
 Environment:
-- ``MEETING_JOINER_LOAD_TEST_URL`` — base URL (e.g. ``https://meeting-joiner.staging.aiopshq.dev``).
+- ``MEETING_JOINER_LOAD_TEST_URL`` — base URL (e.g. ``https://meeting-joiner.staging.example.com``).
 - ``MEETING_JOINER_LOAD_TEST_MEETING_URL`` — synthetic meeting URL the bot
   joins (a stable canary tenant).
 - ``MEETING_JOINER_LOAD_TEST_USERS`` — total concurrent users (default 100).

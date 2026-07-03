@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { postJson } from "@/lib/api/browser";
 import { SparkIcon } from "@/components/ui/icons";
 import type { MeetingAssist } from "@/lib/api/types";
@@ -16,19 +16,40 @@ type Props = {
 export function LiveAssist({ meetingId, onPickQuestion, intervalMs = 20_000 }: Props) {
   const [assist, setAssist] = useState<MeetingAssist | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      setAssist(await postJson<MeetingAssist>(`/api/meetings/${meetingId}/assist`, {}));
-    } catch {
-      // Assist is advisory — stay quiet on failure.
-    }
-  }, [meetingId]);
-
+  // Poll for assist suggestions. `cancelled`/`inFlight` are plain closure
+  // locals scoped to this effect run (it only re-runs when `meetingId` or
+  // `intervalMs` change). Gating `setAssist` on `cancelled` prevents a
+  // response that resolves after unmount from updating state, and
+  // `inFlight` stops overlapping polls from letting a slower, older request
+  // clobber a faster, newer one.
   useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
+
+    const load = async () => {
+      if (cancelled || inFlight) return;
+      inFlight = true;
+      try {
+        const data = await postJson<MeetingAssist>(
+          `/api/meetings/${meetingId}/assist`,
+          {},
+        );
+        if (cancelled) return;
+        setAssist(data);
+      } catch {
+        // Assist is advisory — stay quiet on failure.
+      } finally {
+        inFlight = false;
+      }
+    };
+
     void load();
     const id = setInterval(() => void load(), intervalMs);
-    return () => clearInterval(id);
-  }, [load, intervalMs]);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [meetingId, intervalMs]);
 
   if (!assist || assist.segmentCount === 0) return null;
 

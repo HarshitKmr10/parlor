@@ -17,9 +17,9 @@ from typing import Iterator
 
 import pytest
 
-from verdant_capture.gui.controller import CaptureController
-from verdant_capture.gui.panel import CSRF_TOKEN_HEADER
-from verdant_capture.gui.server import serve
+from parlor_capture.gui.controller import CaptureController
+from parlor_capture.gui.panel import CSRF_TOKEN_HEADER
+from parlor_capture.gui.server import serve
 
 
 class _FakeProc:

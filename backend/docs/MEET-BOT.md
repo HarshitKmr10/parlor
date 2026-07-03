@@ -83,9 +83,10 @@ This bot mirrors Vexa's `modules/join/src/googlemeet`. To re-check upstream for
 new evasion techniques:
 
 ```bash
-cd ~/Desktop/vexa
+cd ~/vexa
 git fetch --all --tags
-git show gmeet-glow-checkpoint:modules/join/src/googlemeet/join.ts | less
+# Replace <checkpoint-tag> with whatever upstream ref/tag you last synced against.
+git show <checkpoint-tag>:modules/join/src/googlemeet/join.ts | less
 git log --oneline -- modules/join/src/googlemeet   # scan for new commits
 ```
 

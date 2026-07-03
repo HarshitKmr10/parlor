@@ -3,11 +3,11 @@
 This manager keeps no in-memory pod/session state. K8s labels are the source
 of truth for warm/claimed status.
 
-Ported from the techops sandbox warm-pool primitives with the following
-meeting-joiner-specific adaptations:
+Ported from an internal sandbox-orchestration codebase's warm-pool primitives
+with the following meeting-joiner-specific adaptations:
 
-* Labels: ``app=meeting-worker`` and ``meeting-joiner.aiopshq.dev/status``
-  replace the techops sandbox labels.  A ``platform`` label tracks the
+* Labels: ``app=meeting-worker`` and ``meeting-joiner.parlor.dev/status``
+  replace the original sandbox labels.  A ``platform`` label tracks the
   conferencing provider (zoom / msteams / googlemeet / unset) and a
   ``meeting-id`` label is stamped on claim.
 * No recycling: ``delete_and_replenish`` replaces ``recycle_pod`` because
@@ -72,7 +72,7 @@ WARM_MIN_REMAINING_LIFETIME_SECONDS = int(
     os.environ.get("WARM_MIN_REMAINING_LIFETIME_SECONDS", "60")
 )
 
-# Reaper thresholds (replace techops ``IDLE_TIMEOUT_SECONDS``).
+# Reaper thresholds (replace the original sandbox ``IDLE_TIMEOUT_SECONDS``).
 ENDED_GRACE_SECONDS = int(os.environ.get("ENDED_GRACE_SECONDS", "60"))
 STUCK_HEARTBEAT_SECONDS = int(os.environ.get("STUCK_HEARTBEAT_SECONDS", "90"))
 
@@ -185,12 +185,12 @@ AZURE_WORKLOAD_IDENTITY_USE_LABEL = "azure.workload.identity/use"
 
 # Labels (meeting-joiner specific).
 LABEL_APP = "meeting-worker"
-LABEL_STATUS_KEY = "meeting-joiner.aiopshq.dev/status"
-LABEL_STATUS_KEY_ESCAPED = "meeting-joiner.aiopshq.dev~1status"
+LABEL_STATUS_KEY = "meeting-joiner.parlor.dev/status"
+LABEL_STATUS_KEY_ESCAPED = "meeting-joiner.parlor.dev~1status"
 LABEL_PLATFORM_DEFAULT = "unset"
 VALID_PLATFORMS = frozenset({"zoom", "msteams", "googlemeet", "unset"})
 
-# K8s API proxy mode (mirrors techops behaviour for local kind clusters).
+# K8s API proxy mode (mirrors the original sandbox behaviour for local kind clusters).
 _USE_K8S_PROXY = os.environ.get("MEETING_USE_K8S_PROXY", "").lower() == "true"
 _K8S_PROXY_URL = os.environ.get(
     "MEETING_K8S_PROXY_URL", "http://localhost:8001"
@@ -615,7 +615,7 @@ class WarmPoolManager:
     async def delete_and_replenish(self, pod_name: str) -> None:
         """Delete a pod outright; the replenish loop will create a replacement.
 
-        Replaces the techops ``recycle_pod`` flow.  Reusing a pod across
+        Replaces the original sandbox ``recycle_pod`` flow.  Reusing a pod across
         meetings risks pulseaudio/Xvfb/Chromium state leakage and audio
         cross-talk, so we always tear down and re-create.
         """
@@ -1067,7 +1067,7 @@ class WarmPoolManager:
         Returns:
             warm_count:   Ready warm pods young enough to claim.
             total_active: All Pending/Running pods (warm + claimed).
-            by_state:     Breakdown by ``meeting-joiner.aiopshq.dev/status``.
+            by_state:     Breakdown by ``meeting-joiner.parlor.dev/status``.
             stale_pods:   Warm pod names past the max claimable age.
         """
         if not self._k8s_core_api:
