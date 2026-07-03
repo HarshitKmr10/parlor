@@ -36,6 +36,7 @@ from ..api.database.connection import get_db_connection
 from ..api.models.schemas import MeetingStatus
 from ..observability import get_logger
 from .meeting_service import MeetingService
+from .zoom_sdk_service import ZoomSDKService
 
 logger = get_logger(__name__)
 
@@ -250,6 +251,16 @@ class LocalBotRunner:
         env["PLATFORM"] = self.platform
         env["BOT_NAME"] = self.bot_name
         env["SESSION_NUMBER"] = "1"
+        if self.platform == "zoom":
+            # MEETING_ID above is the meeting_joiner DB row id, not the
+            # numeric Zoom meeting number the bot needs to join — parse the
+            # real number + password out of the URL (mirrors BotSupervisor's
+            # _build_env) so zoom_bot_runner.py's __main__ gets a joinable
+            # meeting instead of falling back to unset env vars.
+            zoom_info = ZoomSDKService.parse_zoom_url(self.meeting_url)
+            if zoom_info is not None:
+                env["ZOOM_MEETING_NUMBER"] = zoom_info["meeting_id"]
+                env["ZOOM_MEETING_PWD"] = zoom_info["password"]
         if self.transcript_source:
             env["TRANSCRIPT_SOURCE"] = self.transcript_source
         if self.notetaker_email:

@@ -23,6 +23,8 @@ from typing import List, Optional, Tuple
 
 import psutil
 
+from src.services.zoom_sdk_service import ZoomSDKService
+
 from .models import ConfigureRequest
 from .state import SidecarStateManager
 
@@ -56,6 +58,16 @@ def _build_env(config: ConfigureRequest) -> dict[str, str]:
     env["PLATFORM"] = config.platform
     env["BOT_NAME"] = config.bot_name
     env["SESSION_NUMBER"] = str(config.session_number)
+    if config.platform == "zoom":
+        # MEETING_ID above is the meeting_joiner DB row id, not the numeric
+        # Zoom meeting number the bot needs to join — parse the real number
+        # + password out of the URL and pass them via dedicated env vars so
+        # zoom_bot_runner.py's __main__ (which reads ZOOM_MEETING_NUMBER /
+        # ZOOM_MEETING_PWD) actually gets a joinable meeting.
+        zoom_info = ZoomSDKService.parse_zoom_url(str(config.meeting_url))
+        if zoom_info is not None:
+            env["ZOOM_MEETING_NUMBER"] = zoom_info["meeting_id"]
+            env["ZOOM_MEETING_PWD"] = zoom_info["password"]
     if config.bot_avatar_url is not None:
         env["BOT_AVATAR_URL"] = str(config.bot_avatar_url)
     if config.transcript_source is not None:
@@ -95,6 +107,12 @@ class BotSupervisor:
         self._proc: Optional[asyncio.subprocess.Process] = None
         self._monitor_task: Optional[asyncio.Task[None]] = None
         self._log_pump_tasks: List[asyncio.Task[None]] = []
+        # Guards the full check-spawn-mark_configuring sequence in the
+        # /configure route handler so two concurrent requests can't both
+        # pass the busy-check and race into spawn() (TOCTOU double-spawn).
+        # The route holds this for the whole sequence; spawn() itself no
+        # longer needs its own internal races checked separately.
+        self.configure_lock: asyncio.Lock = asyncio.Lock()
         # Lazy import to avoid circular dependency with main.py.
         from src.observability import get_logger
 

@@ -65,8 +65,14 @@ class ZoomBotRunner:
         self.openai_api_key = openai_api_key
         self.transcript_file = transcript_file
 
-    def exit_process(self):
-        """Clean shutdown of the bot and main loop"""
+    def exit_process(self, status: int = 0):
+        """Clean shutdown of the bot and main loop.
+
+        ``status`` is the process exit code to report once cleanup finishes
+        (or fails). Defaults to 0 so signal/timeout-triggered shutdowns keep
+        exiting clean; callers that know the shutdown followed a failure
+        (e.g. SDK init) should pass the appropriate non-zero code.
+        """
         logger.info("Starting cleanup process...")
 
         if self.shutdown_requested:
@@ -79,26 +85,31 @@ class ZoomBotRunner:
                 self.bot.leave()
                 logger.info("Cleaning up bot...")
                 self.bot.cleanup()
-                
+
             # Get final transcripts
             if self.bot and self.bot.transcriber:
                 transcripts = self.bot.get_transcripts()
                 logger.info(f"Collected {len(transcripts)} transcript entries")
 
-            self.force_exit()
+            self.force_exit(status)
 
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
-            self.force_exit()
+            self.force_exit(status if status != 0 else 1)
 
         return False
 
-    def force_exit(self):
-        """Force the process to exit"""
-        logger.info("Zoom bot runner shutting down")
+    def force_exit(self, status: int = 0):
+        """Force the process to exit with the given status code.
+
+        The supervisor (``bot_supervisor.py`` / ``local_bot_runner.py``)
+        treats only a 0 exit code as success, so failure paths must pass a
+        non-zero ``status`` or the caller misreads a crash as a clean exit.
+        """
+        logger.info(f"Zoom bot runner shutting down (status={status})")
         if self.main_loop and self.main_loop.is_running():
             self.main_loop.quit()
-        os._exit(0)
+        os._exit(status)
 
     def on_signal(self, signum, frame):
         """Signal handler for SIGINT and SIGTERM"""
@@ -302,7 +313,7 @@ class ZoomBotRunner:
             self.bot.init()
         except Exception as e:
             logger.error(f"Failed to initialize bot: {e}")
-            self.exit_process()
+            self.exit_process(status=2)
             return
 
         # Create a GLib main loop
@@ -315,6 +326,7 @@ class ZoomBotRunner:
         signal.signal(signal.SIGINT, self.on_signal)
         signal.signal(signal.SIGTERM, self.on_signal)
 
+        exit_status = 0
         try:
             logger.info("Starting bot main loop...")
             self.main_loop.run()
@@ -322,8 +334,9 @@ class ZoomBotRunner:
             logger.info("Interrupted by user, shutting down...")
         except Exception as e:
             logger.error(f"Error in main loop: {e}")
+            exit_status = 1
         finally:
-            self.exit_process()
+            self.exit_process(status=exit_status)
 
 
 def run_zoom_bot(meeting_url: str,
@@ -375,13 +388,25 @@ if __name__ == "__main__":
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
     
-    # Get from command line or environment
-    meeting_id = sys.argv[1] if len(sys.argv) > 1 else os.environ.get('MEETING_ID')
-    meeting_pwd = sys.argv[2] if len(sys.argv) > 2 else os.environ.get('MEETING_PWD')
-    
+    # Get from command line or environment. ZOOM_MEETING_NUMBER/ZOOM_MEETING_PWD
+    # are the dedicated vars the supervisor (bot_supervisor.py /
+    # local_bot_runner.py) populates by parsing the numeric meeting number +
+    # password out of meeting_url — MEETING_ID/MEETING_PWD are kept only as a
+    # legacy fallback for manual invocation (MEETING_ID doubles as the
+    # meeting_joiner DB row id elsewhere in the stack, so it is NOT a
+    # joinable Zoom meeting number when set by the supervisor).
+    meeting_id = (
+        sys.argv[1] if len(sys.argv) > 1
+        else os.environ.get('ZOOM_MEETING_NUMBER') or os.environ.get('MEETING_ID')
+    )
+    meeting_pwd = (
+        sys.argv[2] if len(sys.argv) > 2
+        else os.environ.get('ZOOM_MEETING_PWD') or os.environ.get('MEETING_PWD')
+    )
+
     if not meeting_id or not meeting_pwd:
         print("Usage: python zoom_bot_runner.py <meeting_id> <meeting_password>")
-        print("Or set MEETING_ID and MEETING_PWD environment variables")
+        print("Or set ZOOM_MEETING_NUMBER and ZOOM_MEETING_PWD environment variables")
         sys.exit(1)
     
     run_zoom_bot(
