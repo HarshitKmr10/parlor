@@ -1,7 +1,13 @@
-# Parlor
+<p align="center">
+  <img src="web/public/logo.svg" alt="Parlor" width="72" height="72">
+</p>
 
-[![License: FSL-1.1-Apache-2.0](https://img.shields.io/badge/license-FSL--1.1--Apache--2.0-blue)](./LICENSE)
-[![CI](https://github.com/HarshitKmr10/parlor/actions/workflows/ci.yml/badge.svg)](https://github.com/HarshitKmr10/parlor/actions/workflows/ci.yml)
+<h1 align="center">Parlor</h1>
+
+<p align="center">
+  <a href="./LICENSE"><img alt="License: FSL-1.1-Apache-2.0" src="https://img.shields.io/badge/license-FSL--1.1--Apache--2.0-blue"></a>
+  <a href="https://github.com/HarshitKmr10/parlor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/HarshitKmr10/parlor/actions/workflows/ci.yml/badge.svg"></a>
+</p>
 
 **Your meetings never leave your machine — unless you want them to.**
 

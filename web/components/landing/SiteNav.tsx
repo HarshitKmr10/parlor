@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 const NAV_LINKS = [
@@ -34,8 +35,9 @@ export function SiteNav() {
         <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-6 px-5 py-3.5 sm:px-8">
           <a
             href="#top"
-            className="font-display text-[1.35rem] font-medium tracking-tight text-ink"
+            className="flex items-center gap-2 font-display text-[1.35rem] font-medium tracking-tight text-ink"
           >
+            <Image src="/logo.svg" alt="" width={28} height={28} className="shrink-0" priority />
             Parlor
           </a>
 
