@@ -1,7 +1,7 @@
 # Parlor
 
 [![License: FSL-1.1-Apache-2.0](https://img.shields.io/badge/license-FSL--1.1--Apache--2.0-blue)](./LICENSE)
-[![CI](https://github.com/<your-fork>/parlor/actions/workflows/ci.yml/badge.svg)](https://github.com/<your-fork>/parlor/actions/workflows/ci.yml)
+[![CI](https://github.com/HarshitKmr10/parlor/actions/workflows/ci.yml/badge.svg)](https://github.com/HarshitKmr10/parlor/actions/workflows/ci.yml)
 
 **Your meetings never leave your machine — unless you want them to.**
 
@@ -40,7 +40,7 @@ Requires Docker Engine + Compose v2 (`docker compose version`). Nothing else —
 no API key, no account, no cloud service.
 
 ```bash
-git clone https://github.com/<your-fork>/parlor.git
+git clone https://github.com/HarshitKmr10/parlor.git
 cd parlor
 cp .env.example .env      # safe local defaults, already in mock mode
 make up-api                # backend + ai-service + web + postgres
