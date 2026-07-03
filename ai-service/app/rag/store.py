@@ -11,13 +11,15 @@ service itself keep working.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 
 import asyncpg
 
-from ..config import EMBEDDING_DIM, IVFFLAT_LISTS
+from ..config import EMBEDDING_DIM, HYBRID_CANDIDATE_MULTIPLIER, IVFFLAT_LISTS
 from ..schemas import TranscriptSegment
+from .fusion import reciprocal_rank_fusion
 
 logger = logging.getLogger("ai-service.store")
 
@@ -263,3 +265,51 @@ class EmbeddingStore:
             for r in records
             if float(r["score"]) > 0
         ]
+
+    async def hybrid_search(
+        self,
+        *,
+        workspace_id: str,
+        meeting_id: str | None,
+        embedding: list[float],
+        question: str,
+        top_k: int,
+        candidate_k: int | None = None,
+    ) -> list[RetrievedSegment]:
+        """Hybrid retrieval: fuse vector similarity + keyword ranking via RRF.
+
+        This is the default retrieval path -- not an either/or fallback. It
+        runs the existing cosine-distance ``search`` and ILIKE-based
+        ``keyword_search`` independently, each over the *same*
+        workspace/meeting scope (the scope filter is applied identically to
+        both underlying queries so hybrid retrieval can't leak across
+        tenants by only filtering one side), then fuses their rankings with
+        Reciprocal Rank Fusion (see ``fusion.reciprocal_rank_fusion``).
+
+        Each underlying query is asked for ``candidate_k`` results (default:
+        ``top_k * HYBRID_CANDIDATE_MULTIPLIER``) rather than just ``top_k``,
+        so a document ranked outside the final ``top_k`` on one signal alone
+        still has a chance to be pulled into the fused top ``top_k`` by the
+        other signal.
+        """
+        if self._pool is None:
+            raise RuntimeError("embedding store not available")
+
+        pool_size = candidate_k or max(top_k * HYBRID_CANDIDATE_MULTIPLIER, top_k)
+
+        vector_results, keyword_results = await asyncio.gather(
+            self.search(
+                workspace_id=workspace_id,
+                meeting_id=meeting_id,
+                embedding=embedding,
+                top_k=pool_size,
+            ),
+            self.keyword_search(
+                workspace_id=workspace_id,
+                meeting_id=meeting_id,
+                question=question,
+                top_k=pool_size,
+            ),
+        )
+
+        return reciprocal_rank_fusion(vector_results, keyword_results, top_k=top_k)

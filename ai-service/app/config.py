@@ -47,6 +47,15 @@ AZURE_OPENAI_EMBEDDING_DEPLOYMENT = (
 IVFFLAT_LISTS = 100
 DEFAULT_TOP_K = 6
 
+# Hybrid retrieval: the vector and keyword candidate pools fetched *before*
+# RRF fusion are each this multiple of the final top_k, so a document that
+# ranks outside the final top_k on one signal still has a chance to be
+# pulled in by the fused ranking if the other signal ranks it highly. 4x is
+# a conservative default -- cheap at these row counts and generous enough
+# that fusion sees real candidates rather than already-truncated top-top_k
+# lists from each side.
+HYBRID_CANDIDATE_MULTIPLIER = 4
+
 # Map-reduce chunking thresholds (approximate characters, ~4 chars/token).
 MAX_CHARS_PER_CHUNK = 48_000
 
