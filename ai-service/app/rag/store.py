@@ -95,7 +95,9 @@ class EmbeddingStore:
             logger.info("embedding store ready (pgvector)")
         except Exception as exc:  # connection refused, auth, missing extension
             logger.error("embedding store init failed: %s", exc)
-            self._pool = None
+            pool, self._pool = self._pool, None
+            if pool is not None:
+                await pool.close()
 
     async def close(self) -> None:
         if self._pool is not None:
