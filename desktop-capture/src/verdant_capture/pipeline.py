@@ -160,6 +160,16 @@ class CapturePipeline:
         that segment (not the whole tail) and keeps going, so a later
         segment that would have succeeded is never silently discarded.
 
+        Interruption safety: ``pending`` is only ever popped *after* an
+        item's outcome is known, and the ``finally`` block re-queues
+        whatever is still sitting in ``pending`` (the in-flight segment
+        plus every one behind it) into ``backlog``. That means a
+        ``KeyboardInterrupt`` (or any other exception) raised out of
+        ``_try_ingest`` mid-pass - e.g. during the retry backoff sleep -
+        can never silently drop a segment: it either already made it into
+        ``backlog`` via the normal re-queue path below, or it's still in
+        ``pending`` and the ``finally`` catches it.
+
         Returns ``True`` when a permanent (404/405) failure was discovered
         during this replay pass. Callers must treat that the same as a
         permanent failure discovered on the main loop's own direct
@@ -171,28 +181,42 @@ class CapturePipeline:
         backlog.clear()
         went_permanent = False
         replayed = 0
-        for segment in pending:
-            if went_permanent:
-                # Ingest just went permanently unavailable mid-replay:
-                # further backend calls would only repeat the same 404/405,
-                # so stop attempting them. These segments are intentionally
-                # not re-queued (a permanent failure will never succeed on
-                # retry), matching the main loop's ``backlog.clear()`` when
-                # ``_try_ingest`` first returns ``None``.
-                continue
-            outcome = self._try_ingest(meeting_id, segment)
-            if outcome is True:
-                replayed += 1
-                continue
-            if outcome is None:
-                # Permanent as of this segment: stop calling the backend
-                # for the rest of ``pending`` (handled by the guard above)
-                # and don't re-queue this one either.
-                went_permanent = True
-                continue
-            # Still a transient failure: re-queue only this segment and
-            # keep attempting the rest of ``pending``.
-            backlog.append(segment)
+        try:
+            while pending:
+                if went_permanent:
+                    # Ingest just went permanently unavailable mid-replay:
+                    # further backend calls would only repeat the same
+                    # 404/405, so stop attempting them. These segments are
+                    # intentionally not re-queued (a permanent failure will
+                    # never succeed on retry), matching the main loop's
+                    # ``backlog.clear()`` when ``_try_ingest`` first returns
+                    # ``None``.
+                    pending.clear()
+                    break
+                segment = pending[0]
+                outcome = self._try_ingest(meeting_id, segment)
+                # Only pop once the outcome is known - if `_try_ingest`
+                # raises, `segment` stays at the front of `pending` for the
+                # `finally` block to recover.
+                pending.pop(0)
+                if outcome is True:
+                    replayed += 1
+                    continue
+                if outcome is None:
+                    # Permanent as of this segment: stop calling the
+                    # backend for the rest of ``pending`` (handled by the
+                    # guard above) and don't re-queue this one either.
+                    went_permanent = True
+                    continue
+                # Still a transient failure: re-queue only this segment and
+                # keep attempting the rest of ``pending``.
+                backlog.append(segment)
+        finally:
+            # Any exception unwinding through the loop above (including
+            # KeyboardInterrupt) leaves `pending` holding exactly the
+            # segments that were neither replayed, permanently dropped, nor
+            # already re-queued - put them back so nothing is lost.
+            backlog.extend(pending)
         if replayed:
             self._on_status(
                 f"Backend reconnected; replayed {replayed} queued segment(s)."
