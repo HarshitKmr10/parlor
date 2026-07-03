@@ -10,10 +10,12 @@ In ``mock`` mode only the mock provider is used.
 
 from __future__ import annotations
 
+import asyncio
 import logging
-from typing import Any
+import time
+from typing import Any, Awaitable, Callable, TypeVar
 
-from ..config import Settings
+from ..config import REQUEST_TIME_BUDGET, Settings
 from .anthropic_provider import AnthropicProvider
 from .azure_openai_provider import AzureOpenAIProvider
 from .base import LLMProvider, ProviderError
@@ -21,6 +23,15 @@ from .mock_provider import MockProvider
 from .openai_provider import OpenAIProvider
 
 logger = logging.getLogger("ai-service.router")
+
+# A blank/whitespace-only segment text is not embeddable content but the
+# embeddings API (e.g. OpenAI's) rejects an empty string outright, which would
+# otherwise fail the *entire* batch call and silently degrade every segment in
+# the request to mock vectors (see issue #22). Substituting a fixed, obviously
+# non-content placeholder keeps live providers handling the rest of the batch.
+_BLANK_SEGMENT_PLACEHOLDER = "(blank segment)"
+
+_T = TypeVar("_T")
 
 
 class ProviderRouter:
@@ -71,6 +82,53 @@ class ProviderRouter:
         # Live providers first, mock as the final safety net.
         return [*self._live, self._mock]
 
+    async def _run_chain(
+        self,
+        attempt: Callable[[LLMProvider], Awaitable[_T]],
+        *,
+        op: str,
+    ) -> _T:
+        """Try ``attempt(provider)`` across ``self._chain()``, enforcing a
+        total wall-clock budget (``REQUEST_TIME_BUDGET``) across the WHOLE
+        chain rather than relying solely on each provider's own
+        ``PROVIDER_TIMEOUT``.
+
+        Without this, a hanging live provider can consume up to
+        ``PROVIDER_TIMEOUT`` seconds before the router even tries the next
+        one -- with several live providers chained, worst-case latency can
+        exceed the backend caller's own HTTP timeout (issue #47). Once the
+        budget is exhausted, remaining LIVE provider attempts are skipped;
+        the mock provider (no I/O, effectively instant) still runs as the
+        final safety net regardless of budget so the existing "never 5xx"
+        behavior is preserved.
+        """
+        deadline = time.monotonic() + REQUEST_TIME_BUDGET
+        last_error: ProviderError | None = None
+        for provider in self._chain():
+            remaining = deadline - time.monotonic()
+            if provider is not self._mock and remaining <= 0:
+                logger.warning(
+                    "%s: time budget (%.1fs) exhausted before trying %s; "
+                    "skipping to the next provider",
+                    op,
+                    REQUEST_TIME_BUDGET,
+                    provider.name,
+                )
+                continue
+            try:
+                if provider is self._mock:
+                    return await attempt(provider)
+                return await asyncio.wait_for(attempt(provider), timeout=remaining)
+            except (ProviderError, asyncio.TimeoutError) as exc:
+                if isinstance(exc, asyncio.TimeoutError):
+                    exc = ProviderError(
+                        provider.name,
+                        f"exceeded remaining time budget ({remaining:.1f}s)",
+                    )
+                logger.warning("%s failed on %s: %s", op, provider.name, exc)
+                last_error = exc
+        raise last_error or ProviderError("router", "no providers available")
+
     async def complete_json(
         self,
         *,
@@ -81,22 +139,17 @@ class ProviderRouter:
         max_tokens: int = 8000,
         mock_context: dict[str, Any] | None = None,
     ) -> str:
-        if mock_context is not None:
-            self._mock.set_context(mock_context)
-        last_error: ProviderError | None = None
-        for provider in self._chain():
-            try:
-                return await provider.complete_json(
-                    system=system,
-                    user=user,
-                    schema=schema,
-                    premium=premium,
-                    max_tokens=max_tokens,
-                )
-            except ProviderError as exc:
-                logger.warning("complete_json failed on %s: %s", provider.name, exc)
-                last_error = exc
-        raise last_error or ProviderError("router", "no providers available")
+        return await self._run_chain(
+            lambda provider: provider.complete_json(
+                system=system,
+                user=user,
+                schema=schema,
+                premium=premium,
+                max_tokens=max_tokens,
+                mock_context=mock_context,
+            ),
+            op="complete_json",
+        )
 
     async def complete_text(
         self,
@@ -107,28 +160,34 @@ class ProviderRouter:
         max_tokens: int = 2000,
         mock_context: dict[str, Any] | None = None,
     ) -> str:
-        if mock_context is not None:
-            self._mock.set_context(mock_context)
-        last_error: ProviderError | None = None
-        for provider in self._chain():
-            try:
-                return await provider.complete_text(
-                    system=system,
-                    user=user,
-                    premium=premium,
-                    max_tokens=max_tokens,
-                )
-            except ProviderError as exc:
-                logger.warning("complete_text failed on %s: %s", provider.name, exc)
-                last_error = exc
-        raise last_error or ProviderError("router", "no providers available")
+        return await self._run_chain(
+            lambda provider: provider.complete_text(
+                system=system,
+                user=user,
+                premium=premium,
+                max_tokens=max_tokens,
+                mock_context=mock_context,
+            ),
+            op="complete_text",
+        )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
-        last_error: ProviderError | None = None
-        for provider in self._chain():
-            try:
-                return await provider.embed(texts)
-            except ProviderError as exc:
-                logger.warning("embed failed on %s: %s", provider.name, exc)
-                last_error = exc
-        raise last_error or ProviderError("router", "no providers available")
+        blank_count = sum(1 for t in texts if not t.strip())
+        if blank_count:
+            logger.warning(
+                "embed: %d/%d segment(s) were blank/whitespace-only; substituting "
+                "a placeholder so the rest of the batch still embeds via live "
+                "providers instead of degrading the whole request to mock",
+                blank_count,
+                len(texts),
+            )
+        # Substitute a placeholder for blank entries (never drop them) so the
+        # returned list stays positionally aligned with the caller's segments
+        # — callers (e.g. EmbeddingStore.upsert_segments) zip embeddings back
+        # onto segments by index.
+        safe_texts = [t if t.strip() else _BLANK_SEGMENT_PLACEHOLDER for t in texts]
+
+        return await self._run_chain(
+            lambda provider: provider.embed(safe_texts),
+            op="embed",
+        )

@@ -6,10 +6,13 @@
 * ``embed`` returns a deterministic hash-based pseudo-embedding of the configured
   dimension, so vector search behaves consistently across restarts.
 
-The mock summarizer receives the original payload out-of-band via
-``set_context`` because the textual prompt alone is lossy; the route layer sets
-it before each call. This keeps the public provider interface identical to the
-live providers.
+The mock summarizer receives the original payload out-of-band via a
+``mock_context`` keyword argument because the textual prompt alone is lossy.
+It is passed per-call rather than stored on the instance: :class:`MockProvider`
+is a shared singleton (via ``ProviderRouter``), so mutating instance state from
+one request could leak into a concurrent request's response. This keeps the
+public provider interface identical to the live providers, which also ignore
+``mock_context``.
 """
 
 from __future__ import annotations
@@ -50,13 +53,6 @@ def hash_embedding(text: str, dim: int = EMBEDDING_DIM) -> list[float]:
 class MockProvider(LLMProvider):
     name = "mock"
 
-    def __init__(self) -> None:
-        self._context: dict[str, Any] = {}
-
-    def set_context(self, context: dict[str, Any]) -> None:
-        """Provide the structured payload the mock summarizer needs."""
-        self._context = context
-
     async def complete_json(
         self,
         *,
@@ -65,9 +61,11 @@ class MockProvider(LLMProvider):
         schema: dict[str, Any],
         premium: bool = True,
         max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,
     ) -> str:
-        title = self._context.get("title", "Meeting")
-        segments: list[dict[str, Any]] = self._context.get("segments", [])
+        context = mock_context or {}
+        title = context.get("title", "Meeting")
+        segments: list[dict[str, Any]] = context.get("segments", [])
         speakers = sorted({s.get("speakerName", "") for s in segments if s.get("speakerName")})
 
         first_texts = [s.get("text", "") for s in segments[:3] if s.get("text")]
@@ -136,9 +134,11 @@ class MockProvider(LLMProvider):
         user: str,
         premium: bool = True,
         max_tokens: int = 2000,
+        mock_context: dict[str, Any] | None = None,
     ) -> str:
-        question = self._context.get("question", "")
-        snippets: list[str] = self._context.get("snippets", [])
+        context = mock_context or {}
+        question = context.get("question", "")
+        snippets: list[str] = context.get("snippets", [])
         if snippets:
             joined = " ".join(snippets[:3])
             return (
