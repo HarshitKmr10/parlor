@@ -52,6 +52,12 @@ _VALID_STATUSES = {"scheduled", "joining", "ongoing", "completed", "failed"}
 # Internal joiner platform tokens we accept on create.
 _SUPPORTED_PLATFORMS = {"msteams", "googlemeet", "zoom"}
 
+# /assist is polled every ~20s while a meeting is live. Sending the whole
+# growing transcript on every poll re-serializes and re-transmits an
+# ever-larger payload; window it to the most recent segments, mirroring the
+# `history[-6:]` windowing ai-service/app/rag/chat.py uses for chat history.
+_ASSIST_WINDOW_SEGMENTS = 40
+
 
 def _fire_completion_pipeline(meeting_id: str) -> None:
     """Kick the embed→summarize→recap pipeline as a background task.
@@ -526,8 +532,10 @@ async def get_meeting_assist(
     the batch timeout — the next poll will simply try again.
     """
     record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
+    all_segments = segments_from_transcript(record.transcript)
     segments = [
-        s.model_dump(by_alias=True) for s in segments_from_transcript(record.transcript)
+        s.model_dump(by_alias=True)
+        for s in all_segments[-_ASSIST_WINDOW_SEGMENTS:]
     ]
     try:
         data = await ai_client.assist({"meetingId": meeting_id, "segments": segments})

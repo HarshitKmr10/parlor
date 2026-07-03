@@ -4,6 +4,9 @@
   60s batch timeout (issue #113).
 * the route degrades to an empty "no suggestion this cycle" response when
   the ai-service call fails, instead of propagating a 502/503 to the caller.
+* the route windows the transcript to the most recent segments before
+  calling ai_client.assist, instead of re-sending the full growing
+  transcript on every poll (issue #115).
 """
 
 from __future__ import annotations
@@ -25,6 +28,21 @@ def _workspace() -> Workspace:
 
 def _record(transcript=None):
     return SimpleNamespace(transcript=transcript)
+
+
+def _transcript_with_segments(count: int) -> dict:
+    return {
+        "content": [
+            {
+                "id": f"seg-{i}",
+                "speaker": "Alice",
+                "text": f"Segment number {i}.",
+                "startTime": float(i),
+                "endTime": float(i) + 1,
+            }
+            for i in range(count)
+        ]
+    }
 
 
 def _service_and_repo(record):
@@ -164,3 +182,49 @@ class TestAssistGracefulDegradation:
 
         assert result.segment_count == 0
         assert result.suggested_questions == []
+
+
+class TestAssistWindowing:
+    """Issue #115: /assist must window the transcript instead of re-sending
+    the full growing transcript on every ~20s poll."""
+
+    @pytest.mark.asyncio
+    async def test_only_the_most_recent_window_of_segments_is_sent(self, monkeypatch):
+        captured = {}
+
+        async def fake_assist(payload):
+            captured["segments"] = payload["segments"]
+            return {"segmentCount": len(payload["segments"])}
+
+        monkeypatch.setattr(ai_client, "assist", fake_assist)
+        total = routes_meetings._ASSIST_WINDOW_SEGMENTS + 25
+        record = _record(_transcript_with_segments(total))
+        service, repo = _service_and_repo(record)
+
+        result = await routes_meetings.get_meeting_assist(
+            "m-1", _workspace(), service, repo
+        )
+
+        sent = captured["segments"]
+        assert len(sent) == routes_meetings._ASSIST_WINDOW_SEGMENTS
+        # It's the *tail* of the transcript, not an arbitrary slice.
+        assert sent[0]["text"] == f"Segment number {total - routes_meetings._ASSIST_WINDOW_SEGMENTS}."
+        assert sent[-1]["text"] == f"Segment number {total - 1}."
+        assert result.segment_count == routes_meetings._ASSIST_WINDOW_SEGMENTS
+
+    @pytest.mark.asyncio
+    async def test_transcript_under_the_window_is_sent_unchanged(self, monkeypatch):
+        captured = {}
+
+        async def fake_assist(payload):
+            captured["segments"] = payload["segments"]
+            return {"segmentCount": len(payload["segments"])}
+
+        monkeypatch.setattr(ai_client, "assist", fake_assist)
+        total = routes_meetings._ASSIST_WINDOW_SEGMENTS - 5
+        record = _record(_transcript_with_segments(total))
+        service, repo = _service_and_repo(record)
+
+        await routes_meetings.get_meeting_assist("m-1", _workspace(), service, repo)
+
+        assert len(captured["segments"]) == total
