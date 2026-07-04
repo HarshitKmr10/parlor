@@ -15,7 +15,9 @@ def _normalize(text: str) -> str:
 
 def dedupe_key(text: str) -> str:
     """Stable key for an action item's text (whitespace/case-insensitive)."""
-    return hashlib.md5(_normalize(text).encode("utf-8")).hexdigest()
+    return hashlib.md5(
+        _normalize(text).encode("utf-8"), usedforsecurity=False
+    ).hexdigest()
 
 
 def dedupe_ai_items(items: Iterable[Any]) -> List[Dict[str, str]]:

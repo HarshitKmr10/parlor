@@ -55,16 +55,28 @@ class RetentionRepo:
     async def delete_meetings(self, workspace_id: str, ids: List[str]) -> int:
         if not ids:
             return 0
+        # `ids` comes from an earlier list_all()/select_expired() snapshot that
+        # already excluded workspaces on legal hold. A hold applied *after*
+        # that snapshot but before this DELETE runs must still be honored, so
+        # the check is folded directly into each DELETE's WHERE clause (not a
+        # separate pre-check) -- each query_raw call may run in its own
+        # pooled-connection transaction, so a prior SELECT ... FOR UPDATE
+        # wouldn't reliably hold a lock across calls anyway.
+        not_on_legal_hold = (
+            "NOT COALESCE("
+            "(SELECT legal_hold FROM workspace_retention_settings "
+            "WHERE workspace_id = $1::uuid), FALSE)"
+        )
         # Embeddings live in a separate table keyed by text meeting_id.
         await self._db.store.query_raw(
             "DELETE FROM meeting_embeddings WHERE workspace_id = $1 "
-            "AND meeting_id = ANY($2::text[])",
+            f"AND meeting_id = ANY($2::text[]) AND {not_on_legal_hold}",
             workspace_id,
             ids,
         )
         rows = await self._db.store.query_raw(
             "DELETE FROM meeting_joiner WHERE workspace_id = $1::uuid "
-            "AND id = ANY($2::uuid[]) RETURNING id",
+            f"AND id = ANY($2::uuid[]) AND {not_on_legal_hold} RETURNING id",
             workspace_id,
             ids,
         )

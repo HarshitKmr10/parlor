@@ -65,12 +65,25 @@ class SimpleQueueService:
             raise
 
     async def queue_meeting_stop(self, meeting_id: str) -> str:
-        """Queue a meeting stop job - just update status to completed"""
+        """Queue a meeting stop job - signal the bot to leave, then mark completed"""
         if not self._initialized:
             await self.initialize()
 
         try:
-            # Update meeting status to completed
+            # Import here to avoid a hard dependency at module import time.
+            from services.meeting_processor_bridge import meeting_processor_bridge
+
+            # Signal the actual bot process to leave the call BEFORE marking
+            # the meeting completed in the DB. Without this, the bot keeps
+            # recording indefinitely even though the DB reports it done.
+            stop_result = await meeting_processor_bridge.stop_meeting(meeting_id)
+            if not stop_result.get("success"):
+                raise RuntimeError(
+                    f"Failed to signal bot to leave meeting {meeting_id}: "
+                    f"{stop_result.get('message')}"
+                )
+
+            # Only flip the DB status once the stop signal is confirmed sent.
             await self.db.update_meeting_status(meeting_id, MeetingStatus.COMPLETED)
             logger.info(f"Queued meeting stop {meeting_id}")
             return meeting_id

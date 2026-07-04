@@ -1,7 +1,7 @@
 """Unit tests for action items: dedupe normalization + repo behavior."""
 
 from dataclasses import dataclass
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -17,6 +17,23 @@ def test_dedupe_key_normalizes_case_and_whitespace():
 
 def test_dedupe_key_differs_for_different_text():
     assert dedupe_key("a") != dedupe_key("b")
+
+
+def test_dedupe_key_works_under_fips_mode_usedforsecurity_false():
+    """Regression: bare hashlib.md5(...) raises ValueError under FIPS-mode
+    OpenSSL builds. usedforsecurity=False documents this is a non-crypto
+    dedup fingerprint (not used for security) and avoids the crash."""
+    import hashlib
+
+    with patch.object(
+        hashlib,
+        "md5",
+        wraps=hashlib.md5,
+    ) as md5_spy:
+        dedupe_key("Ship it")
+
+    _, kwargs = md5_spy.call_args
+    assert kwargs.get("usedforsecurity") is False
 
 
 @dataclass

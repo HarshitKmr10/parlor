@@ -23,6 +23,7 @@ from starlette.responses import JSONResponse, Response
 
 from ..observability import get_logger
 from .keys import principal_key, tier_for_path
+from .share_scope import resolve_share_workspace_id, share_token_from_path
 from .store import InMemoryTokenBucketStore
 
 logger = get_logger(__name__)
@@ -72,13 +73,30 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         tier, rate, burst = self._limits(path)
+        api_key = request.headers.get("x-api-key")
+        authorization = request.headers.get("authorization")
+
+        # For the public share-link surface, scope the IP-fallback bucket to
+        # the share's owning workspace so two workspaces' anonymous viewers
+        # behind the same NAT/proxy IP don't share a bucket. Best-effort and
+        # fail-open: any resolution error just falls back to the plain IP key.
+        workspace_scope = None
+        if tier == "public" and not api_key and not authorization:
+            token = share_token_from_path(path)
+            if token:
+                try:
+                    workspace_scope = await resolve_share_workspace_id(token)
+                except Exception:  # noqa: BLE001 -- fail open
+                    workspace_scope = None
+
         key = (
             tier
             + ":"
             + principal_key(
-                api_key=request.headers.get("x-api-key"),
-                authorization=request.headers.get("authorization"),
+                api_key=api_key,
+                authorization=authorization,
                 client_host=request.client.host if request.client else None,
+                workspace_scope=workspace_scope,
             )
         )
 

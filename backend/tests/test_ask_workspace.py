@@ -3,9 +3,25 @@
 from unittest.mock import AsyncMock
 
 import pytest
+from pydantic import ValidationError
 
 from src.api.product import ai_client, routes_ask
 from src.api.product.schemas import AskRequest, Workspace
+
+
+def test_ask_request_rejects_question_over_max_length():
+    """Regression: an unbounded `question` field is a DoS/cost-exposure risk
+    (arbitrarily large RAG prompts sent to the ai-service). 8000 chars is
+    generous for a chat question while bounding worst-case cost."""
+    AskRequest(question="x" * 8000)  # exactly at the limit is fine
+
+    with pytest.raises(ValidationError):
+        AskRequest(question="x" * 8001)
+
+
+def test_ask_request_rejects_empty_question():
+    with pytest.raises(ValidationError):
+        AskRequest(question="")
 
 
 def _workspace() -> Workspace:

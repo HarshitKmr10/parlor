@@ -1,5 +1,7 @@
 """Unit tests for token-bucket rate limiting: algorithm, store, key derivation."""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from src.ratelimit.bucket import refill_and_consume
@@ -110,3 +112,188 @@ def test_secret_is_hashed_not_embedded():
 def test_tier_for_public_path():
     assert tier_for_path("/api/v1/public/shares/tok") == "public"
     assert tier_for_path("/api/v1/meetings") == "default"
+
+
+# ── cross-tenant share-link bucket scoping ──────────────────────────────────
+#
+# Regression coverage for: two different workspaces' anonymous share-link
+# viewers behind the same NAT/corporate-proxy IP must not collide into the
+# same rate-limit bucket, since that lets one workspace's heavily-used (or
+# abused) public share link starve an unrelated workspace's viewers.
+
+
+def test_workspace_scope_partitions_ip_fallback_bucket():
+    key_a = principal_key(
+        api_key=None,
+        authorization=None,
+        client_host="1.2.3.4",
+        workspace_scope="workspace-a",
+    )
+    key_b = principal_key(
+        api_key=None,
+        authorization=None,
+        client_host="1.2.3.4",
+        workspace_scope="workspace-b",
+    )
+    assert key_a != key_b
+    assert key_a == "ip:workspace-a:1.2.3.4"
+
+
+def test_workspace_scope_ignored_when_authenticated():
+    # A key/bearer principal is already precisely scoped; workspace_scope
+    # must not change that key.
+    assert principal_key(
+        api_key="sk_live_abc",
+        authorization=None,
+        client_host="1.2.3.4",
+        workspace_scope="workspace-a",
+    ) == principal_key(
+        api_key="sk_live_abc", authorization=None, client_host="1.2.3.4"
+    )
+
+
+def test_workspace_scope_none_is_backward_compatible():
+    assert (
+        principal_key(api_key=None, authorization=None, client_host="1.2.3.4")
+        == "ip:1.2.3.4"
+    )
+
+
+class TestShareScopeResolver:
+    def setup_method(self):
+        from src.ratelimit import share_scope
+
+        share_scope.clear_cache()
+
+    def teardown_method(self):
+        from src.ratelimit import share_scope
+
+        share_scope.clear_cache()
+
+    def test_share_token_from_path_matches_public_share_route(self):
+        from src.ratelimit.share_scope import share_token_from_path
+
+        assert share_token_from_path("/api/v1/public/shares/abc123") == "abc123"
+        assert share_token_from_path("/api/v1/meetings") is None
+        assert share_token_from_path("/api/v1/public/shares/abc123/") == "abc123"
+
+    @pytest.mark.asyncio
+    async def test_resolve_share_workspace_id_returns_owning_workspace(self):
+        from src.ratelimit.share_scope import resolve_share_workspace_id
+
+        with patch(
+            "src.sharing.SharesRepo.get_by_token",
+            new=AsyncMock(return_value={"workspace_id": "ws-1"}),
+        ), patch(
+            "src.api.database.connection.get_db_connection",
+            new=AsyncMock(return_value=object()),
+        ):
+            assert await resolve_share_workspace_id("tok-a") == "ws-1"
+
+    @pytest.mark.asyncio
+    async def test_resolve_share_workspace_id_caches_result(self):
+        from src.ratelimit.share_scope import resolve_share_workspace_id
+
+        lookup = AsyncMock(return_value={"workspace_id": "ws-1"})
+        with patch("src.sharing.SharesRepo.get_by_token", new=lookup), patch(
+            "src.api.database.connection.get_db_connection",
+            new=AsyncMock(return_value=object()),
+        ):
+            await resolve_share_workspace_id("tok-cached")
+            await resolve_share_workspace_id("tok-cached")
+
+        lookup.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_resolve_share_workspace_id_fails_open_on_error(self):
+        from src.ratelimit.share_scope import resolve_share_workspace_id
+
+        with patch(
+            "src.sharing.SharesRepo.get_by_token",
+            new=AsyncMock(side_effect=RuntimeError("db down")),
+        ), patch(
+            "src.api.database.connection.get_db_connection",
+            new=AsyncMock(return_value=object()),
+        ):
+            assert await resolve_share_workspace_id("tok-error") is None
+
+    @pytest.mark.asyncio
+    async def test_resolve_share_workspace_id_unknown_token_returns_none(self):
+        from src.ratelimit.share_scope import resolve_share_workspace_id
+
+        with patch(
+            "src.sharing.SharesRepo.get_by_token", new=AsyncMock(return_value=None)
+        ), patch(
+            "src.api.database.connection.get_db_connection",
+            new=AsyncMock(return_value=object()),
+        ):
+            assert await resolve_share_workspace_id("tok-unknown") is None
+
+
+class TestRateLimitMiddlewareShareScoping:
+    @staticmethod
+    def _make_request(path: str, client_host: str = "9.9.9.9"):
+        from starlette.requests import Request
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "headers": [],
+            "client": (client_host, 12345),
+            "query_string": b"",
+        }
+        return Request(scope)
+
+    @staticmethod
+    async def _call_next(_request):
+        from starlette.responses import Response
+
+        return Response(status_code=200)
+
+    @pytest.mark.asyncio
+    async def test_two_workspaces_same_ip_get_different_buckets(self):
+        from src.ratelimit.middleware import RateLimitMiddleware
+        from src.ratelimit import share_scope
+
+        share_scope.clear_cache()
+        store = InMemoryTokenBucketStore()
+        middleware = RateLimitMiddleware(app=None, store=store)
+
+        async def fake_resolve(token: str):
+            return {"tok-a": "workspace-a", "tok-b": "workspace-b"}[token]
+
+        with patch(
+            "src.ratelimit.middleware.resolve_share_workspace_id",
+            new=fake_resolve,
+        ):
+            await middleware.dispatch(
+                self._make_request("/api/v1/public/shares/tok-a"), self._call_next
+            )
+            await middleware.dispatch(
+                self._make_request("/api/v1/public/shares/tok-b"), self._call_next
+            )
+
+        bucket_keys = set(store._state.keys())
+        assert "public:ip:workspace-a:9.9.9.9" in bucket_keys
+        assert "public:ip:workspace-b:9.9.9.9" in bucket_keys
+
+    @pytest.mark.asyncio
+    async def test_share_resolution_error_falls_back_to_plain_ip_key(self):
+        from src.ratelimit.middleware import RateLimitMiddleware
+
+        store = InMemoryTokenBucketStore()
+        middleware = RateLimitMiddleware(app=None, store=store)
+
+        async def failing_resolve(_token: str):
+            raise RuntimeError("db unreachable")
+
+        with patch(
+            "src.ratelimit.middleware.resolve_share_workspace_id",
+            new=failing_resolve,
+        ):
+            await middleware.dispatch(
+                self._make_request("/api/v1/public/shares/tok-c"), self._call_next
+            )
+
+        assert "public:ip:9.9.9.9" in set(store._state.keys())

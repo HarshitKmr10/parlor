@@ -166,6 +166,29 @@ def test_worker_secret_key_refs_allow_per_env_secret_names(
     assert by_name["OPENAI_API_KEY"].value_from.secret_key_ref.key == "api-key"
 
 
+@pytest.mark.unit
+def test_sidecar_callback_token_is_required_when_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Regression: SIDECAR_CALLBACK_TOKEN must be required (optional=False),
+    not optional. The sidecar authenticates its session-ended callback with
+    this token (see src/api/routes/sessions.py); if it's allowed to launch
+    empty, the callback silently fails auth, the pod never gets released back
+    to the pool, and it leaks."""
+    _clear_secret_mapping_env(monkeypatch)
+    monkeypatch.setenv("SIDECAR_CALLBACK_TOKEN_SECRET_KEY", "sidecar-callback-token")
+    manager = wpm.WarmPoolManager()
+
+    secret_env = manager._build_secret_key_ref_env_vars()
+
+    assert len(secret_env) == 1
+    secret_ref = secret_env[0].value_from.secret_key_ref
+    assert secret_env[0].name == "SIDECAR_CALLBACK_TOKEN"
+    assert secret_ref.key == "sidecar-callback-token"
+    assert secret_ref.optional is False
+    assert "SIDECAR_CALLBACK_TOKEN" in wpm.REQUIRED_SECRET_KEY_REF_ENV_NAMES
+
+
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_created_worker_pod_wires_secret_refs_to_both_containers(

@@ -22,14 +22,24 @@ def principal_key(
     api_key: Optional[str],
     authorization: Optional[str],
     client_host: Optional[str],
+    workspace_scope: Optional[str] = None,
 ) -> str:
-    """Stable per-principal bucket key."""
+    """Stable per-principal bucket key.
+
+    ``workspace_scope`` (e.g. the workspace owning a public share token)
+    scopes the IP-fallback bucket so anonymous viewers of two different
+    workspaces' share links behind the same NAT/corporate-proxy IP don't
+    collide into the same bucket. Ignored when a key/bearer principal is
+    present since those are already precisely scoped.
+    """
     if api_key:
         return "key:" + _short_hash(api_key)
     if authorization:
         parts = authorization.split(" ", 1)
         if len(parts) == 2 and parts[0].lower() == "bearer" and parts[1].strip():
             return "user:" + _short_hash(parts[1].strip())
+    if workspace_scope:
+        return "ip:" + workspace_scope + ":" + (client_host or "unknown")
     return "ip:" + (client_host or "unknown")
 
 

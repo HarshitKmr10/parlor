@@ -292,6 +292,7 @@ class ZoomSDKService:
         """
         try:
             # First, try to get the stored PID from worker container
+            pid_file = f"/tmp/zoom_bot_pid_{meeting_db_id}.txt"
             stored_pid = await self._get_stored_pid_from_worker(meeting_db_id)
 
             # Create a termination signal file for the worker to check

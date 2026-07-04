@@ -205,21 +205,35 @@ class PgQueuerQueueService:
                 logger.info(f"Processing meeting stop for {meeting_id}")
 
                 # Import here to avoid circular imports
+                from ..services.meeting_processor_bridge import meeting_processor_bridge
+
+                # Signal the actual bot process/sidecar/pod to leave the call
+                # BEFORE marking the meeting completed in the DB. Without this,
+                # the bot keeps recording indefinitely and never frees its
+                # warm-pool slot even though the DB reports the meeting done.
+                stop_result = await meeting_processor_bridge.stop_meeting(meeting_id)
+                if not stop_result.get("success"):
+                    raise RuntimeError(
+                        f"Failed to signal bot to leave meeting {meeting_id}: "
+                        f"{stop_result.get('message')}"
+                    )
+
+                # Only flip the DB status once the stop signal is confirmed sent.
                 from ..api.database.connection import get_db_connection
                 from ..services.meeting_service import MeetingService
 
-                # Update meeting status to completed
                 db = await get_db_connection()
                 meeting_service = MeetingService(db)
                 await meeting_service.update_meeting_status(
                     meeting_id, MeetingStatus.COMPLETED
                 )
 
-                # TODO: Call actual bot leaving logic here
                 logger.info(f"Successfully stopped meeting {meeting_id}")
 
             except Exception as e:
                 logger.error(f"Error processing meeting stop job {job.id}: {e}")
+                # Re-raise so PGQueuer's retry executor retries the stop instead
+                # of silently reporting success on a bot that never got the signal.
                 raise
 
     async def queue_meeting(

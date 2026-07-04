@@ -409,7 +409,7 @@ class TranscribeService:
 
                     # Download and parse transcript
                     import requests
-                    transcript_response = requests.get(transcript_uri)
+                    transcript_response = requests.get(transcript_uri, timeout=30)
                     transcript_data = transcript_response.json()
 
                     # Format result
@@ -507,7 +507,7 @@ class TranscribeService:
 
                     # Download and parse transcript
                     import requests
-                    transcript_response = requests.get(transcript_uri)
+                    transcript_response = requests.get(transcript_uri, timeout=30)
                     healthscribe_data = transcript_response.json()
 
                     # Format result - use transcript portion like regular transcription
