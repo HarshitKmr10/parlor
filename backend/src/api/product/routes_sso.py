@@ -26,7 +26,7 @@ from ...sso import (
     sign_state,
     verify_state,
 )
-from .errors import ApiError
+from .errors import ApiError, is_unique_violation
 from .repository import AuthRepository
 from .routes_auth import _issue_tokens, _unique_slug, get_repo
 from .schemas import SignupResponse, User, Workspace
@@ -107,15 +107,45 @@ async def exchange(
     userinfo = await _fetch_userinfo(config, body.code)
     profile = profile_from_userinfo(userinfo)
     if profile is None:
-        raise ApiError(400, "sso_no_email", "IdP did not return an email")
+        raise ApiError(
+            400,
+            "sso_unverified_email",
+            "IdP did not return a verified email and subject claim",
+        )
 
-    # Find or provision the user (random password — they log in via SSO).
-    user_row = await repo.get_user_by_email(profile["email"])
+    # Already-linked accounts MUST resolve via the IdP's stable (issuer, sub)
+    # identity, never by email — email is mutable at the IdP and must not be
+    # trusted as the account-linking key once a link exists.
+    user_row = await repo.get_user_by_sso_identity(
+        issuer=config.issuer, subject=profile["sub"]
+    )
     if user_row is None:
-        user_row = await repo.create_user(
+        # First-time SSO login for this subject: find-or-create by verified
+        # email (safe here because profile_from_userinfo already enforced
+        # email_verified: true), then persist the (issuer, sub) link so every
+        # future login for this identity uses it instead of email.
+        user_row = await repo.get_user_by_email(profile["email"])
+        if user_row is None:
+            # The users_email_lower_uk unique index is the source of truth;
+            # catch its violation so a concurrent signup/SSO race for the same
+            # email logs into the winning account instead of a 500.
+            try:
+                user_row = await repo.create_user(
+                    email=profile["email"],
+                    name=profile["name"],
+                    password_hash=hash_password(secrets.token_urlsafe(32)),
+                )
+            except Exception as exc:  # noqa: BLE001 - re-raised unless it's the unique case
+                if not is_unique_violation(exc):
+                    raise
+                user_row = await repo.get_user_by_email(profile["email"])
+                if user_row is None:
+                    raise
+        await repo.link_sso_identity(
+            user_id=str(user_row["id"]),
+            issuer=config.issuer,
+            subject=profile["sub"],
             email=profile["email"],
-            name=profile["name"],
-            password_hash=hash_password(secrets.token_urlsafe(32)),
         )
     user = User.model_validate(user_row)
 

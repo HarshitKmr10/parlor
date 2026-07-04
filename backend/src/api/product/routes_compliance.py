@@ -69,7 +69,7 @@ async def put_retention(
 
 @router.get("/export")
 async def export_data(
-    ctx: AuthContext = Depends(get_current_context),
+    ctx: AuthContext = Depends(require_role("admin")),
     repo: RetentionRepo = Depends(_repo),
     db: DatabaseConnection = Depends(get_db),
 ) -> Response:

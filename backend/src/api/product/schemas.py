@@ -16,6 +16,7 @@ from pydantic import (
     ConfigDict,
     EmailStr,
     Field,
+    ValidationInfo,
     field_validator,
     model_validator,
 )
@@ -591,7 +592,7 @@ class TranscriptResponse(CamelModel):
 
 
 class AskRequest(CamelModel):
-    question: str = Field(..., min_length=1)
+    question: str = Field(..., min_length=1, max_length=8000)
     history: Optional[List[dict[str, Any]]] = None
 
 
@@ -649,6 +650,26 @@ class DigestPreferencesUpdate(CamelModel):
     day_of_week: int = Field(0, ge=0, le=6)
     channel: str = Field("email", pattern="^(email|slack)$")
     target: Optional[str] = Field(None, max_length=2000)
+
+    @field_validator("target")
+    @classmethod
+    def _validate_slack_target(
+        cls, value: Optional[str], info: ValidationInfo
+    ) -> Optional[str]:
+        """The Slack digest target is a second webhook-URL sink alongside
+        registered webhook endpoints — POST /digest-preferences/test and the
+        background scheduler both send an HTTP request to it. It must go
+        through the same SSRF guard, at write time, or a workspace member
+        could park an internal/metadata URL here that never gets validated.
+        Email targets are addresses, not URLs, so they're left alone."""
+        if value is None or info.data.get("channel") != "slack":
+            return value
+        from ...webhooks.safety import InvalidWebhookUrl, validate_webhook_url
+
+        try:
+            return validate_webhook_url(value)
+        except InvalidWebhookUrl as exc:
+            raise ValueError(str(exc)) from exc
 
 
 class MeetingAssist(CamelModel):

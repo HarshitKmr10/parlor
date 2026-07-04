@@ -76,6 +76,103 @@ async def test_stub_providers_report_not_implemented():
         assert "not yet implemented" in (result.detail or "")
 
 
+# ── RBAC: /api/v1/integrations is admin-only (credentials live in config) ──
+
+
+def _override_context(role: str):
+    from src.api.product.deps import AuthContext
+    from src.api.product.schemas import Workspace
+
+    def _dep():
+        return AuthContext(
+            user=None,
+            workspace=Workspace(
+                id="00000000-0000-0000-0000-000000000002",
+                name="W",
+                slug="w",
+                role=role,
+            ),
+            via_api_key=False,
+        )
+
+    return _dep
+
+
+@pytest.fixture
+def integrations_client_factory():
+    """Yields a factory building a TestClient for a given caller role, with
+    get_current_context + the route's IntegrationsRepo dependency overridden
+    so no real DB is touched."""
+    from fastapi.testclient import TestClient
+
+    from src.api.product import routes_integrations
+    from src.api.product.deps import get_current_context
+    from src.main import app
+
+    fake_repo = AsyncMock()
+    fake_repo.list_for_workspace.return_value = []
+    fake_repo.upsert.return_value = {
+        "kind": "slack",
+        "config": {"webhookUrl": "https://hooks.slack.com/services/x"},
+        "enabled": True,
+    }
+
+    def _make(role: str):
+        app.dependency_overrides[get_current_context] = _override_context(role)
+        app.dependency_overrides[routes_integrations._repo] = lambda: fake_repo
+        return TestClient(app), fake_repo
+
+    try:
+        yield _make
+    finally:
+        app.dependency_overrides.pop(get_current_context, None)
+        app.dependency_overrides.pop(routes_integrations._repo, None)
+
+
+def test_list_integrations_requires_admin_role(integrations_client_factory):
+    client, fake_repo = integrations_client_factory("member")
+    res = client.get("/api/v1/integrations")
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "insufficient_role"
+    fake_repo.list_for_workspace.assert_not_awaited()
+
+
+def test_list_integrations_allows_admin_role(integrations_client_factory):
+    client, fake_repo = integrations_client_factory("admin")
+    res = client.get("/api/v1/integrations")
+    assert res.status_code == 200
+    fake_repo.list_for_workspace.assert_awaited_once()
+
+
+def test_upsert_integration_requires_admin_role(integrations_client_factory):
+    client, fake_repo = integrations_client_factory("member")
+    res = client.put(
+        "/api/v1/integrations",
+        json={
+            "kind": "slack",
+            "enabled": True,
+            "config": {"webhookUrl": "https://hooks.slack.com/services/x"},
+        },
+    )
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "insufficient_role"
+    fake_repo.upsert.assert_not_awaited()
+
+
+def test_upsert_integration_allows_admin_role(integrations_client_factory):
+    client, fake_repo = integrations_client_factory("admin")
+    res = client.put(
+        "/api/v1/integrations",
+        json={
+            "kind": "slack",
+            "enabled": True,
+            "config": {"webhookUrl": "https://hooks.slack.com/services/x"},
+        },
+    )
+    assert res.status_code == 200, res.text
+    fake_repo.upsert.assert_awaited_once()
+
+
 @pytest.mark.asyncio
 async def test_deliver_recap_only_enabled_and_configured():
     db = AsyncMock()

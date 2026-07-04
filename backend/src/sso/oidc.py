@@ -82,13 +82,25 @@ def verify_state(secret: str, token: str) -> bool:
 
 
 def profile_from_userinfo(userinfo: Mapping[str, Any]) -> Optional[dict]:
-    """Map OIDC userinfo to {email, name}. Email is required."""
+    """Map OIDC userinfo to {email, name, sub}. Email is required and MUST be
+    IdP-verified (``email_verified: true``) — an unverified email claim is
+    attacker-controllable at many IdPs (self-service, unverified-by-design, or
+    simply misconfigured) and must never be trusted to look up or create an
+    account. ``sub`` (the IdP's stable subject claim) is also required so
+    callers can bind the login to a subject+issuer identity rather than the
+    mutable email string.
+    """
     email = userinfo.get("email")
     if not email or not isinstance(email, str):
+        return None
+    if userinfo.get("email_verified") is not True:
+        return None
+    sub = userinfo.get("sub")
+    if not sub or not isinstance(sub, str):
         return None
     name = (
         userinfo.get("name")
         or userinfo.get("preferred_username")
         or email.split("@")[0]
     )
-    return {"email": email.lower().strip(), "name": str(name)}
+    return {"email": email.lower().strip(), "name": str(name), "sub": sub}

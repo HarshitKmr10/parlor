@@ -109,6 +109,26 @@ def test_url_allows_public_https():
     )
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://2130706433/hook",  # decimal notation for 127.0.0.1
+        "https://0177.0.0.1/hook",  # octal notation for 127.0.0.1
+        "https://0x7f.0.0.1/hook",  # hex notation for 127.0.0.1
+        "https://017700000001/hook",  # single-component octal for 127.0.0.1
+    ],
+)
+def test_url_blocks_alternate_ip_notation_bypass(url):
+    """Security-review-caught bypass: ipaddress.ip_address() only recognizes
+    dotted-decimal IPv4 literals, but the OS resolver (and socket.inet_aton)
+    accepts decimal/octal/hex notations for the same address — a host string
+    in one of these forms previously fell through the private-IP check
+    entirely (parsed as `ip=None`, no hostname-pattern match either) and
+    still resolved to the real, blocked-in-intent address when connected to."""
+    with pytest.raises(InvalidWebhookUrl):
+        validate_webhook_url(url)
+
+
 # ── repo (mocked) ───────────────────────────────────────────────────────────
 
 

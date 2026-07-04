@@ -429,17 +429,25 @@ def test_webhook_acks_unknown_event(webhook_client, monkeypatch):
 
 @pytest.fixture
 def gw_subscribe_client():
+    """POST /events/subscribe is admin-gated (require_role("admin"), which
+    resolves via get_current_context) — override that, not the now-bypassed
+    get_current_workspace, so the fake admin identity actually reaches the
+    route."""
     from src.main import app
-    from src.api.product.deps import get_current_workspace
+    from src.api.product.deps import AuthContext, get_current_context
     from src.api.product.schemas import Workspace
 
-    app.dependency_overrides[get_current_workspace] = lambda: Workspace(
-        id="00000000-0000-0000-0000-000000000001", name="W", slug="w", role="admin"
+    app.dependency_overrides[get_current_context] = lambda: AuthContext(
+        user=None,
+        workspace=Workspace(
+            id="00000000-0000-0000-0000-000000000001", name="W", slug="w", role="admin"
+        ),
+        via_api_key=False,
     )
     try:
         yield TestClient(app, raise_server_exceptions=False)
     finally:
-        app.dependency_overrides.pop(get_current_workspace, None)
+        app.dependency_overrides.pop(get_current_context, None)
 
 
 def test_subscribe_route_400_when_pubsub_unconfigured(gw_subscribe_client, monkeypatch):

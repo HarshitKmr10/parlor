@@ -41,8 +41,9 @@ from ...services.meet_events_service import (
     WorkspaceNotConfiguredError,
 )
 from ..database.connection import DatabaseConnection
-from .deps import get_current_workspace, get_db
+from .deps import AuthContext, get_current_workspace, get_db
 from .errors import ApiError
+from .rbac import require_role
 from .schemas import (
     EventSubscribeResponse,
     EventSubscription,
@@ -68,10 +69,10 @@ def _to_config(row: dict) -> GoogleWorkspaceConfig:
 @router.post("", response_model=GoogleWorkspaceConfig)
 async def configure(
     body: GoogleWorkspaceConfigRequest,
-    workspace: Workspace = Depends(get_current_workspace),
+    ctx: AuthContext = Depends(require_role("admin")),
     repo: GoogleWorkspaceOrgRepo = Depends(_repo),
 ) -> GoogleWorkspaceConfig:
-    existing = await repo.get_public(workspace.id)
+    existing = await repo.get_public(ctx.workspace.id)
 
     if body.auth_mode == AUTH_MODE_DWD:
         # First configure under DWD must supply a service-account JSON.
@@ -103,7 +104,7 @@ async def configure(
                 )
 
     row = await repo.upsert(
-        workspace_id=workspace.id,
+        workspace_id=ctx.workspace.id,
         auth_mode=body.auth_mode,
         service_account_json=body.service_account_json,
         delegated_admin_email=(
@@ -123,10 +124,10 @@ async def configure(
 
 @router.get("", response_model=GoogleWorkspaceConfig)
 async def get_config(
-    workspace: Workspace = Depends(get_current_workspace),
+    ctx: AuthContext = Depends(require_role("admin")),
     repo: GoogleWorkspaceOrgRepo = Depends(_repo),
 ) -> GoogleWorkspaceConfig:
-    row = await repo.get_public(workspace.id)
+    row = await repo.get_public(ctx.workspace.id)
     if row is None:
         raise ApiError(
             400,
@@ -139,10 +140,10 @@ async def get_config(
 
 @router.delete("")
 async def delete_config(
-    workspace: Workspace = Depends(get_current_workspace),
+    ctx: AuthContext = Depends(require_role("admin")),
     repo: GoogleWorkspaceOrgRepo = Depends(_repo),
 ) -> dict:
-    deleted = await repo.delete(workspace.id)
+    deleted = await repo.delete(ctx.workspace.id)
     if not deleted:
         raise ApiError(
             400,
@@ -154,11 +155,11 @@ async def delete_config(
 
 @router.get("/users", response_model=GoogleWorkspaceUsersResponse)
 async def list_users(
-    workspace: Workspace = Depends(get_current_workspace),
+    ctx: AuthContext = Depends(require_role("admin")),
     repo: GoogleWorkspaceOrgRepo = Depends(_repo),
 ) -> GoogleWorkspaceUsersResponse:
     """Preview discovered org users — proves Directory + DWD work end to end."""
-    auth_config = await repo.get_auth_config(workspace.id)
+    auth_config = await repo.get_auth_config(ctx.workspace.id)
     if auth_config is None:
         raise ApiError(
             400,
@@ -192,7 +193,7 @@ async def list_users(
 
 @router.post("/events/subscribe", response_model=EventSubscribeResponse)
 async def subscribe_events(
-    workspace: Workspace = Depends(get_current_workspace),
+    ctx: AuthContext = Depends(require_role("admin")),
 ) -> EventSubscribeResponse:
     """Provision Meet conference-lifecycle subscriptions across the org.
 
@@ -201,7 +202,7 @@ async def subscribe_events(
     webhook. Requires both an enabled org config AND a Pub/Sub topic.
     """
     try:
-        summary = await MeetEventsService().provision_workspace(workspace.id)
+        summary = await MeetEventsService().provision_workspace(ctx.workspace.id)
     except PubSubNotConfiguredError as exc:
         raise ApiError(400, "pubsub_not_configured", str(exc))
     except WorkspaceNotConfiguredError as exc:
@@ -217,20 +218,20 @@ async def subscribe_events(
 
 @router.get("/events/subscriptions", response_model=EventSubscriptionsResponse)
 async def list_event_subscriptions(
-    workspace: Workspace = Depends(get_current_workspace),
+    ctx: AuthContext = Depends(require_role("admin")),
 ) -> EventSubscriptionsResponse:
     """List the workspace's Workspace Events subscriptions + their states."""
-    rows = await MeetEventsService().list_subscriptions(workspace.id)
+    rows = await MeetEventsService().list_subscriptions(ctx.workspace.id)
     subs = [EventSubscription.model_validate(r) for r in rows]
     return EventSubscriptionsResponse(subscriptions=subs, total=len(subs))
 
 
 @router.delete("/events/subscriptions")
 async def delete_event_subscriptions(
-    workspace: Workspace = Depends(get_current_workspace),
+    ctx: AuthContext = Depends(require_role("admin")),
 ) -> dict:
     """Tear down all Workspace Events subscriptions for the workspace."""
-    summary = await MeetEventsService().teardown_workspace(workspace.id)
+    summary = await MeetEventsService().teardown_workspace(ctx.workspace.id)
     return summary
 
 

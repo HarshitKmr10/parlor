@@ -9,9 +9,10 @@ from fastapi import APIRouter, Depends
 from ...integrations import KNOWN_KINDS, PROVIDERS, IntegrationsRepo
 from ...integrations.stub_providers import _NotImplementedProvider
 from ..database.connection import DatabaseConnection
-from .deps import get_db, get_current_workspace
+from .deps import AuthContext, get_db
 from .errors import ApiError
-from .schemas import Integration, IntegrationUpdate, Workspace
+from .rbac import require_role
+from .schemas import Integration, IntegrationUpdate
 
 router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 
@@ -27,15 +28,18 @@ async def _repo(db: DatabaseConnection = Depends(get_db)) -> IntegrationsRepo:
 
 @router.get("", response_model=List[Integration])
 async def list_integrations(
-    workspace: Workspace = Depends(get_current_workspace),
+    ctx: AuthContext = Depends(require_role("admin")),
     repo: IntegrationsRepo = Depends(_repo),
 ) -> List[Integration]:
     """Return one entry per known integration kind, merged with stored config.
 
     Kinds with no stored row are returned disabled with empty config so the
     dashboard always sees the full set of available integrations.
+
+    Admin-gated: stored config carries live credentials (Slack webhook URLs,
+    CRM tokens), so read access is restricted the same as write access.
     """
-    stored = {r["kind"]: r for r in await repo.list_for_workspace(workspace.id)}
+    stored = {r["kind"]: r for r in await repo.list_for_workspace(ctx.workspace.id)}
     out: List[Integration] = []
     for kind in KNOWN_KINDS:
         row = stored.get(kind)
@@ -53,7 +57,7 @@ async def list_integrations(
 @router.put("", response_model=Integration)
 async def upsert_integration(
     body: IntegrationUpdate,
-    workspace: Workspace = Depends(get_current_workspace),
+    ctx: AuthContext = Depends(require_role("admin")),
     repo: IntegrationsRepo = Depends(_repo),
 ) -> Integration:
     """Upsert config for one integration kind (one row per workspace+kind)."""
@@ -62,7 +66,7 @@ async def upsert_integration(
             400, "unknown_integration", f"Unknown integration kind: {body.kind}"
         )
     row = await repo.upsert(
-        workspace_id=workspace.id,
+        workspace_id=ctx.workspace.id,
         kind=body.kind,
         config=body.config or {},
         enabled=bool(body.enabled),

@@ -273,25 +273,65 @@ async def _scan_user_with_events(sync, db, auth, email, events):
 # ── (d) routes round-trip ────────────────────────────────────────────────────
 
 
+def _override_context(role: str):
+    """Build a get_current_context override resolving to a fixed workspace
+    with the given role. Every dependency in the tree that needs the
+    principal (get_current_workspace, require_role("admin"), ...) shares this
+    single override, since FastAPI resolves Depends(get_current_context) by
+    callable identity regardless of which route/dependency asked for it."""
+    from src.api.product.deps import AuthContext
+    from src.api.product.schemas import Workspace
+
+    def _dep():
+        return AuthContext(
+            user=None,
+            workspace=Workspace(
+                id="00000000-0000-0000-0000-000000000001",
+                name="W",
+                slug="w",
+                role=role,
+            ),
+            via_api_key=False,
+        )
+
+    return _dep
+
+
 @pytest.fixture
 def gw_client():
-    """TestClient with get_current_workspace + get_db overridden, and a single
-    in-memory google_workspace_orgs row simulated through the repo's SQL."""
+    """TestClient with get_current_context + get_db overridden (admin role —
+    every google-workspace route requires it), and a single in-memory
+    google_workspace_orgs row simulated through the repo's SQL."""
     from src.main import app
-    from src.api.product.deps import get_current_workspace, get_db
-    from src.api.product.schemas import Workspace
+    from src.api.product.deps import get_current_context, get_db
 
     state = {"row": None}  # the single stored config
 
     fake_db = _FakeWorkspaceDb(state)
-    app.dependency_overrides[get_current_workspace] = lambda: Workspace(
-        id="00000000-0000-0000-0000-000000000001", name="W", slug="w", role="admin"
-    )
+    app.dependency_overrides[get_current_context] = _override_context("admin")
     app.dependency_overrides[get_db] = lambda: fake_db
     try:
         yield TestClient(app), state
     finally:
-        app.dependency_overrides.pop(get_current_workspace, None)
+        app.dependency_overrides.pop(get_current_context, None)
+        app.dependency_overrides.pop(get_db, None)
+
+
+@pytest.fixture
+def gw_member_client():
+    """Same as gw_client but the caller is a plain 'member' — every endpoint
+    gated by require_role("admin") must reject with 403."""
+    from src.main import app
+    from src.api.product.deps import get_current_context, get_db
+
+    state = {"row": None}
+    fake_db = _FakeWorkspaceDb(state)
+    app.dependency_overrides[get_current_context] = _override_context("member")
+    app.dependency_overrides[get_db] = lambda: fake_db
+    try:
+        yield TestClient(app), state
+    finally:
+        app.dependency_overrides.pop(get_current_context, None)
         app.dependency_overrides.pop(get_db, None)
 
 
@@ -489,3 +529,63 @@ def test_routes_delete(gw_client):
     # Now it's gone.
     res = client.get("/api/v1/google-workspace")
     assert res.status_code == 400
+
+
+# ── RBAC: every admin-configuration endpoint must reject non-admin members ──
+
+
+def test_configure_requires_admin_role(gw_member_client):
+    client, _ = gw_member_client
+    res = client.post(
+        "/api/v1/google-workspace",
+        json={
+            "authMode": "dwd",
+            "serviceAccountJson": _FAKE_SA_JSON,
+            "delegatedAdminEmail": "admin@verdant-test.com",
+            "enabled": True,
+        },
+    )
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "insufficient_role"
+
+
+def test_get_config_requires_admin_role(gw_member_client):
+    client, _ = gw_member_client
+    res = client.get("/api/v1/google-workspace")
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "insufficient_role"
+
+
+def test_delete_config_requires_admin_role(gw_member_client):
+    client, _ = gw_member_client
+    res = client.delete("/api/v1/google-workspace")
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "insufficient_role"
+
+
+def test_list_users_requires_admin_role(gw_member_client):
+    client, _ = gw_member_client
+    res = client.get("/api/v1/google-workspace/users")
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "insufficient_role"
+
+
+def test_subscribe_events_requires_admin_role(gw_member_client):
+    client, _ = gw_member_client
+    res = client.post("/api/v1/google-workspace/events/subscribe")
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "insufficient_role"
+
+
+def test_list_event_subscriptions_requires_admin_role(gw_member_client):
+    client, _ = gw_member_client
+    res = client.get("/api/v1/google-workspace/events/subscriptions")
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "insufficient_role"
+
+
+def test_delete_event_subscriptions_requires_admin_role(gw_member_client):
+    client, _ = gw_member_client
+    res = client.delete("/api/v1/google-workspace/events/subscriptions")
+    assert res.status_code == 403
+    assert res.json()["error"]["code"] == "insufficient_role"

@@ -55,6 +55,34 @@ class AuthRepository:
         assert row is not None
         return row
 
+    # ── sso identities ───────────────────────────────────────────────────
+    # Already-linked SSO accounts must be looked up by (issuer, subject), the
+    # IdP's stable identifier — never by email, which is mutable at the IdP.
+    async def get_user_by_sso_identity(
+        self, *, issuer: str, subject: str
+    ) -> Optional[dict]:
+        return await self._one(
+            "SELECT u.id, u.email, u.name, u.password_hash, u.created_at "
+            "FROM users u "
+            "JOIN sso_identities si ON si.user_id = u.id "
+            "WHERE si.issuer = $1 AND si.subject = $2",
+            issuer,
+            subject,
+        )
+
+    async def link_sso_identity(
+        self, *, user_id: str, issuer: str, subject: str, email: str
+    ) -> None:
+        await self._query(
+            "INSERT INTO sso_identities (user_id, issuer, subject, email) "
+            "VALUES ($1::uuid, $2, $3, $4) "
+            "ON CONFLICT (issuer, subject) DO NOTHING",
+            user_id,
+            issuer,
+            subject,
+            email,
+        )
+
     # ── workspaces ───────────────────────────────────────────────────────
     async def create_workspace(self, *, name: str, slug: str) -> dict:
         row = await self._one(
