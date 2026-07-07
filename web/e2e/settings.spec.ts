@@ -14,8 +14,8 @@ test.describe("summary templates", () => {
 
   test("creates a custom template", async ({ page }) => {
     await page.goto("/settings/templates");
-    await page.getByPlaceholder(/template name/i).fill("E2E Interview Template");
-    await page.getByPlaceholder(/instructions for the summarizer/i).fill(
+    await page.getByLabel(/template name/i).fill("E2E Interview Template");
+    await page.getByLabel(/instructions/i).fill(
       "Focus on candidate strengths and concerns.",
     );
     await page.getByRole("button", { name: /create template/i }).click();
