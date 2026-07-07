@@ -126,22 +126,22 @@ export function ShareButton({ meetingId }: Props) {
             </>
           ) : (
             <>
-              <label className="flex items-center justify-between gap-4">
+              <div className="flex items-center justify-between gap-4">
                 <span className="text-sm text-ink-soft">Include full transcript</span>
                 <Toggle
                   checked={includeTranscript}
                   onChange={setIncludeTranscript}
                   label="Include full transcript"
                 />
-              </label>
-              <label className="flex items-center justify-between gap-4">
+              </div>
+              <div className="flex items-center justify-between gap-4">
                 <span className="text-sm text-ink-soft">Include analytics</span>
                 <Toggle
                   checked={includeAnalytics}
                   onChange={setIncludeAnalytics}
                   label="Include analytics"
                 />
-              </label>
+              </div>
               <Button onClick={create} disabled={loading}>
                 {loading ? "Creating…" : "Create share link"}
               </Button>

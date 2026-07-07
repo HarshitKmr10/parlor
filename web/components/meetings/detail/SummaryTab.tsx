@@ -25,9 +25,9 @@ export function SummaryTab({ insights }: Props) {
               Key points
             </h2>
             <ul className="flex flex-col gap-2.5">
-              {insights.keyPoints.map((point, index) => (
+              {insights.keyPoints.map((point) => (
                 <li
-                  key={index}
+                  key={point}
                   className="flex gap-2.5 text-sm leading-relaxed text-ink-soft"
                 >
                   <span

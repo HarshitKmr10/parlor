@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
-import type { ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 
 export type TabDef = {
   key: string;
@@ -46,6 +46,33 @@ export function MeetingTabs({ tabs, defaultTab }: Props) {
   };
 
   const panel = tabs.find((t) => t.key === active)?.panel ?? null;
+  const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  // WAI-ARIA tabs pattern: roving tabindex + arrow/home/end keys both move
+  // focus and activate the corresponding panel.
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    let nextIndex: number | null = null;
+    switch (event.key) {
+      case "ArrowRight":
+        nextIndex = (index + 1) % tabs.length;
+        break;
+      case "ArrowLeft":
+        nextIndex = (index - 1 + tabs.length) % tabs.length;
+        break;
+      case "Home":
+        nextIndex = 0;
+        break;
+      case "End":
+        nextIndex = tabs.length - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    const nextTab = tabs[nextIndex];
+    setActive(nextTab.key);
+    tabRefs.current.get(nextTab.key)?.focus();
+  };
 
   return (
     <div>
@@ -54,17 +81,23 @@ export function MeetingTabs({ tabs, defaultTab }: Props) {
         aria-label="Meeting content"
         className="flex gap-1 overflow-x-auto border-b border-border-subtle"
       >
-        {tabs.map((tab) => {
+        {tabs.map((tab, index) => {
           const isActive = tab.key === active;
           return (
             <button
               key={tab.key}
+              ref={(el) => {
+                if (el) tabRefs.current.set(tab.key, el);
+                else tabRefs.current.delete(tab.key);
+              }}
               type="button"
               role="tab"
               id={`tab-${tab.key}`}
               aria-selected={isActive}
               aria-controls={`panel-${tab.key}`}
+              tabIndex={isActive ? 0 : -1}
               onClick={() => setActive(tab.key)}
+              onKeyDown={(event) => handleKeyDown(event, index)}
               className={`relative -mb-px whitespace-nowrap px-4 py-2.5 font-sans text-sm font-medium transition-colors ${
                 isActive ? "text-ink" : "text-ink-muted hover:text-ink-soft"
               }`}

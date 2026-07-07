@@ -16,6 +16,12 @@ export function DigestSettings({ initial }: { initial: DigestPreferences }) {
 
   const patch = (p: Partial<DigestPreferences>) => setPrefs((prev) => ({ ...prev, ...p }));
 
+  const handleHourChange = (value: string) => {
+    const parsed = Number(value);
+    if (Number.isNaN(parsed)) return;
+    patch({ hourUtc: Math.min(23, Math.max(0, Math.trunc(parsed))) });
+  };
+
   const save = async () => {
     setSaving(true);
     setError(null);
@@ -100,7 +106,7 @@ export function DigestSettings({ initial }: { initial: DigestPreferences }) {
             min={0}
             max={23}
             value={prefs.hourUtc}
-            onChange={(e) => patch({ hourUtc: Number(e.target.value) })}
+            onChange={(e) => handleHourChange(e.target.value)}
             className="rounded-md border border-border-default bg-surface-0 px-3 py-2 text-sm text-ink"
           />
         </label>

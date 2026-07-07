@@ -11,6 +11,16 @@ function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+/**
+ * Guards against open redirects. `next` must be a same-origin, path-relative
+ * URL — reject protocol-relative (`//evil.com`, browsers treat the leading
+ * `//` as "same scheme, different host") and backslash-prefixed values
+ * (`/\evil.com`, some browsers normalize `\` to `/` during navigation).
+ */
+function isSafeRedirectPath(value: string): boolean {
+  return value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\");
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,7 +45,7 @@ export function LoginForm() {
     setIsSubmitting(true);
     try {
       await postJson("/api/auth/login", { email, password });
-      router.push(next.startsWith("/") ? next : "/dashboard");
+      router.push(isSafeRedirectPath(next) ? next : "/dashboard");
       router.refresh();
     } catch (error: unknown) {
       setFormError(

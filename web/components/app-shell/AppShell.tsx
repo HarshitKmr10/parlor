@@ -63,18 +63,28 @@ export function AppShell({ children }: Props) {
         </div>
       </aside>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — backdrop, header, and panel are independent stacking
+          layers (z-30/z-40/z-50) so the header's controls (notably the
+          notification bell) stay above the backdrop and remain clickable
+          instead of being trapped under a single full-screen z-50 wrapper. */}
       {isDrawerOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            aria-label="Close navigation"
-            onClick={() => setIsDrawerOpen(false)}
-            className="absolute inset-0 bg-ink/30 backdrop-blur-sm"
-          />
-          <aside className="absolute top-0 left-0 flex h-full w-72 flex-col border-r border-border-subtle bg-surface-0 shadow-soft-xl">
-            <div className="flex h-16 items-center justify-between border-b border-border-subtle px-5">
-              <Wordmark />
+        <button
+          type="button"
+          aria-label="Close navigation"
+          onClick={() => setIsDrawerOpen(false)}
+          className="fixed inset-0 z-30 bg-ink/30 backdrop-blur-sm lg:hidden"
+        />
+      )}
+      {isDrawerOpen && (
+        <aside className="fixed inset-y-0 left-0 z-50 flex h-full w-72 flex-col border-r border-border-subtle bg-surface-0 shadow-soft-xl lg:hidden">
+          <div className="flex h-16 items-center justify-between border-b border-border-subtle px-5">
+            <Wordmark />
+            <div className="flex items-center gap-1">
+              {/* Below 640px the panel can overlap the top-bar bell, so the
+                  drawer carries its own reachable instance. */}
+              <div className="sm:hidden">
+                <NotificationBell />
+              </div>
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(false)}
@@ -84,9 +94,9 @@ export function AppShell({ children }: Props) {
                 <CloseIcon className="h-5 w-5" />
               </button>
             </div>
-            <SidebarNav onNavigate={() => setIsDrawerOpen(false)} />
-          </aside>
-        </div>
+          </div>
+          <SidebarNav onNavigate={() => setIsDrawerOpen(false)} />
+        </aside>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">

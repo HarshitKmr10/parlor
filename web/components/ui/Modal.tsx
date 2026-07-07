@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { CloseIcon } from "./icons";
 
 type Props = {
@@ -11,7 +11,20 @@ type Props = {
   children: React.ReactNode;
 };
 
+const FOCUSABLE_SELECTOR =
+  'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function getFocusable(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
+    (el) => el.offsetParent !== null,
+  );
+}
+
 export function Modal({ isOpen, onClose, title, description, children }: Props) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+
+  // Escape-to-close + body scroll lock.
   useEffect(() => {
     if (!isOpen) return;
     const handleEscape = (event: KeyboardEvent) => {
@@ -24,6 +37,45 @@ export function Modal({ isOpen, onClose, title, description, children }: Props) 
       document.body.style.overflow = "";
     };
   }, [isOpen, onClose]);
+
+  // Move focus into the dialog on open, trap Tab within it, and restore
+  // focus to whatever triggered the modal once it closes.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    previouslyFocusedRef.current = document.activeElement as HTMLElement | null;
+    const container = dialogRef.current;
+    const focusables = container ? getFocusable(container) : [];
+    (focusables[0] ?? container)?.focus();
+
+    const handleKeydown = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !container) return;
+      const elements = getFocusable(container);
+      if (elements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+      const first = elements[0];
+      const last = elements[elements.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey) {
+        if (active === first || !container.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else if (active === last || !container.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeydown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeydown);
+      previouslyFocusedRef.current?.focus();
+    };
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -40,7 +92,11 @@ export function Modal({ isOpen, onClose, title, description, children }: Props) 
         onClick={onClose}
         className="absolute inset-0 bg-ink/30 backdrop-blur-sm"
       />
-      <div className="relative w-full max-w-lg overflow-hidden rounded-xl border border-border-subtle bg-surface-0 shadow-soft-xl">
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="relative flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface-0 shadow-soft-xl outline-none"
+      >
         <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-6 py-5">
           <div>
             <h2 className="font-display text-xl text-ink">{title}</h2>
@@ -57,7 +113,7 @@ export function Modal({ isOpen, onClose, title, description, children }: Props) 
             <CloseIcon className="h-5 w-5" />
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        <div className="overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );

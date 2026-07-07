@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { postJson, patchJson, del } from "@/lib/api/browser";
 import type { SummaryTemplate, SummaryTemplatePreset } from "@/lib/api/types";
 import { Button } from "@/components/ui/Button";
@@ -16,6 +16,8 @@ export function TemplatesManager({ initialTemplates, presets }: Props) {
   const [instructions, setInstructions] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const nameId = useId();
+  const instructionsId = useId();
 
   const create = async (payload: { name: string; instructions: string; sections?: string[] }) => {
     setBusy(true);
@@ -42,6 +44,7 @@ export function TemplatesManager({ initialTemplates, presets }: Props) {
   };
 
   const remove = async (id: string) => {
+    if (!window.confirm("Delete this template? This can't be undone.")) return;
     const snapshot = templates;
     setTemplates((prev) => prev.filter((t) => t.id !== id));
     try {
@@ -121,19 +124,34 @@ export function TemplatesManager({ initialTemplates, presets }: Props) {
       <div className="rounded-lg border border-border-subtle bg-surface-1/60 p-4">
         <p className="eyebrow mb-3">Custom template</p>
         <div className="flex flex-col gap-3">
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Template name (e.g. Customer interview)"
-            className="rounded-md border border-border-default bg-surface-0 px-3 py-2 text-sm text-ink"
-          />
-          <textarea
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            rows={3}
-            placeholder="Instructions for the summarizer — tone, sections, what to emphasize…"
-            className="resize-y rounded-md border border-border-default bg-surface-0 px-3 py-2 text-sm text-ink"
-          />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor={nameId} className="font-sans text-sm font-medium text-ink-soft">
+              Template name
+            </label>
+            <input
+              id={nameId}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Customer interview"
+              className="rounded-md border border-border-default bg-surface-0 px-3 py-2 text-sm text-ink"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label
+              htmlFor={instructionsId}
+              className="font-sans text-sm font-medium text-ink-soft"
+            >
+              Instructions
+            </label>
+            <textarea
+              id={instructionsId}
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
+              rows={3}
+              placeholder="Tone, sections, what to emphasize…"
+              className="resize-y rounded-md border border-border-default bg-surface-0 px-3 py-2 text-sm text-ink"
+            />
+          </div>
           <div className="flex justify-end">
             <Button
               onClick={() => create({ name: name.trim(), instructions: instructions.trim() })}

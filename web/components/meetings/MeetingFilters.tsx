@@ -15,14 +15,10 @@ type Props = {
   active: FilterValue;
 };
 
-/** URL-driven status filter tabs. Each tab is a link that resets pagination. */
+/** URL-driven status filter links. Each one is a full navigation that resets pagination. */
 export function MeetingFilters({ active }: Props) {
   return (
-    <div
-      role="tablist"
-      aria-label="Filter meetings by status"
-      className="flex flex-wrap gap-1.5"
-    >
+    <nav aria-label="Filter meetings by status" className="flex flex-wrap gap-1.5">
       {FILTERS.map((filter) => {
         const isActive = filter.value === active;
         const href =
@@ -31,8 +27,7 @@ export function MeetingFilters({ active }: Props) {
           <Link
             key={filter.value}
             href={href}
-            role="tab"
-            aria-selected={isActive}
+            aria-current={isActive ? "page" : undefined}
             className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               isActive
                 ? "bg-sage-600 text-surface-cream shadow-soft-sm"
@@ -43,6 +38,6 @@ export function MeetingFilters({ active }: Props) {
           </Link>
         );
       })}
-    </div>
+    </nav>
   );
 }
