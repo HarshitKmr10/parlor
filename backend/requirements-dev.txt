@@ -6,14 +6,17 @@
 # asyncpg (pg) driver and serve /health, /ready, and the /api/v1 product layer.
 
 # Web framework
-fastapi>=0.120,<0.121
+fastapi>=0.133,<0.134
 uvicorn[standard]>=0.30,<0.31
 pydantic>=2.5,<3
 pydantic-settings>=2.1,<3
 email-validator>=2.1            # required by pydantic EmailStr
 python-multipart>=0.0.27
 python-dotenv>=1.0
-starlette>=0.49,<0.50
+# CVE-2026-48710 / GHSA-86qp-5c8j-p5mr: Host-header path desync fixed in
+# starlette 1.0.1+. fastapi 0.133 is the earliest release that drops the
+# <1.0 upper bound on starlette, so it's the minimum compatible pair.
+starlette>=1.0.1,<1.1
 
 # Database
 asyncpg>=0.30,<1.0
