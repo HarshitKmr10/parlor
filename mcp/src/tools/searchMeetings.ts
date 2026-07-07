@@ -6,7 +6,7 @@
  */
 
 import { z } from "zod";
-import type { VerdantClient } from "../client.js";
+import type { ParlorClient } from "../client.js";
 import type { Meeting, MeetingStatus } from "../types.js";
 import { formatMeetingList } from "../format.js";
 import { safeRun, textResult, type ToolResult } from "./shared.js";
@@ -55,12 +55,12 @@ function matchesQuery(meeting: Meeting, needle: string): boolean {
 }
 
 export function handleSearchMeetings(
-  client: VerdantClient,
+  client: ParlorClient,
   input: SearchMeetingsInput,
 ): Promise<ToolResult> {
   return safeRun(async () => {
     const limit = input.limit ?? 20;
-    const params: Parameters<VerdantClient["listMeetings"]>[0] = input.status
+    const params: Parameters<ParlorClient["listMeetings"]>[0] = input.status
       ? { limit, status: input.status }
       : { limit };
 

@@ -11,7 +11,7 @@
 services:
   db:
     image: pgvector/pgvector:pg16
-    container_name: meeting-saas-db
+    container_name: parlor-db
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-meeting}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-meeting}
@@ -30,13 +30,13 @@ services:
       timeout: 3s
       retries: 20
     networks:
-      - meeting-saas
+      - parlor
 
   api:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    container_name: meeting-saas-api
+    container_name: parlor-api
     depends_on:
       db:
         condition: service_healthy
@@ -71,11 +71,11 @@ services:
     command: >
       uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
-      - meeting-saas
+      - parlor
 
 volumes:
   meeting_pgdata:
 
 networks:
-  meeting-saas:
+  parlor:
     driver: bridge

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from .audio.capture import AudioSource
-from .client.api import VerdantClient
+from .client.api import ParlorClient
 from .client.segments import Segment, segment_from_stt
 from .errors import BackendError
 from .stt.base import STTBackend
@@ -58,7 +58,7 @@ class CapturePipeline:
         *,
         source: AudioSource,
         stt: STTBackend,
-        client: Optional[VerdantClient],
+        client: Optional[ParlorClient],
         default_speaker: str = "Speaker 1",
         on_segment: Optional[SegmentCallback] = None,
         on_status: Optional[StatusCallback] = None,

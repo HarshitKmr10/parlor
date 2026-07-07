@@ -4,7 +4,7 @@
  */
 
 import { z } from "zod";
-import type { VerdantClient } from "../client.js";
+import type { ParlorClient } from "../client.js";
 import { formatMeetingDetail } from "../format.js";
 import { safeRun, textResult, type ToolResult } from "./shared.js";
 
@@ -19,7 +19,7 @@ const inputSchema = z.object(getMeetingShape);
 export type GetMeetingInput = z.infer<typeof inputSchema>;
 
 export function handleGetMeeting(
-  client: VerdantClient,
+  client: ParlorClient,
   input: GetMeetingInput,
 ): Promise<ToolResult> {
   return safeRun(async () => {

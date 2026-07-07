@@ -1,7 +1,7 @@
 """``parlor-capture`` CLI — botless desktop audio capture for Parlor.
 
 Captures local system/meeting audio, transcribes it (local faster-whisper, a
-mock backend, or a remote STT), and streams transcript segments to the Verdant
+mock backend, or a remote STT), and streams transcript segments to the Parlor
 backend so the transcript/summary flow runs WITHOUT a bot joining the call.
 This complements the server-side joiner bots; it does not replace them.
 """
@@ -19,7 +19,7 @@ from rich.table import Table
 from . import __version__
 from .audio.capture import AudioSource
 from .audio.devices import BLACKHOLE_SETUP_HELP, list_input_devices
-from .client.api import VerdantClient
+from .client.api import ParlorClient
 from .client.segments import Segment
 from .config import load_config
 from .errors import CaptureError
@@ -32,7 +32,7 @@ err_console = Console(stderr=True)
 app = typer.Typer(
     add_completion=False,
     help=(
-        "Botless desktop capture for Verdant — capture local meeting audio "
+        "Botless desktop capture for Parlor — capture local meeting audio "
         "(no bot joins the call), transcribe it, and stream the transcript to "
         "the backend."
     ),
@@ -115,7 +115,7 @@ def gui(
 
     server = serve(host=host, port=port)
     url = f"http://{host}:{port}/"
-    console.print(f"[green]Verdant Capture panel:[/] {url}")
+    console.print(f"[green]Parlor Capture panel:[/] {url}")
     if open_browser:
         import webbrowser  # noqa: PLC0415
 
@@ -193,7 +193,7 @@ def capture(
         help="Override transcript ingest path (supports {meeting_id}).",
     ),
 ) -> None:
-    """Capture system/meeting audio and stream the transcript to Verdant."""
+    """Capture system/meeting audio and stream the transcript to Parlor."""
     try:
         _run_capture(
             meeting_url=meeting_url,
@@ -275,14 +275,14 @@ def _run_capture(
     console.print(f"[bold]STT backend:[/] {stt.name}")
 
     # 3. Backend + meeting
-    client: Optional[VerdantClient] = None
+    client: Optional[ParlorClient] = None
     used_url = meeting_url or synthetic_meeting_url()
     meeting_id: Optional[str] = None
 
     if local:
         console.print("[bold]Mode:[/] local (offline) — no backend calls.")
     else:
-        client = VerdantClient(config)
+        client = ParlorClient(config)
         mode = client.authenticate()
         console.print(f"[bold]Authenticated:[/] {mode}")
         if meeting_url is None:

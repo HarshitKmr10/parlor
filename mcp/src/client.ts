@@ -1,12 +1,12 @@
 /**
- * Typed HTTP client over the Verdant backend product API (v1).
+ * Typed HTTP client over the Parlor backend product API (v1).
  *
  * Authenticates with the workspace API key via the `X-API-Key` header (the
  * documented alternative to Bearer JWT) and unwraps the
  * `{ error: { code, message } }` error envelope into a typed {@link ApiError}.
  */
 
-import type { VerdantConfig } from "./config.js";
+import type { ParlorConfig } from "./config.js";
 import type {
   AskResponse,
   ApiErrorEnvelope,
@@ -43,7 +43,7 @@ export interface ListMeetingsParams {
 }
 
 export interface ClientOptions {
-  readonly config: VerdantConfig;
+  readonly config: ParlorConfig;
   /** Defaults to the global `fetch`. Override for tests. */
   readonly fetchImpl?: FetchLike;
   /** Request timeout in milliseconds. Defaults to 30s. */
@@ -60,8 +60,8 @@ function isErrorEnvelope(value: unknown): value is ApiErrorEnvelope {
   return typeof err.code === "string" && typeof err.message === "string";
 }
 
-export class VerdantClient {
-  private readonly config: VerdantConfig;
+export class ParlorClient {
+  private readonly config: ParlorConfig;
   private readonly fetchImpl: FetchLike;
   private readonly timeoutMs: number;
 
@@ -145,7 +145,7 @@ export class VerdantClient {
             ? cause.message
             : "Unknown network error";
       throw new ApiError(
-        `Failed to reach Verdant API at ${url}: ${reason}`,
+        `Failed to reach Parlor API at ${url}: ${reason}`,
         "network_error",
         0,
         cause,
@@ -166,13 +166,13 @@ export class VerdantClient {
       } catch {
         if (!response.ok) {
           throw new ApiError(
-            `Verdant API ${response.status} at ${url}: ${text.slice(0, 200)}`,
+            `Parlor API ${response.status} at ${url}: ${text.slice(0, 200)}`,
             "http_error",
             response.status,
           );
         }
         throw new ApiError(
-          `Verdant API returned non-JSON body at ${url}`,
+          `Parlor API returned non-JSON body at ${url}`,
           "invalid_response",
           response.status,
         );
@@ -189,7 +189,7 @@ export class VerdantClient {
         );
       }
       throw new ApiError(
-        `Verdant API ${response.status} at ${url}`,
+        `Parlor API ${response.status} at ${url}`,
         "http_error",
         response.status,
       );

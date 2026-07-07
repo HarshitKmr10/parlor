@@ -5,7 +5,7 @@
 
 const DEFAULT_API_URL = "http://localhost:8000";
 
-export interface VerdantConfig {
+export interface ParlorConfig {
   /** Backend base URL, no trailing slash (e.g. http://localhost:8000). */
   readonly apiUrl: string;
   /** Workspace API key sent as the `X-API-Key` header. */
@@ -30,18 +30,18 @@ function stripTrailingSlash(value: string): string {
  * values are absent so the process exits with an actionable message instead of
  * failing later mid-request.
  */
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): VerdantConfig {
-  const apiKey = env.VERDANT_API_KEY?.trim();
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): ParlorConfig {
+  const apiKey = env.PARLOR_API_KEY?.trim();
   if (!apiKey) {
     throw new ConfigError(
-      "VERDANT_API_KEY is required. Set it to a workspace API key " +
+      "PARLOR_API_KEY is required. Set it to a workspace API key " +
         "(create one via the Parlor app: Settings → API Keys). " +
-        "Example: VERDANT_API_KEY=vk_live_... parlor-mcp",
+        "Example: PARLOR_API_KEY=vk_live_... parlor-mcp",
     );
   }
 
-  const rawUrl = env.VERDANT_API_URL?.trim() || DEFAULT_API_URL;
-  const workspaceId = env.VERDANT_WORKSPACE_ID?.trim();
+  const rawUrl = env.PARLOR_API_URL?.trim() || DEFAULT_API_URL;
+  const workspaceId = env.PARLOR_WORKSPACE_ID?.trim();
 
   return {
     apiUrl: stripTrailingSlash(rawUrl),

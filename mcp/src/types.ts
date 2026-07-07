@@ -1,5 +1,5 @@
 /**
- * Types mirroring the Verdant backend product API (v1).
+ * Types mirroring the Parlor backend product API (v1).
  * Source of truth: docs/API-CONTRACT.md. JSON is camelCase, IDs are UUID
  * strings, timestamps are ISO-8601 UTC strings.
  */

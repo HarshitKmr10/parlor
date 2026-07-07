@@ -4,7 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
  * Playwright E2E config for the Parlor web app.
  *
  * Assumes the full local stack is already running (see native-run-recipe):
- *   - backend  :8000  (DATABASE_URL=postgres verdant, MEETING_JOINER_DB_DRIVER=pg)
+ *   - backend  :8000  (DATABASE_URL=postgres parlor, MEETING_JOINER_DB_DRIVER=pg)
  *   - ai-svc   :8100  (AI_MODE=mock)
  *   - web      :3000  (this server; auto-started below, reused if present)
  *

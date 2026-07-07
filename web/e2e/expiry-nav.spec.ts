@@ -8,7 +8,7 @@ test("client-side navigation across pages after token expiry", async ({ page, co
   // Drop the access token, keep the refresh token (simulate ~1h expiry).
   const cookies = await context.cookies();
   await context.clearCookies();
-  await context.addCookies(cookies.filter((c) => c.name !== "verdant_at"));
+  await context.addCookies(cookies.filter((c) => c.name !== "parlor_at"));
 
   await page.goto("/dashboard", { waitUntil: "networkidle" });
   await expect(page.getByText(ERROR_TEXT)).toHaveCount(0);

@@ -50,15 +50,15 @@ export function TranscriptStream({ segments, speakers }: Props) {
   return (
     <div className="relative flex h-full min-h-0 flex-col">
       <style>{`
-        @keyframes verdant-line-enter {
+        @keyframes parlor-line-enter {
           from { opacity: 0; transform: translate3d(0, 8px, 0); }
           to { opacity: 1; transform: translate3d(0, 0, 0); }
         }
-        .verdant-line-enter {
-          animation: verdant-line-enter 240ms var(--ease-spring) both;
+        .parlor-line-enter {
+          animation: parlor-line-enter 240ms var(--ease-spring) both;
         }
         @media (prefers-reduced-motion: reduce) {
-          .verdant-line-enter { animation: none; }
+          .parlor-line-enter { animation: none; }
         }
       `}</style>
 
@@ -73,7 +73,7 @@ export function TranscriptStream({ segments, speakers }: Props) {
           {segments.map((segment) => {
             const speaker = speakerById.get(segment.speakerId);
             return (
-              <li key={segment.id} className="verdant-line-enter">
+              <li key={segment.id} className="parlor-line-enter">
                 <div className="flex items-baseline gap-2.5">
                   <time className="shrink-0 font-mono text-xs text-ink-muted tabular-nums">
                     {formatClock(segment.tStartSec)}

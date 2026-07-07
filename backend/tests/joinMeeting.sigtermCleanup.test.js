@@ -129,7 +129,7 @@ describe('Teams bot — SIGTERM handler awaits/performs browser cleanup (issue #
     // which all complete via the SIGTERM path in well under a second) purely
     // so the fallback setTimeout doesn't leave an 8h open handle in the
     // process after the test finishes.
-    joinMeeting('https://teams.microsoft.com/l/meetup-join/sigterm', { name: 'Verdant Bot' }, {
+    joinMeeting('https://teams.microsoft.com/l/meetup-join/sigterm', { name: 'Parlor Bot' }, {
       meetingDbId: 'meeting-teams-sigterm',
       maxMeetingMs: 500,
     });

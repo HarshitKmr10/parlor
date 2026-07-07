@@ -12,7 +12,7 @@
  */
 
 import { z } from "zod";
-import type { VerdantClient } from "../client.js";
+import type { ParlorClient } from "../client.js";
 import type { Meeting } from "../types.js";
 import { formatAskResult } from "../format.js";
 import { safeRun, textResult, errorResult, type ToolResult } from "./shared.js";
@@ -72,7 +72,7 @@ function pickRelevantMeeting(
 }
 
 export function handleAskMeetings(
-  client: VerdantClient,
+  client: ParlorClient,
   input: AskMeetingsInput,
 ): Promise<ToolResult> {
   return safeRun(async () => {

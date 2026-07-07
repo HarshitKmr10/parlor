@@ -328,20 +328,20 @@ function RecIndicator() {
       className="inline-flex items-center gap-1.5 rounded-full bg-error-bg px-2.5 py-1"
     >
       <style>{`
-        @keyframes verdant-rec-pulse {
+        @keyframes parlor-rec-pulse {
           0%, 100% { opacity: 0.55; transform: scale(0.85); }
           50% { opacity: 1; transform: scale(1); }
         }
-        .verdant-rec-dot {
-          animation: verdant-rec-pulse 1.6s var(--ease-in-out, ease-in-out) infinite;
+        .parlor-rec-dot {
+          animation: parlor-rec-pulse 1.6s var(--ease-in-out, ease-in-out) infinite;
         }
         @media (prefers-reduced-motion: reduce) {
-          .verdant-rec-dot { animation: none; opacity: 1; }
+          .parlor-rec-dot { animation: none; opacity: 1; }
         }
       `}</style>
       <span
         aria-hidden="true"
-        className="verdant-rec-dot block h-2 w-2 rounded-full bg-error"
+        className="parlor-rec-dot block h-2 w-2 rounded-full bg-error"
       />
       <span className="font-sans text-xs font-semibold tracking-wider text-error uppercase">
         Rec

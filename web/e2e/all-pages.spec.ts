@@ -53,9 +53,9 @@ test.describe("every authenticated page renders (no error boundary)", () => {
 
 test.describe("expired access token is transparently refreshed", () => {
   test("pages still render after the access token cookie is dropped", async ({ page, context }) => {
-    // Simulate access-token expiry: remove verdant_at, keep verdant_rt.
+    // Simulate access-token expiry: remove parlor_at, keep parlor_rt.
     const cookies = await context.cookies();
-    const kept = cookies.filter((c) => c.name !== "verdant_at");
+    const kept = cookies.filter((c) => c.name !== "parlor_at");
     await context.clearCookies();
     await context.addCookies(kept);
 

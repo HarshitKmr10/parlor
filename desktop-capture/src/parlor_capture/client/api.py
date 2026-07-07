@@ -1,4 +1,4 @@
-"""HTTP client for the Verdant backend product API (``/api/v1``).
+"""HTTP client for the Parlor backend product API (``/api/v1``).
 
 Auth: either a workspace API key (``X-API-Key``) — which alone identifies the
 workspace — or email/password login that yields a Bearer access token plus a
@@ -37,10 +37,10 @@ from ..errors import AuthError, BackendError, ConfigError
 _TIMEOUT = httpx.Timeout(15.0, connect=8.0)
 
 
-class VerdantClient:
+class ParlorClient:
     def __init__(self, config: Config) -> None:
         if not config.api_url:
-            raise ConfigError("No API URL configured (set VERDANT_API_URL).")
+            raise ConfigError("No API URL configured (set PARLOR_API_URL).")
         self._config = config
         self._base = config.api_url.rstrip("/")
         self._access_token: Optional[str] = None
@@ -51,7 +51,7 @@ class VerdantClient:
     def close(self) -> None:
         self._client.close()
 
-    def __enter__(self) -> "VerdantClient":
+    def __enter__(self) -> "ParlorClient":
         return self
 
     def __exit__(self, *_exc) -> None:
@@ -76,7 +76,7 @@ class VerdantClient:
         if not (self._config.email and self._config.password):
             raise ConfigError(
                 "No credentials. Provide --api-key, or --email/--password "
-                "(or the VERDANT_* equivalents)."
+                "(or the PARLOR_* equivalents)."
             )
         try:
             resp = self._client.post(
@@ -231,7 +231,7 @@ class VerdantClient:
     def _conn_msg(exc: httpx.HTTPError) -> str:
         return (
             f"Could not reach the backend ({exc}). Is it running and is "
-            "VERDANT_API_URL correct?"
+            "PARLOR_API_URL correct?"
         )
 
     @staticmethod

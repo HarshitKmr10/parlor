@@ -38,9 +38,9 @@ cross-meeting ask, swap the routing in `src/tools/askMeetings.ts`.
 
 | Env var | Required | Default | Purpose |
 |---------|----------|---------|---------|
-| `VERDANT_API_KEY` | **yes** | — | Workspace API key, sent as `X-API-Key`. Server exits with a clear message if missing. |
-| `VERDANT_API_URL` | no | `http://localhost:8000` | Backend base URL (trailing slash trimmed). |
-| `VERDANT_WORKSPACE_ID` | no | — | Sent as `X-Workspace-Id` to select the active workspace. |
+| `PARLOR_API_KEY` | **yes** | — | Workspace API key, sent as `X-API-Key`. Server exits with a clear message if missing. |
+| `PARLOR_API_URL` | no | `http://localhost:8000` | Backend base URL (trailing slash trimmed). |
+| `PARLOR_WORKSPACE_ID` | no | — | Sent as `X-Workspace-Id` to select the active workspace. |
 
 See [`.env.example`](./.env.example).
 
@@ -56,7 +56,7 @@ npm run smoke      # in-memory tools/list + graceful-error test, no backend need
 ## Run
 
 ```bash
-VERDANT_API_KEY=vk_live_... VERDANT_API_URL=https://api.verdant.example node dist/server.js
+PARLOR_API_KEY=vk_live_... PARLOR_API_URL=https://api.parlor.example node dist/server.js
 ```
 
 The server speaks MCP over **stdio**.
@@ -70,29 +70,29 @@ Add to your project's `.mcp.json` (or `~/.claude.json`):
 ```json
 {
   "mcpServers": {
-    "verdant": {
+    "parlor": {
       "command": "node",
       "args": ["/absolute/path/to/mcp/dist/server.js"],
       "env": {
-        "VERDANT_API_URL": "https://api.verdant.example",
-        "VERDANT_API_KEY": "vk_live_...",
-        "VERDANT_WORKSPACE_ID": "00000000-0000-0000-0000-000000000000"
+        "PARLOR_API_URL": "https://api.parlor.example",
+        "PARLOR_API_KEY": "vk_live_...",
+        "PARLOR_WORKSPACE_ID": "00000000-0000-0000-0000-000000000000"
       }
     }
   }
 }
 ```
 
-If installed globally (`npm i -g`) or linked, the `verdant-mcp` bin works
+If installed globally (`npm i -g`) or linked, the `parlor-mcp` bin works
 directly:
 
 ```json
 {
   "mcpServers": {
-    "verdant": {
-      "command": "verdant-mcp",
+    "parlor": {
+      "command": "parlor-mcp",
       "env": {
-        "VERDANT_API_KEY": "vk_live_..."
+        "PARLOR_API_KEY": "vk_live_..."
       }
     }
   }

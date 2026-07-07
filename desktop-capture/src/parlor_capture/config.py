@@ -2,8 +2,8 @@
 
 Resolution order (highest priority first):
 1. Explicit CLI flags (passed into :func:`load_config`).
-2. Environment variables (``VERDANT_*``).
-3. The ini-style file at ``~/.verdant/config`` (section ``[verdant]``).
+2. Environment variables (``PARLOR_*``).
+3. The ini-style file at ``~/.parlor/config`` (section ``[parlor]``).
 
 No secret is ever hardcoded; credentials only come from env or the config
 file, which lives in the user's home directory.
@@ -20,8 +20,8 @@ from typing import Optional
 from .errors import ConfigError
 
 DEFAULT_API_URL = "http://localhost:8000"
-CONFIG_PATH = Path.home() / ".verdant" / "config"
-CONFIG_SECTION = "verdant"
+CONFIG_PATH = Path.home() / ".parlor" / "config"
+CONFIG_SECTION = "parlor"
 
 
 @dataclass(frozen=True)
@@ -63,12 +63,12 @@ def _from_file(path: Path) -> dict[str, str]:
 
 def _from_env() -> dict[str, Optional[str]]:
     return {
-        "api_url": os.environ.get("VERDANT_API_URL"),
-        "api_key": os.environ.get("VERDANT_API_KEY"),
-        "workspace_id": os.environ.get("VERDANT_WORKSPACE_ID"),
-        "email": os.environ.get("VERDANT_EMAIL"),
-        "password": os.environ.get("VERDANT_PASSWORD"),
-        "ingest_path": os.environ.get("VERDANT_INGEST_PATH"),
+        "api_url": os.environ.get("PARLOR_API_URL"),
+        "api_key": os.environ.get("PARLOR_API_KEY"),
+        "workspace_id": os.environ.get("PARLOR_WORKSPACE_ID"),
+        "email": os.environ.get("PARLOR_EMAIL"),
+        "password": os.environ.get("PARLOR_PASSWORD"),
+        "ingest_path": os.environ.get("PARLOR_INGEST_PATH"),
     }
 
 
