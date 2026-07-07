@@ -83,6 +83,14 @@ class AuthRepository:
             email,
         )
 
+    async def update_password_hash(self, *, user_id: str, password_hash: str) -> None:
+        await self._query(
+            "UPDATE users SET password_hash = $2, updated_at = NOW() "
+            "WHERE id = $1::uuid",
+            user_id,
+            password_hash,
+        )
+
     # ── workspaces ───────────────────────────────────────────────────────
     async def create_workspace(self, *, name: str, slug: str) -> dict:
         row = await self._one(
@@ -93,6 +101,12 @@ class AuthRepository:
         )
         assert row is not None
         return row
+
+    async def get_workspace_by_id(self, workspace_id: str) -> Optional[dict]:
+        return await self._one(
+            "SELECT id, name, slug, created_at FROM workspaces WHERE id = $1::uuid",
+            workspace_id,
+        )
 
     async def slug_exists(self, slug: str) -> bool:
         row = await self._one("SELECT 1 AS x FROM workspaces WHERE slug = $1", slug)
@@ -232,3 +246,93 @@ class AuthRepository:
             "UPDATE api_keys SET last_used_at = NOW() WHERE id = $1::uuid",
             key_id,
         )
+
+    # ── password reset tokens ────────────────────────────────────────────
+    async def store_password_reset_token(
+        self, *, user_id: str, token_hash: str, expires_at: datetime
+    ) -> None:
+        await self._query(
+            "INSERT INTO password_reset_tokens (user_id, token_hash, expires_at) "
+            "VALUES ($1::uuid, $2, $3)",
+            user_id,
+            token_hash,
+            expires_at,
+        )
+
+    async def get_active_password_reset_token(
+        self, token_hash: str
+    ) -> Optional[dict]:
+        return await self._one(
+            "SELECT id, user_id, expires_at, used_at "
+            "FROM password_reset_tokens "
+            "WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()",
+            token_hash,
+        )
+
+    async def mark_password_reset_token_used(self, token_hash: str) -> None:
+        await self._query(
+            "UPDATE password_reset_tokens SET used_at = NOW() "
+            "WHERE token_hash = $1 AND used_at IS NULL",
+            token_hash,
+        )
+
+    # ── workspace invites ────────────────────────────────────────────────
+    async def create_invite(
+        self,
+        *,
+        workspace_id: str,
+        email: str,
+        role: str,
+        invited_by_user_id: str,
+        token_hash: str,
+        expires_at: datetime,
+    ) -> dict:
+        row = await self._one(
+            "INSERT INTO workspace_invites "
+            "(workspace_id, email, role, invited_by_user_id, token_hash, expires_at) "
+            "VALUES ($1::uuid, $2, $3, $4::uuid, $5, $6) "
+            "RETURNING id, workspace_id, email, role, status, "
+            "invited_by_user_id, expires_at, created_at",
+            workspace_id,
+            email,
+            role,
+            invited_by_user_id,
+            token_hash,
+            expires_at,
+        )
+        assert row is not None
+        return row
+
+    async def list_invites(self, workspace_id: str) -> list[dict]:
+        return await self._query(
+            "SELECT id, workspace_id, email, role, status, "
+            "invited_by_user_id, expires_at, created_at "
+            "FROM workspace_invites "
+            "WHERE workspace_id = $1::uuid AND status = 'pending' "
+            "ORDER BY created_at DESC",
+            workspace_id,
+        )
+
+    async def get_invite_by_token_hash(self, token_hash: str) -> Optional[dict]:
+        return await self._one(
+            "SELECT id, workspace_id, email, role, status, "
+            "invited_by_user_id, token_hash, expires_at, created_at "
+            "FROM workspace_invites WHERE token_hash = $1",
+            token_hash,
+        )
+
+    async def mark_invite_accepted(self, invite_id: str) -> None:
+        await self._query(
+            "UPDATE workspace_invites SET status = 'accepted' WHERE id = $1::uuid",
+            invite_id,
+        )
+
+    async def revoke_invite(self, *, workspace_id: str, invite_id: str) -> bool:
+        rows = await self._query(
+            "UPDATE workspace_invites SET status = 'revoked' "
+            "WHERE id = $1::uuid AND workspace_id = $2::uuid AND status = 'pending' "
+            "RETURNING id",
+            invite_id,
+            workspace_id,
+        )
+        return bool(rows)

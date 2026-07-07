@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 import secrets
 import uuid
@@ -9,6 +10,8 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Path, Response, status
 
+from ...integrations.email_provider import send_plain_email
+from ...observability import get_logger
 from .deps import (
     AuthContext,
     AuthRepository,
@@ -21,10 +24,12 @@ from .schemas import (
     ApiKey,
     ApiKeyCreated,
     ApiKeyCreateRequest,
+    ForgotPasswordRequest,
     LoginRequest,
     LoginResponse,
     MeResponse,
     RefreshRequest,
+    ResetPasswordRequest,
     SignupRequest,
     SignupResponse,
     TokenPairResponse,
@@ -34,12 +39,16 @@ from .schemas import (
 from .security import (
     create_access_token,
     generate_api_key,
+    generate_password_reset_token,
     generate_refresh_token,
     hash_password,
     hash_token,
+    password_reset_token_expiry,
     refresh_token_expiry,
     verify_password,
 )
+
+logger = get_logger(__name__)
 
 auth_router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 workspaces_router = APIRouter(prefix="/api/v1/workspaces", tags=["workspaces"])
@@ -168,6 +177,61 @@ async def logout(
     # Best-effort revoke of the presented refresh token; logout is idempotent.
     await repo.revoke_refresh_token(hash_token(body.refresh_token))
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@auth_router.post("/forgot-password", status_code=status.HTTP_200_OK)
+async def forgot_password(
+    body: ForgotPasswordRequest, repo: AuthRepository = Depends(get_repo)
+) -> dict:
+    # Always return 200 regardless of whether the email exists, so this
+    # endpoint never leaks account existence to a caller.
+    row = await repo.get_user_by_email(body.email)
+    if row:
+        user = User.model_validate(row)
+        token = generate_password_reset_token()
+        await repo.store_password_reset_token(
+            user_id=user.id,
+            token_hash=hash_token(token),
+            expires_at=password_reset_token_expiry(),
+        )
+        base = (os.getenv("PUBLIC_APP_URL") or "").rstrip("/")
+        link = f"{base}/reset-password?token={token}" if base else f"/reset-password?token={token}"
+        sent = await send_plain_email(
+            to=user.email,
+            subject="Reset your Parlor password",
+            body=(
+                f"Hi {user.name},\n\n"
+                "We received a request to reset your Parlor password. "
+                f"Use the link below within 30 minutes:\n\n{link}\n\n"
+                "If you didn't request this, you can safely ignore this email."
+            ),
+        )
+        if not sent:
+            logger.warning("auth.forgot_password.email_failed", user_id=user.id)
+    return {"message": "If that email exists, we sent a password reset link."}
+
+
+@auth_router.post("/reset-password", status_code=status.HTTP_200_OK)
+async def reset_password(
+    body: ResetPasswordRequest, repo: AuthRepository = Depends(get_repo)
+) -> dict:
+    token_hash = hash_token(body.token)
+    record = await repo.get_active_password_reset_token(token_hash)
+    if not record:
+        raise ApiError(
+            400, "invalid_reset_token", "This reset link is invalid or has expired"
+        )
+
+    user_id = str(record["user_id"])
+    await repo.update_password_hash(
+        user_id=user_id, password_hash=hash_password(body.new_password)
+    )
+    await repo.mark_password_reset_token_used(token_hash)
+    # A password reset is a strong signal of compromise-or-recovery; kill
+    # every existing session so a stolen access/refresh token pair stops
+    # working immediately.
+    await repo.revoke_all_refresh_tokens(user_id)
+    return {"message": "Password has been reset. Please sign in again."}
 
 
 @auth_router.get("/me", response_model=MeResponse)

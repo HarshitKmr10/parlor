@@ -4,10 +4,12 @@ import { backendUrl } from "./config";
 import { ApiError, isApiErrorBody } from "./error";
 import { BACKEND_UNAVAILABLE_CODE, apiFetch } from "./client";
 import type {
+  ForgotPasswordInput,
   LoginInput,
   LoginResponse,
   MeResponse,
   RefreshResponse,
+  ResetPasswordInput,
   SignupInput,
   SignupResponse,
 } from "./types";
@@ -63,6 +65,15 @@ export function login(input: LoginInput): Promise<LoginResponse> {
 
 export function refresh(refreshToken: string): Promise<RefreshResponse> {
   return authPost<RefreshResponse>("/auth/refresh", { refreshToken });
+}
+
+/** Always resolves — the backend returns 200 whether or not the email exists. */
+export function forgotPassword(input: ForgotPasswordInput): Promise<{ message: string }> {
+  return authPost<{ message: string }>("/auth/forgot-password", input);
+}
+
+export function resetPassword(input: ResetPasswordInput): Promise<{ message: string }> {
+  return authPost<{ message: string }>("/auth/reset-password", input);
 }
 
 /** Authenticated logout — uses the session access token via apiFetch. */

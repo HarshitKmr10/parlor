@@ -192,6 +192,60 @@ export interface MeResponse {
   currentWorkspace: Workspace;
 }
 
+export interface ForgotPasswordInput {
+  email: string;
+}
+
+export interface ResetPasswordInput {
+  token: string;
+  newPassword: string;
+}
+
+/* ---- Workspace invites ---- */
+
+/** Role a teammate can be invited with (never "owner" — that's signup-only). */
+export type InviteRole = "admin" | "member";
+export type InviteStatus = "pending" | "accepted" | "expired" | "revoked";
+
+export interface WorkspaceInvite {
+  id: string;
+  workspaceId: string;
+  email: string;
+  role: InviteRole;
+  status: InviteStatus;
+  invitedByUserId: string;
+  expiresAt: string;
+  createdAt: string;
+}
+
+/** Returned once on create — carries the link to send the invitee. */
+export interface WorkspaceInviteCreated extends WorkspaceInvite {
+  acceptUrl?: string;
+}
+
+export interface WorkspaceInviteListResponse {
+  items: WorkspaceInvite[];
+  total: number;
+}
+
+/** Public preview shown on the accept-invite page before any auth. */
+export interface InvitePreview {
+  workspaceName: string;
+  email: string;
+  role: InviteRole;
+  requiresSignup: boolean;
+}
+
+export interface InviteAcceptInput {
+  name?: string;
+  password?: string;
+}
+
+export interface InviteAcceptResponse extends AuthTokens {
+  user: User;
+  workspace: Workspace;
+}
+
 /* ---- Meeting create ---- */
 
 export interface CreateMeetingInput {

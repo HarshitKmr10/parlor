@@ -12,6 +12,16 @@ from typing import Optional
 
 PUBLIC_PREFIX = "/api/v1/public"
 
+# Brute-force-sensitive auth endpoints: login (credential guessing) and the
+# password-reset request/confirm pair (token guessing). Kept as an explicit
+# set rather than a prefix match so unrelated /auth/* routes (signup, me,
+# logout) keep the default tier.
+_STRICT_AUTH_PATHS = {
+    "/api/v1/auth/login",
+    "/api/v1/auth/forgot-password",
+    "/api/v1/auth/reset-password",
+}
+
 
 def _short_hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:32]
@@ -44,5 +54,10 @@ def principal_key(
 
 
 def tier_for_path(path: str) -> str:
-    """``public`` for the unauthenticated share surface, else ``default``."""
-    return "public" if path.startswith(PUBLIC_PREFIX) else "default"
+    """``public`` for the unauthenticated share surface, ``auth`` for
+    brute-force-sensitive credential/token endpoints, else ``default``."""
+    if path.startswith(PUBLIC_PREFIX):
+        return "public"
+    if path in _STRICT_AUTH_PATHS:
+        return "auth"
+    return "default"
