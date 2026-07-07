@@ -134,21 +134,31 @@ class AuthRepository:
 
     # ── refresh tokens ─────────────────────────────────────────────────────
     async def store_refresh_token(
-        self, *, user_id: str, token_hash: str, expires_at: datetime
+        self,
+        *,
+        user_id: str,
+        token_hash: str,
+        expires_at: datetime,
+        family_id: str,
     ) -> None:
         await self._query(
-            "INSERT INTO refresh_tokens (user_id, token_hash, expires_at) "
-            "VALUES ($1::uuid, $2, $3)",
+            "INSERT INTO refresh_tokens (user_id, token_hash, expires_at, family_id) "
+            "VALUES ($1::uuid, $2, $3, $4::uuid)",
             user_id,
             token_hash,
             expires_at,
+            family_id,
         )
 
-    async def get_active_refresh_token(self, token_hash: str) -> Optional[dict]:
+    async def get_refresh_token_by_hash(self, token_hash: str) -> Optional[dict]:
+        """Look up a refresh token regardless of revoked/expired state.
+
+        Used by the rotation endpoint to distinguish "never existed" from
+        "already rotated" (a replay), which needs different handling.
+        """
         return await self._one(
-            "SELECT id, user_id, expires_at, revoked_at "
-            "FROM refresh_tokens "
-            "WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > NOW()",
+            "SELECT id, user_id, family_id, expires_at, revoked_at "
+            "FROM refresh_tokens WHERE token_hash = $1",
             token_hash,
         )
 
@@ -157,6 +167,19 @@ class AuthRepository:
             "UPDATE refresh_tokens SET revoked_at = NOW() "
             "WHERE token_hash = $1 AND revoked_at IS NULL",
             token_hash,
+        )
+
+    async def revoke_refresh_token_family(self, family_id: str) -> None:
+        """Revoke every active token descended from the same original login.
+
+        Called when a rotated (already-revoked) refresh token is replayed —
+        the signal that the presented token was stolen — so the thief and the
+        legitimate holder are both forced to re-authenticate.
+        """
+        await self._query(
+            "UPDATE refresh_tokens SET revoked_at = NOW() "
+            "WHERE family_id = $1::uuid AND revoked_at IS NULL",
+            family_id,
         )
 
     async def revoke_all_refresh_tokens(self, user_id: str) -> None:

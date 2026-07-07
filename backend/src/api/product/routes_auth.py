@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 import secrets
+import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Path, Response, status
 
@@ -62,13 +64,16 @@ async def _unique_slug(repo: AuthRepository, name: str) -> str:
     return f"{base}-{secrets.token_hex(4)}"
 
 
-async def _issue_tokens(repo: AuthRepository, user: User) -> tuple[str, str]:
+async def _issue_tokens(
+    repo: AuthRepository, user: User, *, family_id: str | None = None
+) -> tuple[str, str]:
     access = create_access_token(user_id=user.id, email=user.email)
     refresh = generate_refresh_token()
     await repo.store_refresh_token(
         user_id=user.id,
         token_hash=hash_token(refresh),
         expires_at=refresh_token_expiry(),
+        family_id=family_id or str(uuid.uuid4()),
     )
     return access, refresh
 
@@ -127,18 +132,32 @@ async def refresh(
     body: RefreshRequest, repo: AuthRepository = Depends(get_repo)
 ) -> TokenPairResponse:
     token_hash = hash_token(body.refresh_token)
-    record = await repo.get_active_refresh_token(token_hash)
+    record = await repo.get_refresh_token_by_hash(token_hash)
     if not record:
+        raise ApiError(401, "invalid_refresh_token", "Refresh token is invalid or expired")
+
+    if record["revoked_at"] is not None:
+        # Replay of an already-rotated token: treat as theft and kill every
+        # token descended from the same original login, not just this one.
+        await repo.revoke_refresh_token_family(str(record["family_id"]))
+        raise ApiError(401, "invalid_refresh_token", "Refresh token is invalid or expired")
+
+    expires_at = record["expires_at"]
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at <= datetime.now(timezone.utc):
         raise ApiError(401, "invalid_refresh_token", "Refresh token is invalid or expired")
 
     user_row = await repo.get_user_by_id(str(record["user_id"]))
     if not user_row:
         raise ApiError(401, "invalid_refresh_token", "User no longer exists")
 
-    # Rotate: revoke the presented token and issue a fresh pair.
+    # Rotate: revoke the presented token and issue a fresh pair in the same family.
     await repo.revoke_refresh_token(token_hash)
     user = User.model_validate(user_row)
-    access, new_refresh = await _issue_tokens(repo, user)
+    access, new_refresh = await _issue_tokens(
+        repo, user, family_id=str(record["family_id"])
+    )
     return TokenPairResponse(access_token=access, refresh_token=new_refresh)
 
 
