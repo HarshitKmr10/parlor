@@ -30,6 +30,7 @@ class LLMProvider(abc.ABC):
     """Common interface for all LLM/embedding providers."""
 
     name: str = "base"
+    supports_embeddings: bool = True
 
     @abc.abstractmethod
     async def complete_json(

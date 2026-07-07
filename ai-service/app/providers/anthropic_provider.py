@@ -25,10 +25,11 @@ _STRUCTURED_TOOL_NAME = "emit_result"
 
 class AnthropicProvider(LLMProvider):
     name = "anthropic"
+    supports_embeddings = False
 
     def __init__(self, api_key: str) -> None:
         self._client = anthropic.AsyncAnthropic(
-            api_key=api_key, timeout=PROVIDER_TIMEOUT
+            api_key=api_key, timeout=PROVIDER_TIMEOUT, max_retries=0
         )
 
     def _model(self, premium: bool) -> str:

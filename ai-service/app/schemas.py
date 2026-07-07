@@ -8,6 +8,7 @@ HTTP request parsing both work.
 from __future__ import annotations
 
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -69,8 +70,8 @@ class Citation(CamelModel):
 
 
 class ChatMessage(CamelModel):
-    role: str
-    content: str
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=8000)
 
 
 class MeetingMeta(CamelModel):
@@ -103,8 +104,8 @@ class EmbedResponse(CamelModel):
 class ChatRequest(CamelModel):
     workspace_id: str
     meeting_id: str | None = None
-    question: str
-    history: list[ChatMessage] = Field(default_factory=list)
+    question: str = Field(max_length=8000)
+    history: list[ChatMessage] = Field(default_factory=list, max_length=20)
 
 
 class ChatResponse(CamelModel):

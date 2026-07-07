@@ -25,7 +25,7 @@ class OpenAIProvider(LLMProvider):
 
     def __init__(self, api_key: str) -> None:
         self._client = openai.AsyncOpenAI(
-            api_key=api_key, timeout=PROVIDER_TIMEOUT
+            api_key=api_key, timeout=PROVIDER_TIMEOUT, max_retries=0
         )
 
     def _model(self, premium: bool) -> str:

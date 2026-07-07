@@ -105,6 +105,11 @@ class ProviderRouter:
         deadline = time.monotonic() + REQUEST_TIME_BUDGET
         last_error: ProviderError | None = None
         for provider in self._chain():
+            if op == "embed" and not provider.supports_embeddings:
+                # A deterministic, permanent incapability (e.g. Anthropic has
+                # no embeddings endpoint) -- skip silently rather than attempt
+                # and log a warning for a failure that can never succeed.
+                continue
             remaining = deadline - time.monotonic()
             if provider is not self._mock and remaining <= 0:
                 logger.warning(
@@ -150,6 +155,51 @@ class ProviderRouter:
             ),
             op="complete_json",
         )
+
+    async def complete_json_validated(
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        parse: Callable[[str], _T],
+        premium: bool = True,
+        max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,
+        op: str = "complete_json",
+    ) -> _T:
+        """Like :meth:`complete_json`, but folds the caller's own
+        parse/validate step (e.g. ``json.loads`` + Pydantic
+        ``model_validate``) into the fallback chain itself.
+
+        Without this, a caller that retries a schema-invalid response by
+        calling ``complete_json`` again starts a brand-new ``_run_chain``
+        invocation at ``self._chain()[0]`` -- the same top-priority provider
+        that just produced the bad output -- instead of advancing to the
+        next provider in ``AI_PROVIDER_ORDER``. Here, a ``parse`` failure is
+        treated exactly like a :class:`ProviderError` raised by the provider
+        itself, so the *same* ``_run_chain`` call advances to the next
+        provider, all the way down to the mock safety net if every live
+        provider returns schema-invalid output.
+        """
+
+        async def attempt(provider: LLMProvider) -> _T:
+            raw = await provider.complete_json(
+                system=system,
+                user=user,
+                schema=schema,
+                premium=premium,
+                max_tokens=max_tokens,
+                mock_context=mock_context,
+            )
+            try:
+                return parse(raw)
+            except Exception as exc:  # noqa: BLE001 - any parse/validation failure
+                raise ProviderError(
+                    provider.name, f"schema-invalid output: {exc}"
+                ) from exc
+
+        return await self._run_chain(attempt, op=op)
 
     async def complete_text(
         self,

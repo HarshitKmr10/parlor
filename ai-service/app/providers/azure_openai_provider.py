@@ -49,6 +49,7 @@ class AzureOpenAIProvider(LLMProvider):
             api_key=api_key,
             api_version=api_version,
             timeout=PROVIDER_TIMEOUT,
+            max_retries=0,
         )
         # Azure routes by deployment name; a single chat deployment is used for
         # both premium and cheap tiers (the resource's "mini" deployment is the

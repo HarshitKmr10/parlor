@@ -3,22 +3,19 @@
 Long transcripts are chunked to stay within model context. Each chunk is
 summarized into a partial insight; partials are then reduced into one final
 ``MeetingInsights`` object. Short transcripts skip the map phase. The model is
-asked for JSON matching a schema; the result is validated with Pydantic and
-retried once on parse failure.
+asked for JSON matching a schema; the result is validated with Pydantic. A
+schema-invalid response advances the provider fallback chain to the next
+configured provider (see ``ProviderRouter.complete_json_validated``) rather
+than retrying the same provider.
 """
 
 from __future__ import annotations
 
 import json
-import logging
-
-from pydantic import ValidationError
 
 from ..config import MAX_CHARS_PER_CHUNK
-from ..providers import ProviderError, ProviderRouter
+from ..providers import ProviderRouter
 from ..schemas import MeetingInsights, MeetingMeta, TranscriptSegment
-
-logger = logging.getLogger("ai-service.summarize")
 
 # JSON schema describing MeetingInsights for structured output / tool-use.
 INSIGHTS_SCHEMA: dict = {
@@ -112,6 +109,11 @@ def _chunk_segments(
     return chunks or [[]]
 
 
+def _parse_insights(raw: str) -> MeetingInsights:
+    data = json.loads(raw)
+    return MeetingInsights.model_validate(data)
+
+
 async def _summarize_once(
     router: ProviderRouter,
     *,
@@ -119,7 +121,10 @@ async def _summarize_once(
     body: str,
     mock_context: dict,
 ) -> MeetingInsights:
-    """One structured call + Pydantic validation with a single retry."""
+    """One structured call, with JSON-decode + Pydantic validation folded
+    into the provider fallback chain: a schema-invalid response from one
+    provider advances to the next provider in ``AI_PROVIDER_ORDER`` instead
+    of retrying the same provider that just produced bad output."""
     user = (
         f"Meeting title: {title}\n\n"
         f"Transcript:\n{body}\n\n"
@@ -127,27 +132,15 @@ async def _summarize_once(
         "(with assignee/dueDate when stated), and 1-5 chapters with start times."
     )
 
-    for attempt in range(2):
-        raw = await router.complete_json(
-            system=_SYSTEM,
-            user=user,
-            schema=INSIGHTS_SCHEMA,
-            premium=True,
-            mock_context=mock_context,
-        )
-        try:
-            data = json.loads(raw)
-            return MeetingInsights.model_validate(data)
-        except (json.JSONDecodeError, ValidationError) as exc:
-            logger.warning("summary parse failed (attempt %d): %s", attempt + 1, exc)
-            if attempt == 1:
-                raise ProviderError(
-                    "summarize", f"could not parse structured summary: {exc}"
-                ) from exc
-            # Reinforce the format on retry.
-            user = user + "\n\nIMPORTANT: return ONLY valid JSON matching the schema."
-    # Unreachable, but keeps type-checkers happy.
-    raise ProviderError("summarize", "exhausted retries")
+    return await router.complete_json_validated(
+        system=_SYSTEM,
+        user=user,
+        schema=INSIGHTS_SCHEMA,
+        parse=_parse_insights,
+        premium=True,
+        mock_context=mock_context,
+        op="summarize",
+    )
 
 
 def _localize(insights: "MeetingInsights", target_language: str | None) -> "MeetingInsights":

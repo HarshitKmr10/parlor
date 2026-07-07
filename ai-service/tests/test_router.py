@@ -67,6 +67,61 @@ class _FakeProvider(LLMProvider):
         return [[float(len(t))] for t in texts]
 
 
+class _JsonFakeProvider(LLMProvider):
+    """A fake provider that returns a fixed ``complete_json`` string."""
+
+    def __init__(self, name: str, *, raw: str) -> None:
+        self.name = name
+        self._raw = raw
+        self.calls = 0
+
+    async def complete_json(self, **_kwargs) -> str:
+        self.calls += 1
+        return self._raw
+
+    async def complete_text(self, **_kwargs) -> str:
+        raise ProviderError(self.name, "not used in these tests")
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        raise ProviderError(self.name, "not used in these tests")
+
+
+class TestCompleteJsonValidated:
+    """A schema-invalid response from one provider must advance to the next
+    provider in the chain instead of retrying the same provider."""
+
+    @pytest.mark.asyncio
+    async def test_falls_through_to_next_provider_on_bad_json(
+        self, router: ProviderRouter
+    ):
+        bad = _JsonFakeProvider("bad", raw="not json")
+        good = _JsonFakeProvider("good", raw='{"ok": true}')
+        router._live = [bad, good]  # noqa: SLF001
+
+        result = await router.complete_json_validated(
+            system="sys",
+            user="user",
+            schema={"type": "object"},
+            parse=lambda raw: __import__("json").loads(raw),
+        )
+
+        assert result == {"ok": True}
+        assert bad.calls == 1
+        assert good.calls == 1
+
+    @pytest.mark.asyncio
+    async def test_raises_when_every_provider_is_schema_invalid(
+        self, mock_mode_router: ProviderRouter
+    ):
+        with pytest.raises(ProviderError):
+            await mock_mode_router.complete_json_validated(
+                system="sys",
+                user="user",
+                schema={"type": "object"},
+                parse=lambda raw: (_ for _ in ()).throw(ValueError("bad")),
+            )
+
+
 @pytest.fixture
 def router() -> ProviderRouter:
     return ProviderRouter(_live_settings())
