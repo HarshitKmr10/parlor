@@ -1,0 +1,30 @@
+{
+  "meetingId": "eval-standup-1",
+  "title": "Daily Standup",
+  "segments": [
+    {
+      "id": "s1",
+      "speakerName": "Wei",
+      "text": "Yesterday I finished the pagination fix on the search results page and started poking at the flaky checkout test.",
+      "tStartSec": 0.0
+    },
+    {
+      "id": "s2",
+      "speakerName": "Nadia",
+      "text": "I'm still heads down on the reporting dashboard, roughly two thirds done, nothing blocking me right now.",
+      "tStartSec": 12.0
+    },
+    {
+      "id": "s3",
+      "speakerName": "Diego",
+      "text": "Deployed the caching layer to staging yesterday and it's been stable overnight, so today I'll watch the metrics and write up the results.",
+      "tStartSec": 24.0
+    },
+    {
+      "id": "s4",
+      "speakerName": "Wei",
+      "text": "That's all from me, same plan as yesterday otherwise.",
+      "tStartSec": 38.0
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "meetingId": "eval-rambling-1",
+  "title": "Catch-up Chat",
+  "segments": [
+    {
+      "id": "r1",
+      "speakerName": "Sam",
+      "text": "So how was everyone's weekend, did anyone catch that new documentary that's been all over the place lately?",
+      "tStartSec": 0.0
+    },
+    {
+      "id": "r2",
+      "speakerName": "Jordan",
+      "text": "Honestly it was pretty quiet, mostly just around the house, weather wasn't great for going anywhere interesting.",
+      "tStartSec": 15.0
+    },
+    {
+      "id": "r3",
+      "speakerName": "Sam",
+      "text": "Same here, though the neighborhood cafe finally reopened, coffee was decent but nothing special.",
+      "tStartSec": 30.0
+    },
+    {
+      "id": "r4",
+      "speakerName": "Jordan",
+      "text": "Yeah I saw that too, might swing by sometime just to check it out for myself, curious how it compares.",
+      "tStartSec": 45.0
+    }
+  ]
+}
