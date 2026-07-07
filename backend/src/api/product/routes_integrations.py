@@ -7,7 +7,9 @@ from typing import List
 from fastapi import APIRouter, Depends
 
 from ...integrations import KNOWN_KINDS, PROVIDERS, IntegrationsRepo
+from ...integrations.crm_providers import validate_salesforce_instance_url
 from ...integrations.stub_providers import _NotImplementedProvider
+from ...webhooks.safety import InvalidWebhookUrl
 from ..database.connection import DatabaseConnection
 from .deps import AuthContext, get_db
 from .errors import ApiError
@@ -65,6 +67,15 @@ async def upsert_integration(
         raise ApiError(
             400, "unknown_integration", f"Unknown integration kind: {body.kind}"
         )
+    if body.kind == "salesforce":
+        instance_url = (body.config or {}).get("instanceUrl") or (
+            body.config or {}
+        ).get("instance_url")
+        if instance_url:
+            try:
+                validate_salesforce_instance_url(str(instance_url))
+            except InvalidWebhookUrl as exc:
+                raise ApiError(400, "invalid_instance_url", str(exc)) from exc
     row = await repo.upsert(
         workspace_id=ctx.workspace.id,
         kind=body.kind,

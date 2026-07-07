@@ -8,10 +8,12 @@ network or credentials; ``deliver`` performs the HTTP call when configured.
 from __future__ import annotations
 
 from typing import Any, Dict
+from urllib.parse import urlparse
 
 import httpx
 
 from ..observability import get_logger
+from ..webhooks.safety import InvalidWebhookUrl, validate_webhook_url
 from .base import render_text
 from .models import DeliveryResult, MeetingRecap
 
@@ -19,6 +21,25 @@ logger = get_logger(__name__)
 
 _TIMEOUT = httpx.Timeout(15.0, connect=5.0)
 _NOTION_VERSION = "2022-06-28"
+_SALESFORCE_HOST_SUFFIX = ".salesforce.com"
+
+
+def validate_salesforce_instance_url(url: str) -> str:
+    """Reject non-Salesforce or SSRF-prone Salesforce ``instanceUrl`` values.
+
+    ``instanceUrl`` is arbitrary admin-supplied config auto-invoked on every
+    meeting completion, so it must be a real Salesforce host, not just any
+    https URL — ``validate_webhook_url`` alone would happily accept an
+    attacker-controlled DNS name resolving to a private/loopback IP only at
+    request time, but rejects IP literals and internal-looking hosts up front.
+    """
+    validated = validate_webhook_url(url)
+    host = (urlparse(validated).hostname or "").lower()
+    if not host.endswith(_SALESFORCE_HOST_SUFFIX):
+        raise InvalidWebhookUrl(
+            "Salesforce instanceUrl must be a *.salesforce.com host"
+        )
+    return validated
 
 
 # ── Pure payload builders ────────────────────────────────────────────────────
@@ -153,6 +174,10 @@ class SalesforceProvider:
     async def deliver(self, config: Dict[str, Any], recap: MeetingRecap) -> DeliveryResult:
         instance = str(config.get("instanceUrl") or config.get("instance_url")).rstrip("/")
         token = str(config.get("accessToken") or config.get("access_token"))
+        try:
+            instance = validate_salesforce_instance_url(instance)
+        except InvalidWebhookUrl as exc:
+            return DeliveryResult(kind=self.kind, delivered=False, detail=str(exc))
         url = f"{instance}/services/data/{self._API_VERSION}/sobjects/Task"
         try:
             async with httpx.AsyncClient(timeout=_TIMEOUT) as client:

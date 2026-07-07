@@ -173,6 +173,55 @@ def test_upsert_integration_allows_admin_role(integrations_client_factory):
     fake_repo.upsert.assert_awaited_once()
 
 
+def test_upsert_salesforce_rejects_private_ip_instance_url(integrations_client_factory):
+    client, fake_repo = integrations_client_factory("admin")
+    res = client.put(
+        "/api/v1/integrations",
+        json={
+            "kind": "salesforce",
+            "enabled": True,
+            "config": {"instanceUrl": "http://169.254.169.254", "accessToken": "t"},
+        },
+    )
+    assert res.status_code == 400, res.text
+    assert res.json()["error"]["code"] == "invalid_instance_url"
+    fake_repo.upsert.assert_not_awaited()
+
+
+def test_upsert_salesforce_rejects_non_salesforce_host(integrations_client_factory):
+    client, fake_repo = integrations_client_factory("admin")
+    res = client.put(
+        "/api/v1/integrations",
+        json={
+            "kind": "salesforce",
+            "enabled": True,
+            "config": {"instanceUrl": "https://evil.com", "accessToken": "t"},
+        },
+    )
+    assert res.status_code == 400, res.text
+    assert res.json()["error"]["code"] == "invalid_instance_url"
+    fake_repo.upsert.assert_not_awaited()
+
+
+def test_upsert_salesforce_accepts_valid_instance_url(integrations_client_factory):
+    client, fake_repo = integrations_client_factory("admin")
+    fake_repo.upsert.return_value = {
+        "kind": "salesforce",
+        "config": {"instanceUrl": "https://foo.my.salesforce.com", "accessToken": "t"},
+        "enabled": True,
+    }
+    res = client.put(
+        "/api/v1/integrations",
+        json={
+            "kind": "salesforce",
+            "enabled": True,
+            "config": {"instanceUrl": "https://foo.my.salesforce.com", "accessToken": "t"},
+        },
+    )
+    assert res.status_code == 200, res.text
+    fake_repo.upsert.assert_awaited_once()
+
+
 @pytest.mark.asyncio
 async def test_deliver_recap_only_enabled_and_configured():
     db = AsyncMock()

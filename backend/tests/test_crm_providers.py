@@ -1,5 +1,7 @@
 """Unit tests for Notion/HubSpot/Salesforce providers (pure parts)."""
 
+import pytest
+
 from src.integrations.crm_providers import (
     HubspotProvider,
     NotionProvider,
@@ -7,8 +9,10 @@ from src.integrations.crm_providers import (
     hubspot_payload,
     notion_payload,
     salesforce_payload,
+    validate_salesforce_instance_url,
 )
 from src.integrations.models import MeetingRecap
+from src.webhooks.safety import InvalidWebhookUrl
 
 RECAP = MeetingRecap(
     meeting_id="m1",
@@ -53,3 +57,32 @@ def test_salesforce_is_configured_and_payload():
     assert payload["Subject"].startswith("Meeting recap: Q3 Planning")
     assert payload["Status"] == "Completed"
     assert "roadmap" in payload["Description"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://127.0.0.1",
+        "https://169.254.169.254",
+        "http://x.my.salesforce.com",  # not https
+        "https://evil.com",
+        "https://x.my.salesforce.com.evil.com",
+    ],
+)
+def test_salesforce_instance_url_rejects_unsafe_or_non_salesforce_hosts(url):
+    with pytest.raises(InvalidWebhookUrl):
+        validate_salesforce_instance_url(url)
+
+
+def test_salesforce_instance_url_accepts_valid_salesforce_host():
+    url = "https://foo.my.salesforce.com"
+    assert validate_salesforce_instance_url(url) == url
+
+
+@pytest.mark.asyncio
+async def test_salesforce_deliver_rejects_unsafe_instance_url():
+    p = SalesforceProvider()
+    result = await p.deliver(
+        {"instanceUrl": "http://169.254.169.254", "accessToken": "t"}, RECAP
+    )
+    assert result.delivered is False
