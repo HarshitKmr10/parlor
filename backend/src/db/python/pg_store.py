@@ -305,11 +305,18 @@ async def get_meetings_by_org(
     return await _fetch_many(sql, *params)
 
 
+_LIST_MEETINGS_ORDER_BY_WHITELIST = frozenset(
+    {"created_at DESC", "created_at ASC", "bot_join_time DESC", "bot_join_time ASC"}
+)
+
+
 async def list_meetings(
     where: Optional[dict[str, Any]] = None,
     order_by: str = "created_at DESC",
     limit: Optional[int] = None,
 ) -> list[MeetingRow]:
+    if order_by not in _LIST_MEETINGS_ORDER_BY_WHITELIST:
+        raise ValueError(f"Unsupported order_by value: {order_by!r}")
     where = where or {}
     clauses: list[str] = []
     params: list[Any] = []
