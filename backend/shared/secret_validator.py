@@ -131,6 +131,23 @@ def _valid_iam_role_arn(value: str) -> bool:
     return re.fullmatch(r"arn:aws[a-zA-Z-]*:iam::\d{12}:role/.+", value) is not None
 
 
+_JWT_SECRET_DEFAULT = "dev-insecure-change-me"
+
+
+def _valid_jwt_secret(value: str) -> bool:
+    return value != _JWT_SECRET_DEFAULT
+
+
+def _is_dev_environment() -> bool:
+    # Mirrors src/main.py's _is_standalone(): "standalone"/"compose" are the
+    # K8s-free local dev / docker-compose paths (matches Settings.RUNTIME_MODE's
+    # "standalone" default); anything else is a real (k8s) deployment.
+    return os.environ.get("RUNTIME_MODE", "standalone").lower() in (
+        "standalone",
+        "compose",
+    )
+
+
 # Always required regardless of which platforms are enabled.
 _CORE_REQUIRED: tuple[SecretRequirement, ...] = (
     SecretRequirement(
@@ -138,6 +155,12 @@ _CORE_REQUIRED: tuple[SecretRequirement, ...] = (
         description="PostgreSQL connection string for the shared application DB",
         starts_with=("postgresql://", "postgres://"),
     ),
+)
+
+_JWT_SECRET_REQUIREMENT = SecretRequirement(
+    name="JWT_SECRET",
+    description="JWT signing secret for product access/refresh tokens",
+    validator=_valid_jwt_secret,
 )
 
 
@@ -714,6 +737,8 @@ def _dedupe_requirements(
 
 def _collect_required(config: ValidationConfig) -> tuple[SecretRequirement, ...]:
     requirements: list[SecretRequirement] = list(_CORE_REQUIRED)
+    if not _is_dev_environment():
+        requirements.append(_JWT_SECRET_REQUIREMENT)
     for platform in config.enabled_platforms:
         platform_reqs = _PLATFORM_REQUIREMENTS.get(platform)
         if platform_reqs is None:

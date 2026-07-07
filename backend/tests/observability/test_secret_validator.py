@@ -71,6 +71,8 @@ def _clear_secret_env(monkeypatch: pytest.MonkeyPatch):
         "MEETING_JOINER_ENABLED_PLATFORMS",
         "MEETING_JOINER_STT_PROVIDERS",
         "MEETING_JOINER_STORAGE_REQUIRED",
+        "JWT_SECRET",
+        "RUNTIME_MODE",
     ):
         monkeypatch.delenv(var, raising=False)
     yield
@@ -972,3 +974,58 @@ def test_unknown_platform_raises_value_error(
         validate_secrets(config)
 
     assert "not-a-real-platform" in str(excinfo.value)
+
+
+@pytest.mark.unit
+def test_jwt_secret_unset_raises_in_non_dev(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("RUNTIME_MODE", "k8s")
+    monkeypatch.setenv("DATABASE_URL", _VALID_PG_URL)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", _VALID_AZURE_STORAGE)
+
+    with pytest.raises(MissingSecretError) as excinfo:
+        validate_secrets()
+
+    assert any("JWT_SECRET" in entry for entry in excinfo.value.missing)
+
+
+@pytest.mark.unit
+def test_jwt_secret_default_value_raises_in_non_dev(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_MODE", "k8s")
+    monkeypatch.setenv("DATABASE_URL", _VALID_PG_URL)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", _VALID_AZURE_STORAGE)
+    monkeypatch.setenv("JWT_SECRET", "dev-insecure-change-me")
+
+    with pytest.raises(MissingSecretError) as excinfo:
+        validate_secrets()
+
+    assert any("JWT_SECRET" in entry for entry in excinfo.value.missing)
+
+
+@pytest.mark.unit
+def test_jwt_secret_default_value_allowed_in_dev(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_MODE", "standalone")
+    monkeypatch.setenv("DATABASE_URL", _VALID_PG_URL)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", _VALID_AZURE_STORAGE)
+    monkeypatch.setenv("JWT_SECRET", "dev-insecure-change-me")
+
+    validate_secrets()  # no exception
+
+
+@pytest.mark.unit
+def test_jwt_secret_real_value_passes_in_non_dev(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_MODE", "k8s")
+    monkeypatch.setenv("DATABASE_URL", _VALID_PG_URL)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", _VALID_AZURE_STORAGE)
+    monkeypatch.setenv("JWT_SECRET", "a-real-random-secret-value")
+
+    validate_secrets()  # no exception
