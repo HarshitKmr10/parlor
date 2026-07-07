@@ -2,8 +2,10 @@
 
 Public surface:
 
-* :data:`PROVIDERS` — registry of ``kind -> provider`` (slack, email working;
-  notion, hubspot registered as not-yet-implemented).
+* :data:`PROVIDERS` — registry of ``kind -> provider``. All five registered
+  kinds are fully implemented: ``slack`` (incoming-webhook, slack_provider.py),
+  ``email`` (SMTP or log-only, email_provider.py), and ``notion``/``hubspot``/
+  ``salesforce`` (CRM/workspace-tool recap delivery, crm_providers.py).
 * :func:`deliver_recap` — deliver a recap to every *enabled + configured*
   integration of a workspace.
 * :class:`IntegrationsRepo` — persistence for per-workspace config.
