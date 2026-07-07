@@ -104,6 +104,43 @@ up-api` is the fast path for trying the product or iterating on it.
   home — the product is the Docker Compose file (or the Helm chart under
   `deploy/helm/parlor/` for Kubernetes).
 
+## What's included
+
+Parlor is a self-hostable meeting-intelligence platform, with a notetaker at
+its core. The botless, privacy-first capture described above is the lead
+feature and the reason to reach for this project — but the rest of the stack
+that ships alongside it is substantial enough to be worth listing honestly
+rather than pretending it isn't there:
+
+- **Meeting capture, transcription, and AI summaries** — the core notetaker:
+  botless local capture or optional bot-join, transcripts, summaries, action
+  items, chapters, and cross-meeting RAG chat (see Features above).
+- **Calendar integrations** — Google Calendar and Microsoft Calendar OAuth,
+  for scheduling context around meetings.
+- **CRM and recap delivery** — push meeting recaps and action items to Slack,
+  Notion, HubSpot, and Salesforce (`backend/src/integrations/crm_providers.py`).
+- **Outbound webhooks** — generic HMAC-signed webhooks with retry, so any
+  external system can subscribe to meeting events.
+- **Optional enterprise SSO** — generic OIDC single sign-on
+  (`backend/src/sso/`), for teams that already run an identity provider.
+- **Optional billing and usage metering** — Stripe-backed plans and quota
+  tracking (`backend/src/billing/`), useful if you're offering Parlor to
+  other teams internally rather than running it purely for yourself.
+- **Audit logging and retention controls** — an audit trail for
+  security-sensitive actions, plus configurable data retention and legal-hold
+  export, for organizations with compliance requirements.
+- **Coaching scorecards** — call-coaching metrics derived from meeting
+  transcripts (`backend/src/coaching/`).
+- **MCP server** — exposing your meeting knowledge base to Claude Desktop,
+  Claude Code, ChatGPT, and other MCP clients (also listed above).
+
+None of the above is required to run Parlor as "just" a notetaker — the
+billing, SSO, CRM, and coaching pieces are all optional and inert until
+configured. They exist because this project grew out of a broader
+meeting-intelligence codebase, and rather than strip them out we're leaving
+them in and documenting them, since removing working, self-hostable code
+would be a worse outcome than being upfront about what's here.
+
 ## What's different from FuturePath AI's other products?
 
 > **A note on scope, not marketing:** FuturePath AI, the team behind Parlor,
@@ -335,3 +372,7 @@ See [`CONTRIBUTING.md`](./CONTRIBUTING.md) for how to run the tests and submit
 a pull request (DCO sign-off required, no CLA), and the
 [`CODE_OF_CONDUCT.md`](./CODE_OF_CONDUCT.md) for community expectations.
 Security issues should be reported privately — see [`SECURITY.md`](./SECURITY.md).
+
+---
+
+<sub>Maintained by the Parlor team.</sub>
