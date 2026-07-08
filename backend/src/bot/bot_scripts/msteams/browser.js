@@ -23,51 +23,71 @@ const PERMISSION_ORIGINS = [
 
 const PERMISSIONS = ['microphone', 'camera', 'notifications'];
 
-// Modern Chrome user-agent (matches Vexa). Some Teams flows gate features
-// on this string.
+// Modern Chrome user-agent string. Some Teams flows gate feature
+// availability on the UA, so we present a recent desktop Chrome/Windows
+// identity rather than Playwright's default.
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36';
 
-// Chromium launch arguments — copied verbatim from Vexa's
-// vexa-bot/core/src/constans.ts `baseBrowserArgs`. Verified inside the
-// staging worker pod: launches cleanly (no SIGTRAP), navigates Teams
-// redirects, Playwright .fill()/.click() are accepted by Teams' React
-// inputs because real X11 events flow through Xvfb (the entrypoint
-// already starts Xvfb on :99 — that's the "fake-headless" trick).
+// Chromium launch arguments, grouped by the problem each group solves.
+// Verified inside the staging worker pod: launches cleanly (no SIGTRAP),
+// navigates Teams redirects, and Playwright .fill()/.click() are accepted
+// by Teams' React inputs because real X11 events flow through Xvfb (the
+// entrypoint already starts Xvfb on :99 — the "fake-headless" pattern).
 //
-// The previous head-mode attempt SIGTRAPed because we were stacking
-// `--auto-accept-camera-and-microphone-capture` on top, which crashes
-// chromium in this wolfi build. Vexa's arg list omits that flag and is
-// stable.
+// Note: an earlier head-mode attempt SIGTRAPed when
+// `--auto-accept-camera-and-microphone-capture` was stacked on top of
+// this set — that flag crashes Chromium in this wolfi base image and is
+// intentionally omitted.
 function buildLaunchArgs() {
-  return [
+  const sandboxAndIsolation = [
     '--incognito',
     '--no-sandbox',
     '--disable-setuid-sandbox',
     '--disable-features=IsolateOrigins,site-per-process',
-    '--disable-infobars',
-    '--disable-gpu',
-    // Collapse the gpu-process into the renderer. Without this, a single
-    // bot would burn ~360% CPU on software-rasterised compositing in a
-    // separate gpu-process. See Vexa's notes — measured on Zoom Web cycle.
-    '--in-process-gpu',
-    '--use-fake-ui-for-media-stream',
-    // Keep Chrome's media device graph active inside Docker. Without a fake
-    // input device, Teams intermittently drops CSRC/audio-source metadata even
-    // though the inbound WebRTC audio track continues to deliver frames.
-    '--use-fake-device-for-media-stream',
-    '--use-file-for-fake-video-capture=/dev/null',
-    '--allow-running-insecure-content',
+    '--disable-site-isolation-trials',
     '--disable-web-security',
-    '--disable-features=VizDisplayCompositor',
+    '--allow-running-insecure-content',
     '--ignore-certificate-errors',
     '--ignore-ssl-errors',
     '--ignore-certificate-errors-spki-list',
-    '--disable-site-isolation-trials',
+  ];
+
+  const gpuAndCompositing = [
+    '--disable-gpu',
+    // Collapse the gpu-process into the renderer. Without this, a single
+    // bot burns roughly 3x the CPU on software-rasterized compositing
+    // running in a separate gpu-process — measured against a sustained
+    // Teams web call.
+    '--in-process-gpu',
+    '--disable-features=VizDisplayCompositor',
+  ];
+
+  const mediaDevices = [
+    '--use-fake-ui-for-media-stream',
+    // Keep Chrome's media device graph active inside Docker. Without a
+    // fake input device, Teams intermittently drops CSRC/audio-source
+    // metadata even though the inbound WebRTC audio track keeps
+    // delivering frames.
+    '--use-fake-device-for-media-stream',
+    '--use-file-for-fake-video-capture=/dev/null',
     '--autoplay-policy=no-user-gesture-required',
+  ];
+
+  const backgroundThrottling = [
     '--disable-background-timer-throttling',
     '--disable-renderer-backgrounding',
     '--disable-backgrounding-occluded-windows',
+  ];
+
+  const chrome = ['--disable-infobars'];
+
+  return [
+    ...sandboxAndIsolation,
+    ...gpuAndCompositing,
+    ...mediaDevices,
+    ...backgroundThrottling,
+    ...chrome,
   ];
 }
 
