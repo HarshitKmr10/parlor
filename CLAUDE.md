@@ -43,8 +43,8 @@ removed by a different session.
     real leak here: `STATE.md`, internal engineering docs naming real
     customers/PRs). If you find something like this, remove it, don't just
     flag it.
-  - Full history of what's been checked/fixed lives in Verdant's own
-    `docs/OSS-LAUNCH-ISSUES-TRACKER.md` — that tracker itself must never be
-    copied into this repo (it documents past vulnerabilities; irrelevant and
-    inappropriate for a public repo once fixed).
+  - Full history of what's been checked/fixed lives in a `docs/OSS-LAUNCH-ISSUES-TRACKER.md`
+    kept in the separate closed-source product this was extracted from — that
+    tracker itself must never be copied into this repo (it documents past
+    vulnerabilities; irrelevant and inappropriate for a public repo once fixed).
 - **Re-run the full test suite after any merge**, even a clean auto-merge.
