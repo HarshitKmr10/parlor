@@ -72,6 +72,24 @@ def generate_refresh_token() -> str:
     return secrets.token_urlsafe(48)
 
 
+def generate_password_reset_token() -> str:
+    """Opaque high-entropy password-reset token; only its hash is persisted."""
+    return secrets.token_urlsafe(32)
+
+
+def password_reset_token_expiry() -> datetime:
+    return _now() + timedelta(minutes=settings.PASSWORD_RESET_TTL_MINUTES)
+
+
+def generate_invite_token() -> str:
+    """Opaque high-entropy workspace-invite token; only its hash is persisted."""
+    return secrets.token_urlsafe(32)
+
+
+def invite_token_expiry() -> datetime:
+    return _now() + timedelta(days=settings.INVITE_TTL_DAYS)
+
+
 def hash_token(token: str) -> str:
     """SHA-256 hex digest used for refresh-token and API-key lookups."""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()

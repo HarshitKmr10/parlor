@@ -1,0 +1,24 @@
+{
+  "meetingId": "eval-actions-1",
+  "title": "Launch Readiness Sync",
+  "segments": [
+    {
+      "id": "a1",
+      "speakerName": "Alice",
+      "text": "I will send the finalized proposal document to the client by Friday afternoon, and I'll loop in legal beforehand so there are no surprises once it's out the door.",
+      "tStartSec": 0.0
+    },
+    {
+      "id": "a2",
+      "speakerName": "Bob",
+      "text": "I own the database migration end to end, and I will have the runbook updated by Monday morning, including the rollback steps in case anything goes sideways during the cutover window.",
+      "tStartSec": 20.0
+    },
+    {
+      "id": "a3",
+      "speakerName": "Carol",
+      "text": "Sounds good, thanks for the updates everyone, glad to see both of those tracks moving forward on schedule without any surprises so far.",
+      "tStartSec": 42.0
+    }
+  ]
+}

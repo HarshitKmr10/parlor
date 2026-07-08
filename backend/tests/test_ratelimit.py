@@ -297,3 +297,13 @@ class TestRateLimitMiddlewareShareScoping:
             )
 
         assert "public:ip:9.9.9.9" in set(store._state.keys())
+
+
+def test_tier_for_brute_force_sensitive_auth_paths():
+    assert tier_for_path("/api/v1/auth/login") == "auth"
+    assert tier_for_path("/api/v1/auth/forgot-password") == "auth"
+    assert tier_for_path("/api/v1/auth/reset-password") == "auth"
+    # Unrelated /auth/* routes keep the default (unauthenticated-but-not-
+    # brute-force-sensitive) tier.
+    assert tier_for_path("/api/v1/auth/signup") == "default"
+    assert tier_for_path("/api/v1/auth/me") == "default"

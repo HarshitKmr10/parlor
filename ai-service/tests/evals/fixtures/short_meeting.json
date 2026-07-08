@@ -1,0 +1,18 @@
+{
+  "meetingId": "eval-short-1",
+  "title": "Quick Sync",
+  "segments": [
+    {
+      "id": "sh1",
+      "speakerName": "Tom",
+      "text": "Quick heads up before you head into the client call this afternoon, the pricing sheet got updated this morning so double check you're using the latest version before you send anything over, since the old one has the wrong renewal discount.",
+      "tStartSec": 0.0
+    },
+    {
+      "id": "sh2",
+      "speakerName": "Lena",
+      "text": "Thanks for the heads up, I'll pull the latest version before I hop on the call in a few minutes so I don't accidentally quote the old numbers to the client again like last time.",
+      "tStartSec": 10.0
+    }
+  ]
+}

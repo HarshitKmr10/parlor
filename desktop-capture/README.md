@@ -46,7 +46,7 @@ macOS-first (the dev box is darwin).
    `completed` (`DELETE /api/v1/meetings/{id}`) and `/summarize` is triggered so
    the recap is generated.
 
-A local JSONL transcript (`verdant-transcript.jsonl` by default in offline mode,
+A local JSONL transcript (`parlor-transcript.jsonl` by default in offline mode,
 or `--transcript-out`) is always written as a durable artifact.
 
 ---
@@ -74,7 +74,7 @@ So the client behaves pragmatically and **never crashes** on these gaps:
 
 If your backend mounts a private botless ingest endpoint (the internal
 `append_transcript_segment` flow), point the client at it with
-`--ingest-path` / `VERDANT_INGEST_PATH` (supports a `{meeting_id}` placeholder).
+`--ingest-path` / `PARLOR_INGEST_PATH` (supports a `{meeting_id}` placeholder).
 The POST body carries both `segment` (contract shape) and `content` (internal
 shape) so either consumer works.
 
@@ -119,8 +119,8 @@ capture *meeting* audio (both sides) rather than just your microphone:
    - Select this Multi-Output Device as the **system output** during the call.
 3. **Capture from BlackHole**:
    ```bash
-   verdant-capture --list-devices            # find the loopback device
-   verdant-capture capture --device "BlackHole 2ch" --stt faster-whisper ...
+   parlor-capture --list-devices            # find the loopback device
+   parlor-capture capture --device "BlackHole 2ch" --stt faster-whisper ...
    ```
    To record **both** your mic and the call, build an **Aggregate Device**
    (Audio MIDI Setup → + → Create Aggregate Device) combining your mic +
@@ -136,21 +136,21 @@ uses `sounddevice`/PortAudio, which reads the same Core Audio devices.)
 
 ## Configuration
 
-Resolution order (highest first): **CLI flags → env vars → `~/.verdant/config`**.
+Resolution order (highest first): **CLI flags → env vars → `~/.parlor/config`**.
 
 Env vars (see `.env.example`):
 
 | Var | Meaning |
 |---|---|
-| `VERDANT_API_URL` | Backend base URL (default `http://localhost:8000`) |
-| `VERDANT_API_KEY` | Workspace API key (`X-API-Key`); carries its own workspace |
-| `VERDANT_EMAIL` / `VERDANT_PASSWORD` | Login path (yields a Bearer token) |
-| `VERDANT_WORKSPACE_ID` | Active workspace (else first workspace on the account) |
-| `VERDANT_INGEST_PATH` | Optional private transcript-ingest path |
+| `PARLOR_API_URL` | Backend base URL (default `http://localhost:8000`) |
+| `PARLOR_API_KEY` | Workspace API key (`X-API-Key`); carries its own workspace |
+| `PARLOR_EMAIL` / `PARLOR_PASSWORD` | Login path (yields a Bearer token) |
+| `PARLOR_WORKSPACE_ID` | Active workspace (else first workspace on the account) |
+| `PARLOR_INGEST_PATH` | Optional private transcript-ingest path |
 
-`~/.verdant/config` (ini):
+`~/.parlor/config` (ini):
 ```ini
-[verdant]
+[parlor]
 api_url = http://localhost:8000
 api_key = vk_live_xxx
 ```
@@ -163,24 +163,24 @@ No secrets are hardcoded — credentials come only from env or the home config.
 
 ```bash
 # List audio devices (and loopback setup help if none found)
-verdant-capture --list-devices
+parlor-capture --list-devices
 
 # Offline demo — no backend, no model, synthetic audio: proves the pipeline
-verdant-capture capture --local --mock-audio --duration 15
+parlor-capture capture --local --mock-audio --duration 15
 
 # Real local capture with offline Whisper, writing a local transcript
-verdant-capture capture --local --stt faster-whisper --stt-model base \
+parlor-capture capture --local --stt faster-whisper --stt-model base \
   --device "BlackHole 2ch" --transcript-out ./call.jsonl
 
 # Full path against a running backend (real meeting URL + API key)
-export VERDANT_API_KEY=vk_live_xxx
-verdant-capture capture \
+export PARLOR_API_KEY=vk_live_xxx
+parlor-capture capture \
   --meeting-url "https://zoom.us/j/123456789" \
   --title "Weekly sync" \
   --stt faster-whisper --device "BlackHole 2ch"
 
 # Remote STT backend
-verdant-capture capture --stt remote --stt-endpoint https://stt.example.com/transcribe ...
+parlor-capture capture --stt remote --stt-endpoint https://stt.example.com/transcribe ...
 ```
 
 Key flags: `--device`, `--stt {mock,faster-whisper,remote}`, `--stt-model`,

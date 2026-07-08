@@ -35,8 +35,8 @@ from src.integrations.google_workspace.directory import DirectoryClient
 _FAKE_SA_JSON = json.dumps(
     {
         "type": "service_account",
-        "project_id": "verdant-test",
-        "client_email": "bot@verdant-test.iam.gserviceaccount.com",
+        "project_id": "parlor-test",
+        "client_email": "bot@parlor-test.iam.gserviceaccount.com",
         "private_key_id": "abc123",
     }
 )
@@ -50,8 +50,8 @@ def _dwd_config():
     return OrgAuthConfig.from_service_account_json(
         _FAKE_SA_JSON,
         auth_mode=AUTH_MODE_DWD,
-        delegated_admin_email="admin@verdant-test.com",
-        domain="verdant-test.com",
+        delegated_admin_email="admin@parlor-test.com",
+        domain="parlor-test.com",
     )
 
 
@@ -95,12 +95,12 @@ def test_dwd_impersonates_via_with_subject(monkeypatch):
 
     auth = DomainWideDelegationAuth(
         service_account_info=json.loads(_FAKE_SA_JSON),
-        delegated_admin_email="admin@verdant-test.com",
+        delegated_admin_email="admin@parlor-test.com",
     )
     monkeypatch.setattr(auth, "_base_credentials", lambda scopes: factory(scopes))
 
     assert auth.get_user_credentials("alice@x.com", ("s",)) == "creds_as:alice@x.com"
-    assert auth.get_admin_credentials(("s",)) == "creds_as:admin@verdant-test.com"
+    assert auth.get_admin_credentials(("s",)) == "creds_as:admin@parlor-test.com"
 
 
 def test_dwd_admin_requires_delegated_admin():
@@ -440,8 +440,8 @@ def test_routes_post_then_get_roundtrip_never_returns_sa_json(gw_client):
         json={
             "authMode": "dwd",
             "serviceAccountJson": _FAKE_SA_JSON,
-            "delegatedAdminEmail": "admin@verdant-test.com",
-            "domain": "verdant-test.com",
+            "delegatedAdminEmail": "admin@parlor-test.com",
+            "domain": "parlor-test.com",
             "enabled": True,
         },
     )
@@ -460,7 +460,7 @@ def test_routes_post_then_get_roundtrip_never_returns_sa_json(gw_client):
     got = res.json()
     assert got["enabled"] is True
     assert got["authMode"] == "dwd"
-    assert got["delegatedAdminEmail"] == "admin@verdant-test.com"
+    assert got["delegatedAdminEmail"] == "admin@parlor-test.com"
     assert got["serviceAccountFingerprint"] == fingerprint
     assert "serviceAccountJson" not in got
     assert _FAKE_SA_JSON not in res.text
@@ -484,8 +484,8 @@ def test_routes_users_returns_mocked_users(gw_client):
         json={
             "authMode": "dwd",
             "serviceAccountJson": _FAKE_SA_JSON,
-            "delegatedAdminEmail": "admin@verdant-test.com",
-            "domain": "verdant-test.com",
+            "delegatedAdminEmail": "admin@parlor-test.com",
+            "domain": "parlor-test.com",
             "enabled": True,
         },
     )
@@ -518,7 +518,7 @@ def test_routes_delete(gw_client):
         json={
             "authMode": "dwd",
             "serviceAccountJson": _FAKE_SA_JSON,
-            "delegatedAdminEmail": "admin@verdant-test.com",
+            "delegatedAdminEmail": "admin@parlor-test.com",
             "enabled": True,
         },
     )

@@ -4,20 +4,20 @@ from __future__ import annotations
 
 #: Header the client JS echoes back on state-changing requests so the server
 #: can confirm the request came from the page it just served (see gui/server.py).
-CSRF_TOKEN_HEADER = "X-Verdant-Capture-Token"
+CSRF_TOKEN_HEADER = "X-Parlor-Capture-Token"
 
 #: Placeholder swapped for the real per-launch token by ``render_panel``.
 #: Using a plain ``str.replace`` (not ``str.format``) keeps every literal
 #: ``{``/``}`` in the CSS and JS below untouched.
-_TOKEN_PLACEHOLDER = "__VERDANT_CAPTURE_TOKEN__"
+_TOKEN_PLACEHOLDER = "__PARLOR_CAPTURE_TOKEN__"
 
 _PANEL_HTML_TEMPLATE = """<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta name="verdant-capture-token" content="__VERDANT_CAPTURE_TOKEN__" />
-<title>Verdant Capture</title>
+<meta name="parlor-capture-token" content="__PARLOR_CAPTURE_TOKEN__" />
+<title>Parlor Capture</title>
 <style>
   :root { --sage:#5c6b4a; --ink:#2a2e22; --bg:#fcfbf7; --line:#e6e1d4; }
   * { box-sizing: border-box; }
@@ -41,8 +41,8 @@ _PANEL_HTML_TEMPLATE = """<!doctype html>
 </head>
 <body>
 <div class="wrap">
-  <h1>Verdant Capture</h1>
-  <p class="sub">Record this device's meeting audio and stream it to Verdant — no bot in the room.</p>
+  <h1>Parlor Capture</h1>
+  <p class="sub">Record this device's meeting audio and stream it to Parlor — no bot in the room.</p>
 
   <label for="title">Meeting title</label>
   <input id="title" placeholder="Weekly sync" />
@@ -94,8 +94,8 @@ _PANEL_HTML_TEMPLATE = """<!doctype html>
     $('start').disabled = on; $('stop').disabled = !on;
   }
   async function refresh() { try { render(await (await fetch('/api/status')).json()); } catch {} }
-  const CSRF_TOKEN_HEADER = 'X-Verdant-Capture-Token';
-  const CSRF_TOKEN = document.querySelector('meta[name="verdant-capture-token"]').content;
+  const CSRF_TOKEN_HEADER = 'X-Parlor-Capture-Token';
+  const CSRF_TOKEN = document.querySelector('meta[name="parlor-capture-token"]').content;
   const authHeaders = () => ({ [CSRF_TOKEN_HEADER]: CSRF_TOKEN });
   $('start').onclick = async () => {
     const form = {

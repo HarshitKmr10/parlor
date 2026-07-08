@@ -107,6 +107,12 @@ curl -s -X POST http://localhost:8100/chat \
   -d '{"workspaceId":"w1","meetingId":"m1","question":"When are we shipping the API?"}'
 ```
 
+## Content-quality evals
+
+`tests/evals/` is a basic eval harness that checks the *content* of
+generated summaries/action-items/RAG answers, not just API correctness --
+see [`EVALS.md`](EVALS.md).
+
 ## Layout
 
 ```

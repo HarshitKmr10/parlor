@@ -67,7 +67,7 @@ async function run(): Promise<void> {
   assert.equal(content[0]?.type, "text");
   assert.match(
     content[0]?.text ?? "",
-    /Failed to reach Verdant API/,
+    /Failed to reach Parlor API/,
     "expected a readable network error",
   );
   console.log(`graceful error OK: "${content[0]?.text}"`);

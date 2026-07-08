@@ -20,7 +20,7 @@ from parlor_capture.stt.base import STTResult
 
 
 class FakeIngestClient:
-    """Duck-typed stand-in for ``VerdantClient.post_segments``.
+    """Duck-typed stand-in for ``ParlorClient.post_segments``.
 
     ``outcomes`` is consumed one entry per call to decide how that call
     behaves: ``True``/``False`` returns directly (mirroring the real

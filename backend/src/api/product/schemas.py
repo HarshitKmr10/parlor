@@ -59,6 +59,15 @@ class RefreshRequest(CamelModel):
     refresh_token: str = Field(..., min_length=1)
 
 
+class ForgotPasswordRequest(CamelModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(CamelModel):
+    token: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=200)
+
+
 # ── Entities ─────────────────────────────────────────────────────────────
 class User(CamelModel):
     id: str
@@ -116,6 +125,60 @@ class ApiKey(CamelModel):
 class ApiKeyCreated(ApiKey):
     # The full key is returned exactly once, on create.
     key: str
+
+
+# ── Workspace invites ────────────────────────────────────────────────────
+InviteStatus = Literal["pending", "accepted", "expired", "revoked"]
+InviteRole = Literal["admin", "member"]
+
+
+class WorkspaceInviteCreateRequest(CamelModel):
+    email: EmailStr
+    role: InviteRole = "member"
+
+
+class WorkspaceInvite(CamelModel):
+    id: str
+    workspace_id: str
+    email: str
+    role: str
+    status: InviteStatus
+    invited_by_user_id: str
+    expires_at: datetime
+    created_at: datetime
+
+
+class WorkspaceInviteCreated(WorkspaceInvite):
+    # The full accept link is returned exactly once, on create, so the caller
+    # can send it (email delivery is best-effort/logged in dev).
+    accept_url: Optional[str] = None
+
+
+class WorkspaceInviteListResponse(CamelModel):
+    items: List[WorkspaceInvite] = Field(default_factory=list)
+    total: int = 0
+
+
+class InvitePreview(CamelModel):
+    """Public, unauthenticated view of a pending invite (accept page)."""
+
+    workspace_name: str
+    email: str
+    role: str
+    requires_signup: bool
+
+
+class InviteAcceptRequest(CamelModel):
+    # Only required when the invited email has no existing account yet.
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    password: Optional[str] = Field(None, min_length=8, max_length=200)
+
+
+class InviteAcceptResponse(CamelModel):
+    user: User
+    workspace: Workspace
+    access_token: str
+    refresh_token: str
 
 
 # ── Meetings ─────────────────────────────────────────────────────────────

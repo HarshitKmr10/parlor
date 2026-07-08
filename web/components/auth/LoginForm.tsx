@@ -69,15 +69,23 @@ export function LoginForm() {
         error={emailError}
         required
       />
-      <TextField
-        label="Password"
-        type="password"
-        autoComplete="current-password"
-        placeholder="••••••••"
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-        required
-      />
+      <div className="flex flex-col gap-1.5">
+        <TextField
+          label="Password"
+          type="password"
+          autoComplete="current-password"
+          placeholder="••••••••"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          required
+        />
+        <Link
+          href="/forgot-password"
+          className="self-end text-sm font-medium text-sage-700 underline-offset-2 hover:underline"
+        >
+          Forgot password?
+        </Link>
+      </div>
 
       {formError && (
         <p

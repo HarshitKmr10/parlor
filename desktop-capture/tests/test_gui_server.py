@@ -50,7 +50,7 @@ def running_server() -> Iterator[tuple[str, int, str]]:
     thread.start()
 
     body = _get(host, port, "/")
-    token_match = re.search(r'name="verdant-capture-token" content="([^"]+)"', body)
+    token_match = re.search(r'name="parlor-capture-token" content="([^"]+)"', body)
     assert token_match, "panel HTML did not embed a CSRF token"
     token = token_match.group(1)
 

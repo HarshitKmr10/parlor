@@ -31,10 +31,10 @@ export const PUBLIC_API_BASE_URL =
 export const API_PREFIX = "/api/v1";
 
 /** Cookie names for the httpOnly session tokens set by the auth route handlers. */
-export const ACCESS_TOKEN_COOKIE = "verdant_at";
-export const REFRESH_TOKEN_COOKIE = "verdant_rt";
+export const ACCESS_TOKEN_COOKIE = "parlor_at";
+export const REFRESH_TOKEN_COOKIE = "parlor_rt";
 /** Non-httpOnly cookie carrying the active workspace id (safe to expose). */
-export const WORKSPACE_COOKIE = "verdant_ws";
+export const WORKSPACE_COOKIE = "parlor_ws";
 
 /** Build a fully-qualified backend URL for a `/api/v1` path. */
 export function backendUrl(path: string): string {

@@ -1,0 +1,30 @@
+{
+  "meetingId": "eval-decision-1",
+  "title": "Vendor Selection Decision",
+  "segments": [
+    {
+      "id": "d1",
+      "speakerName": "Priya",
+      "text": "We've spent three weeks evaluating the two vendors for the new payments processor, and I think we have enough data now to make a call.",
+      "tStartSec": 0.0
+    },
+    {
+      "id": "d2",
+      "speakerName": "Marcus",
+      "text": "Agreed. Vendor A came in cheaper, but Vendor B has better uptime guarantees and a dedicated support line, which matters more given our transaction volume.",
+      "tStartSec": 18.0
+    },
+    {
+      "id": "d3",
+      "speakerName": "Priya",
+      "text": "Let's go with Vendor B then. The decision is final: we're signing with Vendor B for the payments processor.",
+      "tStartSec": 40.0
+    },
+    {
+      "id": "d4",
+      "speakerName": "Marcus",
+      "text": "Sounds good, I'll let procurement know we've decided on Vendor B so they can start the contract paperwork.",
+      "tStartSec": 55.0
+    }
+  ]
+}

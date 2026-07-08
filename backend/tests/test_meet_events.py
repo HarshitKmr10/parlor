@@ -46,8 +46,8 @@ SPACE_NAME = "spaces/space-xyz"
 
 
 def _cloud_event(conference_id=CONFERENCE_ID, space=SPACE_NAME,
-                 organizer="host@verdant-test.com",
-                 etype=EVENT_CONFERENCE_STARTED, subject="host@verdant-test.com"):
+                 organizer="host@parlor-test.com",
+                 etype=EVENT_CONFERENCE_STARTED, subject="host@parlor-test.com"):
     return {
         "type": etype,
         "subject": subject,
@@ -99,10 +99,10 @@ def test_events_client_create_persists():
     auth.get_user_credentials.return_value = MagicMock()
     client = WorkspaceEventsClient(auth, pubsub_topic="projects/p/topics/t")
     with patch("googleapiclient.discovery.build", return_value=_fake_events_service()):
-        result = client.create_subscription("alice@verdant-test.com")
+        result = client.create_subscription("alice@parlor-test.com")
     assert isinstance(result, SubscriptionResult)
     assert result.subscription_id == "subscriptions/sub-1"
-    assert result.target_user_email == "alice@verdant-test.com"
+    assert result.target_user_email == "alice@parlor-test.com"
     assert result.expire_time is not None
     assert result.state == "active"
 
@@ -167,7 +167,7 @@ def test_parse_conference_started_event():
     assert parsed is not None
     assert parsed["conference_id"] == CONFERENCE_ID
     assert parsed["space_name"] == SPACE_NAME
-    assert parsed["organizer_email"] == "host@verdant-test.com"
+    assert parsed["organizer_email"] == "host@parlor-test.com"
     assert parsed["event_type"] == EVENT_CONFERENCE_STARTED
 
 
@@ -207,7 +207,7 @@ def patched_dispatch(monkeypatch):
     dispatch_mock = AsyncMock(return_value=(True, "dispatched"))
 
     async def _resolve_ws(db, subject):
-        return ("ws-1", "notetaker@verdant-test.com")
+        return ("ws-1", "notetaker@parlor-test.com")
 
     async def _resolve_uri(db, ws, parsed):
         return MEET_URI
@@ -246,7 +246,7 @@ async def test_handle_event_dispatches_once(patched_dispatch):
     assert dispatch_mock.await_args.kwargs["meeting_url"] == MEET_URI
     assert (
         dispatch_mock.await_args.kwargs["notetaker_email"]
-        == "notetaker@verdant-test.com"
+        == "notetaker@parlor-test.com"
     )
 
 
@@ -310,25 +310,25 @@ def test_policy_denylist_blocks_matching_domain():
         deny={"domains": ["competitor.com"]}, allow={}, opt_out_emails=[],
     )
     assert p.evaluate(organizer_email="ceo@competitor.com").allowed is False
-    assert p.evaluate(organizer_email="ceo@verdant.com").allowed is True
+    assert p.evaluate(organizer_email="ceo@parlor.com").allowed is True
 
 
 def test_policy_allowlist_only_admits_matches():
     p = OrgMeetingPolicy(
         workspace_id="ws", mode=MODE_ALLOWLIST,
-        allow={"emails": ["vip@verdant.com"]}, deny={}, opt_out_emails=[],
+        allow={"emails": ["vip@parlor.com"]}, deny={}, opt_out_emails=[],
     )
-    assert p.evaluate(organizer_email="vip@verdant.com").allowed is True
-    d = p.evaluate(organizer_email="other@verdant.com")
+    assert p.evaluate(organizer_email="vip@parlor.com").allowed is True
+    d = p.evaluate(organizer_email="other@parlor.com")
     assert d.allowed is False and d.reason == "not_in_allowlist"
 
 
 def test_policy_opt_out_blocks_organizer():
     p = OrgMeetingPolicy(
         workspace_id="ws", mode="all",
-        allow={}, deny={}, opt_out_emails=["shy@verdant.com"],
+        allow={}, deny={}, opt_out_emails=["shy@parlor.com"],
     )
-    d = p.evaluate(organizer_email="shy@verdant.com")
+    d = p.evaluate(organizer_email="shy@parlor.com")
     assert d.allowed is False and d.reason == "organizer_opted_out"
 
 
@@ -337,7 +337,7 @@ def test_policy_auto_join_disabled_blocks_all():
         workspace_id="ws", auto_join_enabled=False,
         allow={}, deny={}, opt_out_emails=[],
     )
-    assert p.evaluate(organizer_email="anyone@verdant.com").allowed is False
+    assert p.evaluate(organizer_email="anyone@parlor.com").allowed is False
 
 
 # ── (e)(f)(g) webhook end-to-end ─────────────────────────────────────────────

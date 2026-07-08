@@ -86,7 +86,7 @@ describe('Teams bot — bridge.stop() runs unconditionally (issue #86)', () => {
   });
 
   test('bridge.stop() is called on the mid-meeting error path (post-admission throw)', async () => {
-    const result = await joinMeeting('https://teams.microsoft.com/l/meetup-join/err', { name: 'Verdant Bot' }, {
+    const result = await joinMeeting('https://teams.microsoft.com/l/meetup-join/err', { name: 'Parlor Bot' }, {
       meetingDbId: 'meeting-teams-bridge-stop-err',
     });
 
@@ -103,7 +103,7 @@ describe('Teams bot — bridge.stop() runs unconditionally (issue #86)', () => {
 
     // Force the meeting to exit quickly via max_meeting_time so the success
     // path (return path, not the catch path) is exercised.
-    const result = await joinMeeting('https://teams.microsoft.com/l/meetup-join/ok', { name: 'Verdant Bot' }, {
+    const result = await joinMeeting('https://teams.microsoft.com/l/meetup-join/ok', { name: 'Parlor Bot' }, {
       meetingDbId: 'meeting-teams-bridge-stop-ok',
       maxMeetingMs: 1,
     });

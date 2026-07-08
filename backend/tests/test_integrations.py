@@ -8,7 +8,6 @@ from src.integrations import KNOWN_KINDS, PROVIDERS, deliver_recap
 from src.integrations.email_provider import EmailProvider
 from src.integrations.models import MeetingRecap
 from src.integrations.slack_provider import SlackProvider
-from src.integrations.stub_providers import HubspotProvider, NotionProvider
 
 
 def _recap():
@@ -66,14 +65,6 @@ async def test_email_no_recipients_not_delivered():
     p = EmailProvider()
     result = await p.deliver({}, _recap())
     assert result.delivered is False
-
-
-@pytest.mark.asyncio
-async def test_stub_providers_report_not_implemented():
-    for provider in (NotionProvider(), HubspotProvider()):
-        result = await provider.deliver({}, _recap())
-        assert result.delivered is False
-        assert "not yet implemented" in (result.detail or "")
 
 
 # ── RBAC: /api/v1/integrations is admin-only (credentials live in config) ──

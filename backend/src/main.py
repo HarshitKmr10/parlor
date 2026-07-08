@@ -44,6 +44,7 @@ from .api.models.schemas import (
 from .api.routes import sessions as sessions_routes
 from .api.product.errors import ApiError
 from .api.product.routes_auth import auth_router, workspaces_router
+from .api.product.routes_invites import router as product_invites_router
 from .api.product.routes_calendar import router as product_calendar_router
 from .api.product.routes_google_workspace import (
     router as product_google_workspace_router,
@@ -606,6 +607,7 @@ app.include_router(sessions_routes.router)
 # existing internal (no-auth) endpoints without altering them.
 app.include_router(auth_router)
 app.include_router(workspaces_router)
+app.include_router(product_invites_router)
 app.include_router(product_meetings_router)
 app.include_router(product_highlights_router)
 app.include_router(product_search_router)

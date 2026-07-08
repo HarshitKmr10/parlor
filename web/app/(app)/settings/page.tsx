@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getMe } from "@/lib/api/auth";
-import { listApiKeys } from "@/lib/api/workspaces";
+import { listApiKeys, listInvites } from "@/lib/api/workspaces";
 import { listCalendarAccounts, calendarConnectUrl } from "@/lib/api/calendar";
 import { ApiError } from "@/lib/api/error";
 import { BACKEND_UNAVAILABLE_CODE } from "@/lib/api/client";
-import type { ApiKey, CalendarAccount } from "@/lib/api/types";
+import type { ApiKey, CalendarAccount, WorkspaceInvite, WorkspaceRole } from "@/lib/api/types";
 import { SettingsSection } from "@/components/settings/SettingsSection";
 import { ProfilePanel, WorkspacePanel } from "@/components/settings/ProfilePanel";
 import { ApiKeysManager } from "@/components/settings/ApiKeysManager";
+import { TeamInvites } from "@/components/settings/TeamInvites";
 import { CalendarConnections } from "@/components/integrations/CalendarConnections";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
@@ -19,19 +20,29 @@ export const metadata: Metadata = {
 export default async function SettingsPage() {
   // Resolve the active workspace id from /auth/me (also confirms the session).
   let workspaceId: string | null = null;
+  let workspaceRole: WorkspaceRole | null = null;
   let apiKeys: ApiKey[] = [];
   let calendarAccounts: CalendarAccount[] = [];
+  let invites: WorkspaceInvite[] = [];
   let backendDown = false;
 
   try {
     const me = await getMe();
     workspaceId = me.currentWorkspace.id;
-    const [keysResult, accountsResult] = await Promise.all([
+    workspaceRole = me.currentWorkspace.role;
+    const canManageTeam = workspaceRole === "owner" || workspaceRole === "admin";
+    const [keysResult, accountsResult, invitesResult] = await Promise.all([
       listApiKeys(workspaceId).catch(() => [] as ApiKey[]),
       listCalendarAccounts().catch(() => [] as CalendarAccount[]),
+      canManageTeam
+        ? listInvites(workspaceId)
+            .then((r) => r.items)
+            .catch(() => [] as WorkspaceInvite[])
+        : Promise.resolve([] as WorkspaceInvite[]),
     ]);
     apiKeys = keysResult;
     calendarAccounts = accountsResult;
+    invites = invitesResult;
   } catch (error: unknown) {
     if (ApiError.isApiError(error) && error.code === BACKEND_UNAVAILABLE_CODE) {
       backendDown = true;
@@ -65,6 +76,19 @@ export default async function SettingsPage() {
             description="The shared home for your team's meetings."
           >
             <WorkspacePanel />
+          </SettingsSection>
+
+          <SettingsSection
+            title="Team"
+            description="Invite teammates into this workspace instead of starting a new one."
+          >
+            {workspaceRole === "owner" || workspaceRole === "admin" ? (
+              <TeamInvites workspaceId={workspaceId} initialInvites={invites} />
+            ) : (
+              <p className="rounded-md border border-dashed border-border-default bg-surface-1 px-3.5 py-3 text-sm text-ink-muted">
+                Only workspace owners and admins can invite teammates.
+              </p>
+            )}
           </SettingsSection>
 
           <SettingsSection

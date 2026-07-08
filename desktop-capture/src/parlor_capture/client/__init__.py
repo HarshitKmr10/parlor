@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .api import VerdantClient
+from .api import ParlorClient
 from .segments import Segment, segment_from_stt
 
-__all__ = ["VerdantClient", "Segment", "segment_from_stt"]
+__all__ = ["ParlorClient", "Segment", "segment_from_stt"]

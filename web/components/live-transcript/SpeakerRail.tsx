@@ -20,15 +20,15 @@ export function SpeakerRail({ speakers, activeSpeakerId, talkTimeSec }: Props) {
     <>
       {/* Pulse keyframe scoped to this surface; gated by reduced-motion. */}
       <style>{`
-        @keyframes verdant-speaker-pulse {
+        @keyframes parlor-speaker-pulse {
           0%, 100% { opacity: 0.6; }
           50% { opacity: 1; }
         }
-        .verdant-active-glow {
-          animation: verdant-speaker-pulse 1.4s var(--ease-in-out, ease-in-out) infinite;
+        .parlor-active-glow {
+          animation: parlor-speaker-pulse 1.4s var(--ease-in-out, ease-in-out) infinite;
         }
         @media (prefers-reduced-motion: reduce) {
-          .verdant-active-glow { animation: none; opacity: 1; }
+          .parlor-active-glow { animation: none; opacity: 1; }
         }
       `}</style>
 
@@ -64,7 +64,7 @@ export function SpeakerRail({ speakers, activeSpeakerId, talkTimeSec }: Props) {
                 {isActive && (
                   <span
                     aria-hidden="true"
-                    className="verdant-active-glow glow-gold pointer-events-none absolute -inset-0.5 rounded-full"
+                    className="parlor-active-glow glow-gold pointer-events-none absolute -inset-0.5 rounded-full"
                   />
                 )}
               </div>

@@ -75,6 +75,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_TTL_MINUTES: int = 30
     REFRESH_TOKEN_TTL_DAYS: int = 30
+    PASSWORD_RESET_TTL_MINUTES: int = 30
+    INVITE_TTL_DAYS: int = 7
 
     # ai-service base URL for /summarize and /chat proxying.
     AI_SERVICE_URL: str = "http://localhost:8100"

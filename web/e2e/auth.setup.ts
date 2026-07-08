@@ -17,7 +17,7 @@ setup("authenticate and seed workspace", async ({ page }) => {
 
   const stamp = `${Date.now()}${Math.floor(Math.random() * 1000)}`;
   const email = `e2e+${stamp}@example.com`;
-  const password = "verdant-e2e-pass-123";
+  const password = "parlor-e2e-pass-123";
 
   // 1. Create the account + workspace straight against the backend so we hold
   //    the bearer token needed for seeding.

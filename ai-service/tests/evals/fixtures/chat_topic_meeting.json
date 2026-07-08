@@ -1,0 +1,24 @@
+{
+  "meetingId": "eval-chat-1",
+  "title": "Q3 Budget Review",
+  "segments": [
+    {
+      "id": "c1",
+      "speakerName": "Elena",
+      "text": "The Q3 marketing budget approval deadline is next Friday, so finance needs the final numbers before then, otherwise the request rolls to next quarter.",
+      "tStartSec": 0.0
+    },
+    {
+      "id": "c2",
+      "speakerName": "Farid",
+      "text": "We're proposing a twelve percent increase over Q2, mostly driven by the new conference sponsorships and the expanded regional campaigns.",
+      "tStartSec": 20.0
+    },
+    {
+      "id": "c3",
+      "speakerName": "Elena",
+      "text": "The onboarding documentation for new hires was also updated yesterday, unrelated to the budget but worth mentioning while we're all here.",
+      "tStartSec": 40.0
+    }
+  ]
+}

@@ -1,10 +1,18 @@
 name: CI
 
-# Runs everything that can reasonably run WITHOUT a full `docker compose up`
-# of the separated stack (see README "Architecture" / backend/docs/BOT-RUNTIME.md).
-# Playwright e2e (`web/e2e`, `pnpm test:e2e`) needs the real multi-container
-# stack (backend + meeting-worker + ai-service + postgres) up and is
-# intentionally NOT run here yet — see the note at the bottom of this file.
+# CI's own implementation of the intent behind scripts/loop-gate.sh ("backend
+# pytest green (modulo the known pre-existing docker-DNS infra failures) AND
+# web builds clean") — NOT a literal wrapper around that script. loop-gate.sh
+# assumes an interactive local checkout with backend/.venv already built and,
+# for the web half, the full docker-compose stack already up; neither holds
+# on a fresh GitHub Actions runner. Each job below re-derives the same checks
+# using GitHub Actions' own service-container and caching primitives instead.
+#
+# Playwright e2e (`web`, `pnpm test:e2e`) needs the full separated stack
+# (backend + meeting-worker + ai-service + postgres via `make up`) running
+# first — that's a much heavier job (the meeting-worker image alone is Node +
+# Chromium + Xvfb/pulseaudio + ffmpeg + a whisper cache) and is deliberately
+# OUT OF SCOPE here. See the note at the bottom of this file.
 
 on:
   push:
@@ -17,9 +25,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
+  backend-test:
     name: backend (pytest)
     runs-on: ubuntu-latest
+    # The current backend suite mocks the DB in every test that runs here
+    # (verified locally: it's green with zero failures even with an
+    # unreachable DATABASE_URL). A real Postgres service container is still
+    # provisioned so DATABASE_URL points at something live — this mirrors
+    # docker-compose.yml's shared pgvector Postgres and avoids CI silently
+    # drifting from "boots against a real DB" the day a test starts exercising
+    # it for real.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: meeting
+          POSTGRES_PASSWORD: meeting
+          POSTGRES_DB: meeting
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U meeting"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://meeting:meeting@localhost:5432/meeting
+      MEETING_JOINER_DB_DRIVER: pg
+      AI_MODE: mock
+      RUNTIME_MODE: standalone
+      # Fixed CI-only value — never a real secret, never used outside this
+      # workflow. Long enough to avoid pyjwt's InsecureKeyLengthWarning.
+      JWT_SECRET: ci-test-secret-not-for-production-use-0123456789
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +64,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
 
       # backend/requirements-dev.txt is the standalone (non-monorepo) subset
       # of backend/pyproject.toml — see its header comment. `poetry install`
@@ -34,24 +72,27 @@ jobs:
       # dependency that only exists inside the original internal monorepo.
       - name: Install backend dependencies
         run: |
-          python -m venv backend/.venv
-          backend/.venv/bin/pip install --upgrade pip
-          backend/.venv/bin/pip install -r backend/requirements-dev.txt
+          pip install --upgrade pip
+          pip install -r backend/requirements-dev.txt
           # pytest/pytest-asyncio live in pyproject's poetry dev group, which
-          # requirements-dev.txt deliberately excludes — install them directly.
-          backend/.venv/bin/pip install "pytest>=7.4,<9" "pytest-asyncio>=0.23,<1"
+          # requirements-dev.txt deliberately excludes — install directly.
+          pip install "pytest>=7.4,<10" "pytest-asyncio>=0.23,<1"
 
-      # scripts/loop-gate.sh is this repo's own test gate: it runs backend
-      # pytest with PYTHONPATH set correctly and whitelists the handful of
-      # pre-existing tests that need a live `meeting-worker:9000` Docker DNS
-      # host (compose-worker dispatcher + rejoin orchestrator integration
-      # tests) — those need the full stack from `make up`, not CI. Any
-      # failure outside that whitelist fails the job. See the script for the
-      # exact whitelist and CONTRIBUTING.md for the rationale.
-      - name: Run backend test gate
-        run: scripts/loop-gate.sh backend
+      # tests/services/test_compose_worker_dispatcher.py and
+      # tests/services/test_rejoin_orchestrator_integration.py need a live
+      # `meeting-worker:9000` Docker DNS host from the full `make up` stack —
+      # the same whitelist scripts/loop-gate.sh carries (see its header
+      # comment). Excluding them by file (not by an expected-failure count)
+      # keeps this job a clean pass/fail signal instead of "N failures are
+      # expected, ignore those."
+      - name: Run backend pytest
+        working-directory: backend
+        run: |
+          PYTHONPATH=. python -m pytest -q \
+            --ignore=tests/services/test_compose_worker_dispatcher.py \
+            --ignore=tests/services/test_rejoin_orchestrator_integration.py
 
-  ai-service:
+  ai-service-test:
     name: ai-service (pytest)
     runs-on: ubuntu-latest
     services:
@@ -68,6 +109,9 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+    env:
+      DATABASE_URL: postgresql://meeting:meeting@localhost:5432/meeting
+      AI_MODE: mock
     steps:
       - uses: actions/checkout@v4
 
@@ -75,23 +119,22 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: ai-service/pyproject.toml
 
       - name: Install ai-service dependencies
         working-directory: ai-service
         run: pip install -e '.[dev]'
 
-      # ai-service/tests/test_store.py's pgvector-backed fixtures probe
-      # DATABASE_URL themselves and skip (not fail) if Postgres isn't
-      # reachable; pointing it at the service container above lets those
-      # tests actually run instead of skipping in CI.
-      - name: Run ai-service tests
+      # test_store.py's pgvector-backed fixtures probe DATABASE_URL
+      # themselves and skip (not fail) when Postgres isn't reachable —
+      # pointing it at the service container above lets those run for real
+      # instead of silently skipping in CI.
+      - name: Run ai-service pytest
         working-directory: ai-service
-        env:
-          DATABASE_URL: postgresql://meeting:meeting@localhost:5432/meeting
         run: pytest -q
 
-  web:
-    name: web (lint + typecheck)
+  web-lint-and-build:
+    name: web (lint + build)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -110,28 +153,81 @@ jobs:
         working-directory: web
         run: pnpm install --frozen-lockfile
 
+      # pnpm 11's build-script approval gate blocks EVERY subsequent pnpm
+      # command (not just install) until sharp/unrs-resolver's postinstall
+      # scripts are approved. web/pnpm-workspace.yaml's checked-in
+      # `allowBuilds` block is currently the literal placeholder text ("set
+      # this to true or false"), not real booleans, so a clean checkout does
+      # NOT self-approve. Approving explicitly here keeps this job from
+      # depending on that file being fixed first — worth fixing separately.
+      - name: Approve pnpm build scripts
+        working-directory: web
+        run: pnpm approve-builds --all
+
       - name: Lint
         working-directory: web
         run: pnpm lint
 
-      - name: Typecheck
+      - name: Build
         working-directory: web
-        run: pnpm exec tsc --noEmit --pretty false
+        run: pnpm build
 
-# Deliberately NOT included in this workflow, with reasoning (see the PR that
-# introduced this file / README for more):
+  desktop-capture-test:
+    name: desktop-capture (pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: desktop-capture/pyproject.toml
+
+      # sounddevice needs libportaudio2 at import time on Linux; the default
+      # runner image doesn't ship it.
+      - name: Install PortAudio
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2
+
+      - name: Install desktop-capture dependencies
+        working-directory: desktop-capture
+        run: pip install -e '.[dev]'
+
+      - name: Run desktop-capture pytest
+        working-directory: desktop-capture
+        run: pytest -q
+
+  mcp-build:
+    name: mcp (build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mcp/package-lock.json
+
+      - name: Install mcp dependencies
+        working-directory: mcp
+        run: npm ci
+
+      - name: Build
+        working-directory: mcp
+        run: npm run build
+
+# Deliberately NOT included in this workflow, with reasoning:
 #
 # - `pnpm test:e2e` (Playwright, web/e2e): needs the full separated stack
 #   (`make up`: backend + meeting-worker + ai-service + postgres) running
-#   first. That's a heavier, slower job (the meeting-worker image alone is
-#   Node + Chromium + Xvfb/pulse/ffmpeg + a whisper cache) and is a
-#   reasonable candidate for a separate, follow-up workflow — e.g. one that
-#   runs `make up`, waits on `make ps`, then `pnpm test:e2e` — rather than
-#   blocking every PR on it. Not wired up here.
-# - `desktop-capture` tests (`cd desktop-capture && pytest`): not included
-#   because its `sounddevice` dependency needs PortAudio system libraries not
-#   present on the default runner image, adding CI complexity for a small,
-#   currently-optional client. Worth adding as its own job (with
-#   `apt-get install portaudio19-dev` or similar) as a follow-up.
-# - ai-service/backend Docker-image builds: not verified here; `make build`
-#   / `make up` remain the way to confirm the containers themselves build.
+#   first. That's a heavier, slower job than anything above — the
+#   meeting-worker image alone is Node + Chromium + Xvfb/pulseaudio + ffmpeg
+#   + a whisper cache — and is a reasonable candidate for a separate,
+#   follow-up workflow (e.g. one that runs `make up`, waits on `make ps`,
+#   then `pnpm test:e2e`) rather than blocking every PR on it. Not wired up
+#   here; verify it manually against a real `make up` stack before relying on
+#   it.
+# - ai-service/backend/meeting-worker Docker image builds: not verified here;
+#   `make build` / `make up` remain the way to confirm the containers
+#   themselves build.

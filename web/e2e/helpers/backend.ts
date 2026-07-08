@@ -17,7 +17,7 @@ import { join } from "node:path";
 export const BACKEND_URL = process.env.PW_BACKEND_URL ?? "http://localhost:8000";
 export const AI_URL = process.env.PW_AI_URL ?? "http://localhost:8100";
 export const DB_DSN =
-  process.env.PW_DB_DSN ?? "postgresql://meeting:meeting@localhost:5432/verdant";
+  process.env.PW_DB_DSN ?? "postgresql://meeting:meeting@localhost:5432/parlor";
 
 const API = `${BACKEND_URL}/api/v1`;
 

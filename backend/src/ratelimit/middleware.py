@@ -9,6 +9,7 @@ Tunable via env (all optional):
   RATE_LIMIT_ENABLED        default "true"
   RATE_LIMIT_RPS / _BURST   default 10 / 60   (authenticated tier)
   RATE_LIMIT_PUBLIC_RPS / _BURST  default 2 / 20  (public tier)
+  RATE_LIMIT_AUTH_RPS / _BURST    default 0.2 / 5  (login / password-reset tier)
 """
 
 from __future__ import annotations
@@ -59,6 +60,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             "public": (
                 _env_float("RATE_LIMIT_PUBLIC_RPS", 2.0),
                 _env_float("RATE_LIMIT_PUBLIC_BURST", 20.0),
+            ),
+            # Brute-force-resistant tier for login + password-reset: a low
+            # sustained rate with a small burst allowance, keyed per-IP since
+            # these requests precede any credential.
+            "auth": (
+                _env_float("RATE_LIMIT_AUTH_RPS", 0.2),
+                _env_float("RATE_LIMIT_AUTH_BURST", 5.0),
             ),
         }
 

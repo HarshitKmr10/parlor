@@ -23,12 +23,12 @@ export function describeError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 0) return error.message;
     if (error.status === 401 || error.status === 403) {
-      return `Authentication failed (${error.code}): ${error.message}. Check VERDANT_API_KEY and VERDANT_WORKSPACE_ID.`;
+      return `Authentication failed (${error.code}): ${error.message}. Check PARLOR_API_KEY and PARLOR_WORKSPACE_ID.`;
     }
     if (error.status === 404) {
       return `Not found (${error.code}): ${error.message}`;
     }
-    return `Verdant API error ${error.status} (${error.code}): ${error.message}`;
+    return `Parlor API error ${error.status} (${error.code}): ${error.message}`;
   }
   if (error instanceof Error) return error.message;
   return `Unexpected error: ${String(error)}`;

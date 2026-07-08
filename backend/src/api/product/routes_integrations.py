@@ -8,7 +8,6 @@ from fastapi import APIRouter, Depends
 
 from ...integrations import KNOWN_KINDS, PROVIDERS, IntegrationsRepo
 from ...integrations.crm_providers import validate_salesforce_instance_url
-from ...integrations.stub_providers import _NotImplementedProvider
 from ...webhooks.safety import InvalidWebhookUrl
 from ..database.connection import DatabaseConnection
 from .deps import AuthContext, get_db
@@ -20,8 +19,14 @@ router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 
 
 def _implemented(kind: str) -> bool:
-    provider = PROVIDERS.get(kind)
-    return provider is not None and not isinstance(provider, _NotImplementedProvider)
+    """True if ``kind`` has a real, registered provider.
+
+    Every kind currently in :data:`PROVIDERS` is fully implemented, so this
+    is just membership. Kept as a named helper (rather than inlining
+    ``kind in PROVIDERS``) so a future placeholder/not-yet-implemented
+    provider has a single place to report itself as such.
+    """
+    return kind in PROVIDERS
 
 
 async def _repo(db: DatabaseConnection = Depends(get_db)) -> IntegrationsRepo:

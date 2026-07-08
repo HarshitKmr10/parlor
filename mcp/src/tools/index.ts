@@ -1,17 +1,17 @@
 /**
- * Registers all Verdant tools on an McpServer instance. Kept separate from
+ * Registers all Parlor tools on an McpServer instance. Kept separate from
  * server bootstrap so it can be unit/smoke tested without a transport.
  */
 
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { VerdantClient } from "../client.js";
+import type { ParlorClient } from "../client.js";
 
 import { searchMeetingsShape, handleSearchMeetings } from "./searchMeetings.js";
 import { getMeetingShape, handleGetMeeting } from "./getMeeting.js";
 import { getTranscriptShape, handleGetTranscript } from "./getTranscript.js";
 import { askMeetingsShape, handleAskMeetings } from "./askMeetings.js";
 
-export function registerTools(server: McpServer, client: VerdantClient): void {
+export function registerTools(server: McpServer, client: ParlorClient): void {
   server.registerTool(
     "search_meetings",
     {

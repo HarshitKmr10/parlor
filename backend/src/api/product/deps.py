@@ -104,7 +104,7 @@ async def get_current_context(
         return AuthContext(user=None, workspace=workspace, via_api_key=True)
 
     # JWT path: a valid user, plus an active workspace. X-Workspace-Id selects
-    # it; if absent (e.g. a session whose verdant_ws cookie was never set or
+    # it; if absent (e.g. a session whose parlor_ws cookie was never set or
     # expired), default to the user's workspace instead of hard-failing — a
     # single-workspace user must never need to send the header.
     user = await get_current_user(authorization=authorization, repo=repo)

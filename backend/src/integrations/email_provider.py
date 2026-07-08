@@ -75,9 +75,46 @@ class EmailProvider:
 
     def _send(self, msg: EmailMessage) -> None:
         """Synchronous SMTP send (kept small so it can run in a thread)."""
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
-            if settings.SMTP_USE_TLS:
-                smtp.starttls()
-            if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
-                smtp.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
-            smtp.send_message(msg)
+        _send_sync(msg)
+
+
+def _send_sync(msg: EmailMessage) -> None:
+    """Synchronous SMTP send shared by :class:`EmailProvider` and
+    :func:`send_plain_email` (kept small so it can run in a thread)."""
+    with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT, timeout=15) as smtp:
+        if settings.SMTP_USE_TLS:
+            smtp.starttls()
+        if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
+            smtp.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
+        smtp.send_message(msg)
+
+
+async def send_plain_email(*, to: str, subject: str, body: str) -> bool:
+    """Send a one-off transactional email (password reset, workspace invite).
+
+    Same SMTP-or-log fallback as :class:`EmailProvider`, but for auth flows
+    that have no ``MeetingRecap`` to render — just a plain subject/body. Never
+    raises; returns whether the send is considered handled (logged counts as
+    handled in dev).
+    """
+    if not settings.SMTP_HOST:
+        logger.info(
+            "integrations.email.transactional.logged",
+            to=to,
+            subject=subject,
+            body_preview=body[:500],
+        )
+        return True
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = settings.SMTP_FROM
+    msg["To"] = to
+    msg.set_content(body)
+
+    try:
+        await asyncio.to_thread(_send_sync, msg)
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("integrations.email.transactional.error", error=str(exc))
+        return False

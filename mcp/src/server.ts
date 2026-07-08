@@ -10,15 +10,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 
-import { loadConfig, ConfigError, type VerdantConfig } from "./config.js";
-import { VerdantClient, type FetchLike } from "./client.js";
+import { loadConfig, ConfigError, type ParlorConfig } from "./config.js";
+import { ParlorClient, type FetchLike } from "./client.js";
 import { registerTools } from "./tools/index.js";
 
 const SERVER_NAME = "parlor-mcp";
 const SERVER_VERSION = "0.1.0";
 
 export interface CreateServerOptions {
-  readonly config: VerdantConfig;
+  readonly config: ParlorConfig;
   /** Inject a fetch stub for tests. */
   readonly fetchImpl?: FetchLike;
 }
@@ -36,14 +36,14 @@ export function createServer(options: CreateServerOptions): McpServer {
   const clientOptions = options.fetchImpl
     ? { config: options.config, fetchImpl: options.fetchImpl }
     : { config: options.config };
-  const client = new VerdantClient(clientOptions);
+  const client = new ParlorClient(clientOptions);
 
   registerTools(server, client);
   return server;
 }
 
 async function main(): Promise<void> {
-  let config: VerdantConfig;
+  let config: ParlorConfig;
   try {
     config = loadConfig();
   } catch (error) {

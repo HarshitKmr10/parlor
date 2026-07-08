@@ -26,12 +26,12 @@ PUSH_URL="${BASE_URL}/api/v1/google/pubsub/push?token=${TOKEN}"
 # A realistic Workspace Events CloudEvent for a started conference.
 CLOUD_EVENT='{
   "type": "google.workspace.meet.conference.v2.started",
-  "subject": "host@verdant-test.com",
+  "subject": "host@parlor-test.com",
   "data": {
     "conferenceRecord": {
       "name": "conferenceRecords/smoke-'"$(date +%s)"'",
       "space": "spaces/smoke-space",
-      "organizer": { "email": "host@verdant-test.com" }
+      "organizer": { "email": "host@parlor-test.com" }
     }
   }
 }'
@@ -45,7 +45,7 @@ ENVELOPE='{
     "messageId": "smoke-1",
     "attributes": { "ce-type": "google.workspace.meet.conference.v2.started" }
   },
-  "subscription": "projects/verdant/subscriptions/meet-events-push"
+  "subscription": "projects/parlor/subscriptions/meet-events-push"
 }'
 
 echo "POST ${PUSH_URL} (first delivery)"
