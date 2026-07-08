@@ -210,7 +210,15 @@ async def test_usage_query_filters_deleted_at():
 
     class _UsageFakeStore:
         async def query_raw(self, sql: str, *params):
-            assert "deleted_at IS NULL" in sql, f"query missing deleted_at filter: {sql}"
+            if "meeting_joiner" in sql:
+                assert "deleted_at IS NULL" in sql, (
+                    f"meeting query missing deleted_at filter: {sql}"
+                )
+            else:
+                # llm_usage_events is append-only/audit-log-shaped and
+                # intentionally independent of meeting soft-delete (see
+                # db/0025_llm_usage_events.sql) -- no deleted_at filter here.
+                assert "llm_usage_events" in sql, f"unexpected query: {sql}"
             return []
 
     db = _Db(_UsageFakeStore())
@@ -221,6 +229,7 @@ async def test_usage_query_filters_deleted_at():
 
     result = await routes_usage.get_usage(ctx=_Ctx(), db=db)
     assert result.meeting_count == 0
+    assert result.llm_total_tokens == 0
 
 
 # ── ReportsRepo.action_item_rollup: excludes items from deleted meetings ────

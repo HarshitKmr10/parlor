@@ -14,6 +14,7 @@ from shared.exceptions import InvalidMeetingURLError
 from ...analytics import compute_meeting_analytics
 from ...services.meeting_service import MeetingService
 from ...shared.platformDetector import PlatformDetector
+from ...usage import capture_llm_usage
 from ..database.connection import DatabaseConnection, get_db_connection
 from ..models.schemas import MeetingStatus as InternalStatus
 from . import ai_client
@@ -634,6 +635,13 @@ async def summarize_meeting(
     payload = {"meetingId": meeting_id, "meta": meta, "segments": segments}
     data = await ai_client.summarize(payload)
     insights = MeetingInsights.model_validate(data)
+    await capture_llm_usage(
+        db,
+        workspace_id=workspace.id,
+        meeting_id=meeting_id,
+        operation="summarize",
+        data=data,
+    )
     # Persist for later GET /{id}.
     await repo.store_insights(
         meeting_id, json.dumps(insights.model_dump(by_alias=True))
@@ -642,12 +650,19 @@ async def summarize_meeting(
     # Best-effort: a failed embed must not fail summary generation.
     if segments:
         try:
-            await ai_client.embed(
+            embed_data = await ai_client.embed(
                 {
                     "workspaceId": workspace.id,
                     "meetingId": meeting_id,
                     "segments": segments,
                 }
+            )
+            await capture_llm_usage(
+                db,
+                workspace_id=workspace.id,
+                meeting_id=meeting_id,
+                operation="embed",
+                data=embed_data,
             )
         except Exception as exc:  # noqa: BLE001 — embed is best-effort
             logger.warning("summarize embed failed for %s: %s", meeting_id, exc)
@@ -674,6 +689,7 @@ async def ask_meeting(
     workspace: Workspace = Depends(get_current_workspace),
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
+    db: DatabaseConnection = Depends(get_db),
 ) -> AskResponse:
     record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     # Ensure the transcript is embedded so RAG has vectors even if the user
@@ -683,12 +699,19 @@ async def ask_meeting(
     ]
     if segments:
         try:
-            await ai_client.embed(
+            embed_data = await ai_client.embed(
                 {
                     "workspaceId": workspace.id,
                     "meetingId": meeting_id,
                     "segments": segments,
                 }
+            )
+            await capture_llm_usage(
+                db,
+                workspace_id=workspace.id,
+                meeting_id=meeting_id,
+                operation="embed",
+                data=embed_data,
             )
         except Exception as exc:  # noqa: BLE001 — embed is best-effort
             logger.warning("ask embed failed for %s: %s", meeting_id, exc)
@@ -699,6 +722,13 @@ async def ask_meeting(
         "history": body.history or [],
     }
     data = await ai_client.chat(payload)
+    await capture_llm_usage(
+        db,
+        workspace_id=workspace.id,
+        meeting_id=meeting_id,
+        operation="chat",
+        data=data,
+    )
     citations = [
         Citation.model_validate(c)
         for c in (data.get("citations") or [])

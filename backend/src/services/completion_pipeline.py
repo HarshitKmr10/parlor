@@ -25,6 +25,7 @@ from ..api.product.mappers import segments_from_transcript, to_meeting
 from ..api.product.meetings_repo import ProductMeetingsRepo
 from ..api.product.schemas import MeetingInsights
 from ..observability import get_logger
+from ..usage import capture_llm_usage
 from .meeting_service import MeetingService
 
 logger = get_logger(__name__)
@@ -71,12 +72,19 @@ async def run_completion_pipeline(meeting_id: str) -> None:
         # 1. Embed (for cross-meeting RAG). Tolerate failure.
         if workspace_id:
             try:
-                await ai_client.embed(
+                embed_data = await ai_client.embed(
                     {
                         "workspaceId": workspace_id,
                         "meetingId": meeting_id,
                         "segments": segments,
                     }
+                )
+                await capture_llm_usage(
+                    db,
+                    workspace_id=workspace_id,
+                    meeting_id=meeting_id,
+                    operation="embed",
+                    data=embed_data,
                 )
                 logger.info("completion_pipeline.embedded", meeting_id=meeting_id)
             except ApiError as exc:
@@ -101,6 +109,14 @@ async def run_completion_pipeline(meeting_id: str) -> None:
                 }
             )
             insights = MeetingInsights.model_validate(data)
+            if workspace_id:
+                await capture_llm_usage(
+                    db,
+                    workspace_id=workspace_id,
+                    meeting_id=meeting_id,
+                    operation="summarize",
+                    data=data,
+                )
             await repo.store_insights(
                 meeting_id, json.dumps(insights.model_dump(by_alias=True))
             )

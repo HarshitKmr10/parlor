@@ -801,12 +801,36 @@ class UsageCreator(CamelModel):
     minutes: float = 0.0
 
 
+class LlmUsageBreakdown(CamelModel):
+    """Token/cost totals for one provider+model pair, observability-only."""
+
+    provider: str
+    model: str
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+    call_count: int = 0
+
+
+class LlmUsageDailyPoint(CamelModel):
+    date: str
+    total_tokens: int = 0
+    estimated_cost_usd: float = 0.0
+
+
 class UsageSummary(CamelModel):
     meeting_count: int = 0
     completed_count: int = 0
     total_minutes: float = 0.0
     active_members: int = 0
     per_creator: List[UsageCreator] = Field(default_factory=list)
+    # LLM token/cost observability (additive; this product has no billing —
+    # never used to gate functionality). estimated_cost_usd is a rough
+    # estimate, not billing-grade accounting (see ai-service pricing table).
+    llm_total_tokens: int = 0
+    llm_estimated_cost_usd: float = 0.0
+    llm_call_count: int = 0
+    llm_breakdown: List[LlmUsageBreakdown] = Field(default_factory=list)
+    llm_daily_trend: List[LlmUsageDailyPoint] = Field(default_factory=list)
 
 
 # ── Calendar ─────────────────────────────────────────────────────────────

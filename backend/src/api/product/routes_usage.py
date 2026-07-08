@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends
 
-from ...usage import summarize_usage
+from ...usage import LlmUsageRepo, summarize_usage
 from ..database.connection import DatabaseConnection
 from .deps import AuthContext, get_db
 from .rbac import require_role
-from .schemas import UsageSummary
+from .schemas import LlmUsageBreakdown, LlmUsageDailyPoint, UsageSummary
 
 router = APIRouter(prefix="/api/v1", tags=["usage"])
 
@@ -28,6 +28,12 @@ async def get_usage(
         ctx.workspace.id,
     )
     summary = summarize_usage(rows)
+
+    llm_repo = LlmUsageRepo(db)
+    llm_totals = await llm_repo.get_totals(ctx.workspace.id)
+    llm_breakdown_rows = await llm_repo.get_breakdown_by_provider_model(ctx.workspace.id)
+    llm_daily_rows = await llm_repo.get_daily_trend(ctx.workspace.id)
+
     # Per-creator attribution isn't tracked on the meeting row yet; report
     # workspace-level totals. (Creator breakdown lands with B2 speaker mapping.)
     return UsageSummary(
@@ -36,4 +42,9 @@ async def get_usage(
         total_minutes=summary["total_minutes"],
         active_members=0,
         per_creator=[],
+        llm_total_tokens=llm_totals["total_tokens"],
+        llm_estimated_cost_usd=llm_totals["estimated_cost_usd"],
+        llm_call_count=llm_totals["call_count"],
+        llm_breakdown=[LlmUsageBreakdown(**row) for row in llm_breakdown_rows],
+        llm_daily_trend=[LlmUsageDailyPoint(**row) for row in llm_daily_rows],
     )

@@ -15,6 +15,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 
+from ...usage import capture_llm_usage
 from ..database.connection import DatabaseConnection
 from . import ai_client
 from .deps import get_current_workspace, get_db
@@ -35,6 +36,7 @@ async def ask_workspace(
     body: AskRequest,
     workspace: Workspace = Depends(get_current_workspace),
     repo: ProductMeetingsRepo = Depends(_repo),
+    db: DatabaseConnection = Depends(get_db),
 ) -> AskResponse:
     payload = {
         "workspaceId": workspace.id,
@@ -43,6 +45,13 @@ async def ask_workspace(
         "history": body.history or [],
     }
     data = await ai_client.chat(payload)
+    await capture_llm_usage(
+        db,
+        workspace_id=workspace.id,
+        meeting_id=None,
+        operation="chat",
+        data=data,
+    )
 
     raw_citations = [c for c in (data.get("citations") or []) if isinstance(c, dict)]
 
