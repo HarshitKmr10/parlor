@@ -5,7 +5,7 @@
 <h1 align="center">Parlor</h1>
 
 <p align="center">
-  <a href="./LICENSE"><img alt="License: FSL-1.1-Apache-2.0" src="https://img.shields.io/badge/license-FSL--1.1--Apache--2.0-blue"></a>
+  <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
   <a href="https://github.com/HarshitKmr10/parlor/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/HarshitKmr10/parlor/actions/workflows/ci.yml/badge.svg"></a>
 </p>
 
@@ -100,9 +100,11 @@ up-api` is the fast path for trying the product or iterating on it.
   Teams, if you'd rather dispatch a bot than run local capture.
 - **MCP server** (`mcp/`) exposing your meeting knowledge base to Claude
   Desktop, Claude Code, ChatGPT, and other MCP clients.
-- **Self-hosted only.** No hosted trial, no managed tier, no telemetry phoning
-  home — the product is the Docker Compose file (or the Helm chart under
-  `deploy/helm/parlor/` for Kubernetes).
+- **Self-hosted only.** No persistent hosted trial, no managed tier, no
+  telemetry phoning home — the product is the Docker Compose file (or the
+  Helm chart under `deploy/helm/parlor/` for Kubernetes). A separate,
+  ephemeral, no-signup demo is planned for casual browsing only — see
+  ["Try without installing"](#try-without-installing).
 
 ## What's included
 
@@ -151,11 +153,15 @@ for the open-source release.
 
 - **Parlor is fully open-source.** There's no "open core" split — everything
   in this repository, including bot-join capture, RAG chat, and webhooks, is
-  available under [FSL-1.1-Apache-2.0](./LICENSE) with no license key and no
+  available under the [MIT License](./LICENSE) with no license key and no
   gated "enterprise edition" of Parlor itself.
-- **Parlor is self-hosted only.** There is no hosted or managed version of
-  Parlor, and none is planned as part of this project — see the callout near
-  the top of this README.
+- **Parlor has no persistent hosted or managed edition**, and none is planned
+  as part of this project — self-hosting is the primary, supported way to run
+  Parlor for real use. A separate, ephemeral, no-signup **demo** that resets
+  every few minutes and stores no real data is planned purely so people can
+  look before self-hosting — see ["Try without installing"](#try-without-installing)
+  below and [`deploy/gcp-demo/`](deploy/gcp-demo/) for the plan. That demo is
+  not a hosted trial or account and is not a substitute for self-hosting.
 - **Parlor's scope stops at the meeting layer.** It captures, transcribes,
   summarizes, and lets you chat with your own meetings (per-meeting and
   across your workspace), and exposes that over webhooks and an MCP server.
@@ -384,15 +390,14 @@ real bot (`make up`).
 
 ## License
 
-Parlor is licensed under the **[Functional Source License 1.1, Apache 2.0
-Future License](./LICENSE)** (FSL-1.1-Apache-2.0) — the same license family
-Sentry uses. In short: you can use, self-host, modify, and redistribute this
-software for almost any purpose, including running it for your own team or
-building on it — the one thing the license doesn't permit is re-offering it
-(or a substitute for it) to third parties as a competing hosted or managed
-service. Two years after each version is published, that version
-automatically relicenses to Apache 2.0, with no strings attached. See
-[`LICENSE`](./LICENSE) for the full text.
+Parlor is licensed under the **[MIT License](./LICENSE)** — matching the two
+other direct open-source comparables in this space, [Meetily](https://github.com/Zackriya-Solutions/meeting-minutes)
+and [Hyprnote](https://github.com/fastrepl/hyprnote). You can use, self-host,
+modify, redistribute, and build commercial products on this software, with no
+"competing use" carve-out and no future relicensing date to track. "Self-hosted
+only" (see below) is a project positioning choice by the maintainers, not a
+license restriction — nothing in the MIT license stops anyone from running a
+hosted fork of Parlor. See [`LICENSE`](./LICENSE) for the full text.
 
 ## Contributing
 

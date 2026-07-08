@@ -8,10 +8,14 @@ give maintainers a reasonable amount of time to respond.
 
 - For anything beyond a small fix, open an issue first to discuss the
   approach. It saves everyone time if the direction turns out to be a no.
-- This project is deliberately **self-hosted only** (see the README). PRs
-  that add a hosted trial, telemetry-by-default, or anything that nudges
-  toward a managed/SaaS offering are out of scope — see [`LICENSE`](./LICENSE)
-  for why.
+- This project is deliberately **self-hosted only** (see the README). This is
+  a maintainer positioning choice, not a license restriction — Parlor is
+  [MIT-licensed](./LICENSE) and permits hosted forks. PRs that add a
+  persistent hosted trial, telemetry-by-default, or anything that nudges this
+  repository itself toward a managed/SaaS offering are out of scope. (A
+  separate, ephemeral, no-signup demo for casual browsing is tracked in
+  [`deploy/gcp-demo/`](deploy/gcp-demo/) — that's a different thing from a
+  hosted product.)
 
 ## Running the stack locally
 

@@ -18,7 +18,7 @@ const COLUMNS: FooterColumn[] = [
     heading: "Open source",
     links: [
       { label: "GitHub", href: REPO_URL },
-      { label: "License (FSL-1.1-Apache-2.0)", href: `${REPO_URL}/blob/main/LICENSE` },
+      { label: "License (MIT)", href: `${REPO_URL}/blob/main/LICENSE` },
       { label: "Contributing", href: `${REPO_URL}/blob/main/CONTRIBUTING.md` },
     ],
   },

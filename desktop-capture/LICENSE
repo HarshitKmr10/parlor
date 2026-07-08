@@ -20,6 +20,9 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-Note: this MIT license applies only to the `desktop-capture/` package
-(`parlor-capture` on PyPI). The rest of the Parlor monorepo is licensed
-separately under FSL-1.1-Apache-2.0 — see the repository root `LICENSE`.
+Note: this file has historically applied specifically to the
+`desktop-capture/` package (`parlor-capture` on PyPI), tracked separately from
+the repository root `LICENSE` since that package is also distributed
+standalone via PyPI. As of the MIT relicensing of the whole monorepo, the two
+are consistent — this is no longer a carve-out, just a per-package copy of the
+same MIT terms.
