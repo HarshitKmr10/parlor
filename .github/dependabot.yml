@@ -88,6 +88,87 @@ updates:
       - dependencies
       - mcp
 
+  # ── Dockerfiles (base image versions) ─────────────────────────────────────
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      backend-docker-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - docker
+      - backend
+
+  - package-ecosystem: docker
+    directory: /backend/scripts/local-docker
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      backend-docker-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - docker
+      - backend
+
+  - package-ecosystem: docker
+    directory: /backend/services/transcriber-worker
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      backend-docker-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - docker
+      - backend
+
+  - package-ecosystem: docker
+    directory: /ai-service
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      ai-service-docker-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - docker
+      - ai-service
+
+  - package-ecosystem: docker
+    directory: /web
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      web-docker-minor-patch:
+        update-types:
+          - minor
+          - patch
+    labels:
+      - dependencies
+      - docker
+      - web
+
   # ── GitHub Actions themselves (.github/workflows/*.yml action versions) ──
   - package-ecosystem: github-actions
     directory: /
