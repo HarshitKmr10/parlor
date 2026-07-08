@@ -43,6 +43,7 @@ All three surfaces (backend, ai-service, web) build against this. Keep it in syn
 - `DELETE /api/v1/meetings/{id}` → stop/cancel → `Meeting` (also fires the completion pipeline on the `→ completed` transition)
 - `POST /api/v1/meetings/{id}/summarize` → triggers ai-service; returns `MeetingInsights` (also stored)
 - `POST /api/v1/meetings/{id}/ask` `{ question, history?: {role,content}[] }` → `{ answer, citations: Citation[] }` (proxies ai-service `/chat`)
+- `GET  /api/v1/meetings/{id}/export?format=markdown` → `text/markdown` file download (`Content-Disposition: attachment`) with title, date, participants, summary, key points, action items as a checklist, chapters, and a bounded inline transcript excerpt. `format` currently only accepts `markdown` (400 `unsupported_export_format` otherwise). Markdown is Notion- and Obsidian-compatible by construction — both import/read `.md` files natively, so no separate Notion/Obsidian API integration exists or is planned. **PDF export is planned but not yet implemented.**
 
 ## Compliance & retention (backend, workspace-scoped, admin only unless noted)
 - `GET  /api/v1/retention-settings` → `{ retentionDays: number|null, legalHold: boolean }`

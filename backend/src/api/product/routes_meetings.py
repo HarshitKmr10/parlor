@@ -7,7 +7,7 @@ import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, Query, Request, Response, WebSocket, WebSocketDisconnect
 
 from shared.exceptions import InvalidMeetingURLError
 
@@ -25,6 +25,7 @@ from .mappers import (
     segments_from_transcript,
     to_meeting,
 )
+from .meeting_export import build_meeting_markdown, markdown_filename
 from .meetings_repo import ProductMeetingsRepo
 from .rbac import require_role
 from .schemas import (
@@ -481,6 +482,49 @@ async def get_transcript(
 
     last_at = segments[-1].created_at if segments else None
     return TranscriptResponse(items=segments, last_segment_at=last_at)
+
+
+_SUPPORTED_EXPORT_FORMATS = {"markdown"}
+
+
+@router.get("/{meeting_id}/export")
+async def export_meeting(
+    meeting_id: str,
+    format: str = Query("markdown"),
+    workspace: Workspace = Depends(get_current_workspace),
+    service: MeetingService = Depends(_service),
+    repo: ProductMeetingsRepo = Depends(_repo),
+) -> Response:
+    """Export a meeting's summary/action items/transcript as a document.
+
+    Only ``format=markdown`` is implemented today. Markdown covers Notion and
+    Obsidian too: Obsidian reads ``.md`` files directly as vault notes, and
+    Notion imports Markdown natively (Import -> Markdown & CSV), so neither
+    needs a bespoke push integration. PDF export is planned but not yet
+    implemented — see docs/API-CONTRACT.md.
+    """
+    fmt = format.lower()
+    if fmt not in _SUPPORTED_EXPORT_FORMATS:
+        raise ApiError(
+            400,
+            "unsupported_export_format",
+            f"Unsupported export format '{format}'. Supported: markdown. "
+            "PDF export is planned but not yet implemented.",
+        )
+
+    record, scoped = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
+    meeting = to_meeting(record, title=scoped.get("title"))
+    meeting.workspace_id = workspace.id
+    insights = insights_from_row(scoped.get("insights"))
+    segments = segments_from_transcript(record.transcript)
+
+    body = build_meeting_markdown(meeting, insights, segments)
+    filename = markdown_filename(meeting)
+    return Response(
+        content=body,
+        media_type="text/markdown; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{meeting_id}/analytics", response_model=MeetingAnalytics)
