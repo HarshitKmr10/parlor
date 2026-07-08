@@ -123,23 +123,23 @@ rather than pretending it isn't there:
   external system can subscribe to meeting events.
 - **Optional enterprise SSO** — generic OIDC single sign-on
   (`backend/src/sso/`), for teams that already run an identity provider.
-- **Optional billing and usage metering** — Stripe-backed plans and quota
-  tracking (`backend/src/billing/`), useful if you're offering Parlor to
-  other teams internally rather than running it purely for yourself.
 - **Audit logging and retention controls** — an audit trail for
-  security-sensitive actions, plus configurable data retention and legal-hold
-  export, for organizations with compliance requirements.
+  security-sensitive actions, plus configurable data retention (with a
+  tombstone/recovery window) and legal-hold export, for organizations with
+  compliance requirements.
 - **Coaching scorecards** — call-coaching metrics derived from meeting
   transcripts (`backend/src/coaching/`).
 - **MCP server** — exposing your meeting knowledge base to Claude Desktop,
   Claude Code, ChatGPT, and other MCP clients (also listed above).
 
-None of the above is required to run Parlor as "just" a notetaker — the
-billing, SSO, CRM, and coaching pieces are all optional and inert until
-configured. They exist because this project grew out of a broader
-meeting-intelligence codebase, and rather than strip them out we're leaving
-them in and documenting them, since removing working, self-hostable code
-would be a worse outcome than being upfront about what's here.
+None of the above is required to run Parlor as "just" a notetaker — the SSO,
+CRM, and coaching pieces are all optional and inert until configured. They
+exist because this project grew out of a broader meeting-intelligence
+codebase, and rather than strip them out we're leaving them in and
+documenting them, since removing working, self-hostable code would be a
+worse outcome than being upfront about what's here. There is no billing or
+payment concept anywhere in this repository — it was deliberately removed
+for the open-source release.
 
 ## What's different from FuturePath AI's other products?
 
