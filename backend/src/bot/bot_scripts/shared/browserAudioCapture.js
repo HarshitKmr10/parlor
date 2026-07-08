@@ -3,7 +3,6 @@
  * Captures audio directly from browser media elements using Web Audio API
  * Works for both Google Meet and MS Teams
  *
- * Uses the same pattern as vexa:
  * 1. Inject browser-audio-utils.js via addScriptTag (with CSP fallbacks)
  * 2. Find media elements with srcObject (WebRTC streams)
  * 3. Capture audio via Web Audio API (ScriptProcessorNode)
@@ -17,8 +16,9 @@ const path = require('path');
 const BROWSER_UTILS_PATH = path.join(__dirname, 'browser-audio-utils.js');
 
 /**
- * Ensure browser utils are loaded in the page
- * Uses the same robust injection pattern as vexa
+ * Ensure browser utils are loaded in the page. Tries addScriptTag first
+ * and falls back to a raw evaluate() when the page's CSP blocks tag
+ * injection.
  * @param {Page} page - Playwright or Puppeteer page
  */
 async function ensureBrowserUtils(page) {

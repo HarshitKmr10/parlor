@@ -118,7 +118,7 @@ function summarize(samples) {
   } else if (recvMode === 1 && totalCsrcWithSources === 0) {
     verdict = '2C_mixed_no_csrc';
     detail = 'One mixed audio receiver with no CSRC — degenerate to single-stream + ' +
-      'DOM-class active-speaker (Vexa pattern).';
+      'DOM-class active-speaker fallback.';
   } else if (recvMode >= 2 && totalCsrcWithSources > 0) {
     verdict = 'hybrid';
     detail = 'Multiple receivers AND CSRC firing — unusual; inspect per-receiver csrc ' +

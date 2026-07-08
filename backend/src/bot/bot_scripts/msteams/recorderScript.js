@@ -11,7 +11,7 @@
 // data: URLs need a same-origin policy that we don't get inside teams.live.
 // ScriptProcessorNode is deprecated but loads no external module, runs on
 // the main thread with negligible overhead for our 16 kHz mono use case, and
-// still works in current Chromium. Vexa uses the same fallback.
+// still works in current Chromium.
 
 const SCRIPT = `
 (() => {
@@ -235,7 +235,7 @@ const SCRIPT = `
     captures.forEach((_s, id) => detach(id));
   };
 
-  // ─── Caption observer (Vexa-style) ──────────────────────────────────────
+  // ─── Caption observer ────────────────────────────────────────────────────
   // Teams renders live captions inside a known wrapper. The only stable
   // atoms across host vs guest views are:
   //   [data-tid="author"]              — speaker name

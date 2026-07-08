@@ -1,7 +1,6 @@
 'use strict';
 
-// Cross-platform aloneness watcher. Two-tier model (ports Vexa's
-// recording.ts:1280-1414):
+// Cross-platform aloneness watcher. Two-tier model:
 //   - startupGraceMs (default 20 min) — used while no other participant
 //     has EVER been seen. Hosts join late; don't bail before the meeting
 //     starts.

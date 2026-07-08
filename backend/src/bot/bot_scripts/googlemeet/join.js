@@ -316,8 +316,8 @@ function buildHumanizedHelpers(page, ctx = {}) {
 }
 
 /**
- * Authenticated (signed-in) join branch. Mirrors the Vexa upstream flow:
- * skip name entry, mute mic/cam, then RACE "Join now" / "Switch here" /
+ * Authenticated (signed-in) join branch: skip name entry, mute mic/cam,
+ * then RACE "Join now" / "Switch here" /
  * "Ask to join". If ONLY "Ask to join" appears, the cookies didn't actually
  * authenticate the session — we log that, fill the bot name, and fall back to
  * the anonymous lobby path.

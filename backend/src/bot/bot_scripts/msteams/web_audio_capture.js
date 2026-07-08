@@ -6,8 +6,6 @@
  *
  * This approach bypasses puppeteer-stream which requires chrome.tabCapture API
  * (only available in Chrome extensions).
- *
- * Based on Vexa's proven implementation pattern.
  */
 
 const fs = require('fs');

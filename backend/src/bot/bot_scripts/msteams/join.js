@@ -153,7 +153,7 @@ async function reachPrejoinReady(page, { timer, logger }) {
         return;
       }
       // If "Continue on this browser" is still showing, click it again
-      // (max 2 retries — same shape as Vexa's flow).
+      // (max 2 retries).
       if (continueClickAttempts < 2) {
         const stillContinue = await raceAny(page, sel.continueOnBrowser, {
           timeoutMs: 200,
@@ -214,10 +214,10 @@ async function muteMicPrejoin(page, { timer, logger }) {
   });
 }
 
-// Mute the mic AFTER admission. Vexa uses Ctrl+Shift+M and so do we —
-// the keyboard shortcut only fires reliably once the meeting page has
-// focus, which is true post-admission. Calling this from joinMeeting.js
-// rather than during prejoin (Teams ignores the shortcut on prejoin).
+// Mute the mic AFTER admission using the Ctrl+Shift+M shortcut — it only
+// fires reliably once the meeting page has focus, which is true
+// post-admission. Calling this from joinMeeting.js rather than during
+// prejoin (Teams ignores the shortcut on prejoin).
 async function muteMicPostAdmission(page, { timer }) {
   return timer.measure('mic.mute', async () => {
     await page.keyboard.press('Control+Shift+M').catch(() => {});

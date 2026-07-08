@@ -18,7 +18,8 @@
 //          unicast/per-peer architectures)
 //   3. Expose window.__probe.domSpeakers() returning all tiles with
 //      Google's speaking-animation class names alongside any visible
-//      participant name. This is the fallback signal Vexa uses.
+//      participant name. This is the fallback signal used when no
+//      CSRC/SSRC routing data is available.
 //
 // Returned as a string so it can be passed verbatim to
 // context.addInitScript() before navigation.

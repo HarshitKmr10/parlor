@@ -172,7 +172,7 @@ class CaptureBridge {
         catch (e) { this.stats.errors++; this.logger.warn?.('[teams.capture] chunk failed', e?.message); }
       }
     );
-    // Caption pipeline (Vexa-style). The in-page caption observer fires
+    // Caption pipeline. The in-page caption observer fires
     // (speaker, text, ts) for each new caption update. Treat each as a
     // ready-to-publish transcript segment — Teams' own ASR is the source.
     await page.exposeFunction('__teamsBridgeOnCaption', async (payload) => {
@@ -570,9 +570,9 @@ class CaptureBridge {
   // across 20+ meetings while burning AWS streaming session minutes.
   // CSRC-based correlation (above) covers the same problem space
   // without the brittle WS lifecycle. See git history for details.
-  // Caption-driven segment publish. Vexa-style: Teams' own ASR text IS the
-  // transcript. Speaker attribution is direct (no roster index lookup
-  // needed) because the caption tells us the name.
+  // Caption-driven segment publish. Teams' own ASR text IS the transcript.
+  // Speaker attribution is direct (no roster index lookup needed) because
+  // the caption tells us the name.
   async _onCaption({ speaker, text, ts_ms } = {}) {
     if (!speaker || !text) return;
     const ts = Number(ts_ms) || Date.now();

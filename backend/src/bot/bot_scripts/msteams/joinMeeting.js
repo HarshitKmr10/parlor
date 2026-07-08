@@ -449,7 +449,7 @@ async function joinMeetingImpl(meetingUrl, credentials = {}, options = {}) {
     }
 
     // Belt-and-braces: keyboard shortcut as a last resort if the toolbar
-    // click missed. Vexa relies on this exclusively; we use it as fallback.
+    // click missed.
     if (!toggleResult.micClicked) {
       await muteMicPostAdmission(page, { timer }).catch(() => {});
     }

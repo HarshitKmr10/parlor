@@ -11,7 +11,7 @@ const { sleep } = require('./dom');
 // in recorderScript.js — those (speaker, text) pairs become our primary
 // transcript signal.
 //
-// Flow (matches Vexa's enableTeamsLiveCaptions):
+// Flow:
 //   More → (Captions OR Language and speech → Show live captions)
 
 async function enableLiveCaptions(page, { logger, language = null } = {}) {

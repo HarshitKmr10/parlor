@@ -10,8 +10,7 @@ const { waitForAnySelector } = require('./join');
 // too (its label leads with the "visual_effects" ligature / "Backgrounds and
 // effects" text), so the raw tile count is >=1 even in the LOBBY. Excluding this
 // phantom lets admission key on >=1 REAL participant tile — a positive admitted
-// signal, not merely "a tile exists". Ported from Vexa 6f0f6e9. See
-// countRealParticipantTiles().
+// signal, not merely "a tile exists". See countRealParticipantTiles().
 const EFFECTS_TILE = /visual_effects|backgrounds and effects/i;
 
 /**
@@ -37,8 +36,9 @@ async function countRealParticipantTiles(page) {
  * Detect a GENUINE reCAPTCHA challenge (Google bot-detection block), NOT the
  * invisible background reCAPTCHA Enterprise frame that Google loads on EVERY
  * normal join. Matching a mere "/recaptcha/" frame URL false-fires on clean
- * joins (verified live by Vexa 2026-06-12; commit 64d3470 reverted exactly that
- * loose emit). We therefore require a VISIBLE challenge surface: a visible
+ * joins — confirmed against live joins after an earlier loose-match version of
+ * this check misfired repeatedly. We therefore require a VISIBLE challenge
+ * surface: a visible
  * recaptcha iframe (the anchor/challenge widget actually rendered on screen),
  * not just a frame existing in the page.
  * @param {Page} page - Playwright page
@@ -106,7 +106,7 @@ async function checkForRejection(page) {
         // affordance as an admin rejection. If a VISIBLE captcha challenge is on
         // screen, this is Google bot-detection — NOT a host denial — so don't
         // classify it as a rejection (that would make the bot bail before the
-        // 'blocked' state can be surfaced). Ported from Vexa 64d3470.
+        // 'blocked' state can be surfaced).
         if (await hasRecaptchaChallenge(page)) {
           console.log(`[GoogleMeet Admission] reCAPTCHA challenge present alongside rejection indicator "${selector}" — treating as bot-detection block, NOT admin rejection`);
           return false;
@@ -151,8 +151,7 @@ async function checkForAdmission(page) {
     try {
       // [data-participant-id] exists in the LOBBY too via the self effects-panel
       // phantom, so a raw visibility match there is a false positive. Key on >=1
-      // REAL participant tile instead (effects phantom excluded). Ported from
-      // Vexa 6f0f6e9.
+      // REAL participant tile instead (effects phantom excluded).
       if (selector === '[data-participant-id]') {
         const real = await countRealParticipantTiles(page);
         if (real > 0) {
@@ -207,9 +206,9 @@ async function waitForAdmission(page, timeout = 120000, options = {}) {
     // Check for a genuine reCAPTCHA challenge (Google bot-detection block) BEFORE
     // rejection: the challenge screen shares the "Return to home screen" affordance
     // with admin rejection, so we classify it as a distinct 'blocked' state rather
-    // than a generic timeout/rejection. Ported from Vexa 391f661 (#444). A VISIBLE
-    // challenge only — the invisible background reCAPTCHA frame present on every
-    // join does NOT trip this (see hasRecaptchaChallenge / Vexa 64d3470).
+    // than a generic timeout/rejection. A VISIBLE challenge only — the invisible
+    // background reCAPTCHA frame present on every join does NOT trip this (see
+    // hasRecaptchaChallenge).
     if (await checkForBlocked(page)) {
       console.log('[GoogleMeet Admission] BLOCKED: visible reCAPTCHA challenge detected — Google bot-detection block');
       if (screenshotPath) {
@@ -289,7 +288,7 @@ async function waitForAdmission(page, timeout = 120000, options = {}) {
 
   // Timeout reached. One last blocked-check so a challenge that surfaced late in
   // the window is reported as the honest 'blocked' state rather than a generic
-  // timeout (ported from Vexa 391f661 — name the state instead of polling blind).
+  // timeout — name the state instead of polling blind.
   if (await checkForBlocked(page)) {
     console.log('[GoogleMeet Admission] BLOCKED at timeout: visible reCAPTCHA challenge — Google bot-detection block');
     if (screenshotPath) {

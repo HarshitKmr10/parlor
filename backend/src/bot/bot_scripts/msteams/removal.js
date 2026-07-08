@@ -4,8 +4,7 @@ const sel = require('./selectors');
 const { raceAny, sleep } = require('./dom');
 
 // Polls cheaply for "you were removed / meeting ended" markers while the
-// meeting is running. Three signals (matches Vexa's checkForRemoval in
-// recording.ts:1314-1352):
+// meeting is running. Three signals:
 //
 //   1. Strict selector match against text="..." nodes — fast Playwright path.
 //   2. Body-text substring scan — catches phrasing variants Teams uses

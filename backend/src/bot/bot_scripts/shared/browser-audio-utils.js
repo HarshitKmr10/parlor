@@ -1,6 +1,5 @@
 /**
  * Browser Audio Utils - Injected into browser context
- * Based on vexa's browser-utils.global.js pattern
  *
  * This file is injected into the browser via addScriptTag
  * and provides audio capture utilities on window.BrowserAudioUtils
@@ -22,7 +21,6 @@
 
   /**
    * BrowserAudioService - Captures audio from media elements
-   * Same pattern as vexa's implementation
    */
   class BrowserAudioService {
     constructor(config) {
