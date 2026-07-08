@@ -2,7 +2,7 @@
   "name": "parlor-mcp",
   "version": "0.1.0",
   "description": "MCP server for the Parlor AI meeting assistant — query a workspace's meeting knowledge base over the Parlor backend product API.",
-  "license": "MIT",
+  "license": "FSL-1.1-Apache-2.0",
   "type": "module",
   "bin": {
     "parlor-mcp": "dist/server.js"
