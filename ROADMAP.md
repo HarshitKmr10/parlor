@@ -45,8 +45,8 @@ history before relying on either:
 - **Additional export formats** for meeting notes/transcripts beyond what's
   in the current API contract.
 - **Clean-room rewrite of the bot-join automation scripts** (removing any
-  Vexa-derived code in favor of independently written equivalents) — see
-  `MEET-BOT.md` and `THIRD_PARTY_NOTICES.md` once that lands.
+  third-party-derived code in favor of independently written equivalents) —
+  see `MEET-BOT.md` and `THIRD_PARTY_NOTICES.md` once that lands.
 
 ## Planned (unscheduled)
 
