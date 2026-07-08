@@ -15,7 +15,7 @@
  */
 
 const { NodeSDK } = require('@opentelemetry/sdk-node');
-const { Resource } = require('@opentelemetry/resources');
+const { resourceFromAttributes } = require('@opentelemetry/resources');
 const {
   SemanticResourceAttributes,
 } = require('@opentelemetry/semantic-conventions');
@@ -43,7 +43,7 @@ function isEnabled() {
 }
 
 function buildResource(serviceName) {
-  return new Resource({
+  return resourceFromAttributes({
     [SemanticResourceAttributes.SERVICE_NAME]:
       process.env.OTEL_SERVICE_NAME || serviceName,
     [SemanticResourceAttributes.SERVICE_VERSION]:
