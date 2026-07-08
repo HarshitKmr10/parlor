@@ -85,6 +85,38 @@ production — see [Make targets](#make-targets) below. The first build of that
 image is large and slow (Node + Chromium + a local Whisper cache); `make
 up-api` is the fast path for trying the product or iterating on it.
 
+## Try without installing
+
+Self-hosting (above) is the primary, always-supported way to run Parlor. For
+people who just want to look before they self-host, a separate **ephemeral,
+no-signup demo** is planned — no persistent accounts, no real data, resets
+automatically every few minutes (modeled on
+[Uptime Kuma's public demo](https://demo.uptime.kuma.pet/)). It is **not**
+deployed yet — there is no live URL to link to here. See
+[`deploy/gcp-demo/`](deploy/gcp-demo/) for the concrete deployment plan.
+
+## How Parlor compares
+
+A quick, honest comparison against the two other direct open-source
+self-hosted meeting-notetaker projects. Parlor's own claims below were
+verified against this repository's code, not assumed; the competitors'
+claims are limited to what's publicly documented about each project — cells
+marked *unverified* are left that way deliberately rather than guessed.
+
+| | **Parlor** | [Meetily](https://github.com/Zackriya-Solutions/meeting-minutes) | [Hyprnote](https://github.com/fastrepl/hyprnote) |
+|---|---|---|---|
+| License | MIT | MIT | MIT |
+| Local/botless capture | Yes — `desktop-capture/`, macOS-first, no bot joins the call | Yes — core design is 100% local capture + Whisper.cpp transcription | Yes — local-first by design |
+| Bot-join-a-call support (Zoom/Meet/Teams) | Yes — optional, alongside botless capture (`backend/docs/BOT-RUNTIME.md`) | Unverified — not part of Meetily's documented feature set as of this writing | Unverified — not part of Hyprnote's documented feature set as of this writing |
+| Zero-API-key / no-cloud-dependency mode | Yes — `AI_MODE=mock` runs the full stack with deterministic output and no LLM key; separately, a bundled tiny Whisper model does keyless local transcription | Yes, by a different mechanism — Meetily's default path uses local Whisper.cpp + a local LLM (e.g. Ollama), so it doesn't require a cloud API key at all rather than offering a placeholder "mock" mode | Local-first with local model support; exact default LLM/cloud dependency posture is unverified |
+| Self-hosted vs. hosted options | Self-hosted only (an ephemeral no-signup demo is planned, see above) | Self-hosted desktop app; no hosted offering found | Self-hosted desktop app; no hosted offering found |
+| Cross-meeting RAG / "Ask" search | Yes — `web/app/(app)/search/`, pgvector-backed, cites transcript segments | Unverified | Unverified |
+| Speaker diarization | Yes — `backend/src/speakers/` | Documented as a feature on Meetily's own repo; not independently re-verified here | Unverified |
+
+This table reflects the current state of all three projects as of this
+writing; open-source projects move fast, so verify anything load-bearing to
+your decision directly against each project's own repo before relying on it.
+
 ## Features
 
 - **Botless local capture** (`desktop-capture/`) — system-audio transcription
