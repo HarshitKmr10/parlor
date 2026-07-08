@@ -1,6 +1,6 @@
 'use strict';
 
-// Page-realm speaker observer — Vexa-style.
+// Page-realm speaker observer.
 //
 // Watches the gallery video tiles directly (not the People panel) and emits
 // (name, speaking) snapshots to Node whenever the speaking state of any
@@ -21,9 +21,9 @@ const SCRIPT = `
   const TAG = '[teams.tiles]';
   try { console.log(TAG, 'installed'); } catch (_) {}
 
-  // Vexa's selectors — the union of every Teams gallery tile shape we've
-  // seen. New Teams variants land here over time; add to this list rather
-  // than the name selectors below if you discover a new tile container.
+  // Union of every Teams gallery tile shape observed in our own testing.
+  // New Teams variants land here over time; add to this list rather than
+  // the name selectors below if you discover a new tile container.
   const PARTICIPANT_SELECTORS = [
     '[data-tid*="participant"]',
     '[data-tid*="roster-item"]',
@@ -33,9 +33,9 @@ const SCRIPT = `
     '.video-tile',
   ];
 
-  // Vexa's name selectors — try these in order inside each tile. The
-  // obfuscated div class first (Teams' build-time hash for the name node)
-  // because data-tid attributes are absent on lightExperience tiles.
+  // Try these in order inside each tile. The obfuscated div class first
+  // (Teams' build-time hash for the name node) because data-tid
+  // attributes are absent on lightExperience tiles.
   const NAME_SELECTORS = [
     'div[class*="___2u340f0"]',
     '[data-tid*="display-name"]',
@@ -132,11 +132,12 @@ const SCRIPT = `
     return el;
   }
 
-  // Speaking detection mirrors Vexa: voice-level-stream-outline must exist
-  // (means the participant has audio routing), and .vdi-frame-occlusion
-  // must be present on it or any ancestor (means audio energy threshold
-  // is currently met). The class toggles in real time — this is why we
-  // observe attribute mutations on it instead of polling.
+  // Speaking detection: voice-level-stream-outline must exist (means the
+  // participant has audio routing), and .vdi-frame-occlusion must be
+  // present on it or any ancestor (means the participant is currently
+  // SPEAKING — see speaker_detection.js for how this was determined). The
+  // class toggles in real time — this is why we observe attribute
+  // mutations on it instead of polling.
   function checkSpeaking(el) {
     let voice;
     try { voice = el.querySelector(VOICE_SELECTOR); } catch (_) { voice = null; }

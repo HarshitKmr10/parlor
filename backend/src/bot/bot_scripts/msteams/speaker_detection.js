@@ -1,10 +1,28 @@
 /**
- * Speaker Detection Module for MS Teams
- * Based on vexa's proven approach with 5-mechanism detection
- * Key insight: voice-level-stream-outline visible = SILENT, hidden = SPEAKING
+ * Speaker detection for MS Teams meetings.
+ *
+ * Teams does not expose a public "who is speaking" API, so this module
+ * infers it from the meeting DOM using several independent, redundant
+ * signals — MutationObserver callbacks, timed polling, and a
+ * requestAnimationFrame loop — so that a signal missed by one mechanism
+ * (e.g. a mutation that lands between two poll ticks) is still caught by
+ * another. The redundancy matters because Teams applies these DOM changes
+ * outside of any event we can `await`.
+ *
+ * Core observation from testing against the live Teams web client: each
+ * participant tile that has an active audio route renders a
+ * `[data-tid="voice-level-stream-outline"]` element. While that
+ * participant is actively producing audio energy above Teams' internal
+ * threshold, the element (or one of its ancestors, depending on layout)
+ * additionally carries the `.vdi-frame-occlusion` class — an overlay
+ * Teams paints over the voice-level ring while it's animating. In other
+ * words: voice-level element present + `.vdi-frame-occlusion` class
+ * present = the participant is currently speaking. This is a factual
+ * property of Teams' rendering, confirmed by watching the class toggle in
+ * real time against known-speaking participants; it is not tied to any
+ * particular implementation of the observer that watches for it.
  */
 
-// Teams selectors (from vexa)
 const teamsParticipantSelectors = [
   '[data-tid*="participant"]',
   '[aria-label*="participant"]',
@@ -83,9 +101,9 @@ const teamsMeetingContainerSelectors = [
   'body'
 ];
 
-const teamsOcclusionSelectors = [
-  '.vdi-frame-occlusion'
-];
+// The occlusion overlay class Teams applies to a voice-level indicator
+// while the corresponding participant is silent (see module docstring).
+const OCCLUSION_CLASS = 'vdi-frame-occlusion';
 
 class SpeakerDetector {
   constructor(page) {
@@ -98,7 +116,9 @@ class SpeakerDetector {
   }
 
   /**
-   * Start comprehensive speaker detection (vexa-style 5-mechanism approach)
+   * Start speaker detection: scan for participant tiles, then keep them
+   * (and any that appear later) under watch using a combination of
+   * change-driven and time-driven checks.
    * @param {Function} onSpeakerChange - Callback for speaker changes: (eventType, participantName, participantId) => void
    */
   async start(onSpeakerChange) {
@@ -110,10 +130,9 @@ class SpeakerDetector {
     this.isRunning = true;
     this.onSpeakerChange = onSpeakerChange;
 
-    console.log('[Teams Speaker] Starting vexa-style 5-mechanism speaker detection...');
+    console.log('[Teams Speaker] Starting speaker detection...');
 
     try {
-      // Inject the speaker detection logic into the browser context
       await this.page.evaluate((config) => {
         const {
           participantSelectors,
@@ -126,21 +145,20 @@ class SpeakerDetector {
           audioActivitySelectors,
           participantIdSelectors,
           meetingContainerSelectors,
-          occlusionSelectors
+          occlusionClass
         } = config;
 
-        // State tracking
-        const speakingStates = new Map();
-        const lastSpeakingStateById = new Map();
-        const lastIndicatorStateById = new Map();
-        const lastEventTsById = new Map();
-        const observedIndicators = new WeakSet();
-        const observedIndicatorsList = new Set();
+        const classBasedSpeakingState = new Map();
+        const containerPollState = new Map();
+        const indicatorState = new Map();
+        const indicatorEventTimestamps = new Map();
+        const trackedIndicators = new WeakSet();
+        const trackedIndicatorList = new Set();
         const DEBOUNCE_MS = 300;
-        const POLL_MS = 500;
+        const CONTAINER_POLL_MS = 500;
+        const INDICATOR_POLL_MS = 150;
 
-        // Helper: Get participant ID
-        function getTeamsParticipantId(element) {
+        function resolveParticipantId(element) {
           let id = element.getAttribute('data-tid') ||
                   element.getAttribute('data-participant-id') ||
                   element.getAttribute('data-user-id') ||
@@ -157,17 +175,16 @@ class SpeakerDetector {
           }
 
           if (!id) {
-            if (!element.dataset.vexaGeneratedId) {
-              element.dataset.vexaGeneratedId = 'teams-id-' + Math.random().toString(36).substr(2, 9);
+            if (!element.dataset.synthesizedParticipantId) {
+              element.dataset.synthesizedParticipantId = 'teams-id-' + Math.random().toString(36).substr(2, 9);
             }
-            id = element.dataset.vexaGeneratedId;
+            id = element.dataset.synthesizedParticipantId;
           }
 
           return id;
         }
 
-        // Helper: Get participant name
-        function getTeamsParticipantName(participantElement) {
+        function resolveParticipantName(participantElement) {
           for (const selector of nameSelectors) {
             const nameElement = participantElement.querySelector(selector);
             if (nameElement) {
@@ -179,13 +196,13 @@ class SpeakerDetector {
               if (nameText && nameText.trim()) {
                 nameText = nameText.trim();
 
-                const forbiddenSubstrings = [
+                const controlLabelSubstrings = [
                   "more_vert", "mic_off", "mic", "videocam", "videocam_off",
                   "present_to_all", "devices", "speaker", "speakers", "microphone",
                   "camera", "camera_off", "share", "chat", "participant", "user"
                 ];
 
-                if (!forbiddenSubstrings.some(sub => nameText.toLowerCase().includes(sub.toLowerCase()))) {
+                if (!controlLabelSubstrings.some(sub => nameText.toLowerCase().includes(sub.toLowerCase()))) {
                   if (nameText.length > 1 && nameText.length < 50) {
                     return nameText;
                   }
@@ -205,12 +222,11 @@ class SpeakerDetector {
             }
           }
 
-          const idToDisplay = getTeamsParticipantId(participantElement);
+          const idToDisplay = resolveParticipantId(participantElement);
           return `Teams Participant (${idToDisplay})`;
         }
 
-        // Helper: Check if element is actually visible
-        function isElementActuallyVisible(el) {
+        function isRendered(el) {
           const cs = getComputedStyle(el);
           const rect = el.getBoundingClientRect();
           const ariaHidden = el.getAttribute('aria-hidden') === 'true';
@@ -227,12 +243,14 @@ class SpeakerDetector {
           );
         }
 
-        // VEXA APPROACH: Check for vdi-frame-occlusion class
-        // Presence of this class = SPEAKING, absence = SILENT
-        function hasVdiFrameOcclusion(el) {
+        // See module docstring: this class, present on the voice-level
+        // element or an ancestor, marks the participant as SPEAKING (it
+        // is an overlay Teams paints over the voice-level ring while the
+        // ring is actively animating).
+        function hasOcclusionOverlay(el) {
           let current = el;
           while (current) {
-            if (current.classList && current.classList.contains('vdi-frame-occlusion')) {
+            if (current.classList && current.classList.contains(occlusionClass)) {
               return true;
             }
             current = current.parentElement;
@@ -240,7 +258,6 @@ class SpeakerDetector {
           return false;
         }
 
-        // Helper: Emit speaker event
         function emitSpeakerEvent(eventType, participantName, participantId) {
           const event = new CustomEvent('teamsSpeakerEvent', {
             detail: { eventType, participantName, participantId, timestamp: Date.now() }
@@ -248,33 +265,25 @@ class SpeakerDetector {
           window.dispatchEvent(event);
         }
 
-        // Helper: Check if speaking based on voice-level indicator
-        // VEXA APPROACH: vdi-frame-occlusion class present = SPEAKING
-        function isSpeakingForContainer(containerEl) {
+        function isContainerSpeaking(containerEl) {
           const vSel = voiceLevelSelectors[0];
           const voiceLevel = vSel ? containerEl.querySelector(vSel) : null;
 
           if (!voiceLevel) {
-            // No voice level element - can't determine speaking state
             return false;
           }
 
-          // VEXA'S KEY INSIGHT: Check for vdi-frame-occlusion class
-          // If this class is present on the voice-level element or its parents, the person is SPEAKING
-          if (hasVdiFrameOcclusion(voiceLevel)) {
-            return true; // vdi-frame-occlusion present = SPEAKING
-          }
-
-          // Fallback: if voice-level is hidden (not visible), they might be speaking
-          // This is the old logic as a secondary check
-          if (!isElementActuallyVisible(voiceLevel)) {
+          if (hasOcclusionOverlay(voiceLevel)) {
             return true;
           }
 
-          // Fallback indicators: any audio activity/speaking indicator visible
+          if (!isRendered(voiceLevel)) {
+            return true;
+          }
+
           if (audioActivitySelectors.length > 0) {
             const anyInd = containerEl.querySelector(audioActivitySelectors.join(', '));
-            if (anyInd && isElementActuallyVisible(anyInd)) {
+            if (anyInd && isRendered(anyInd)) {
               return true;
             }
           }
@@ -282,8 +291,7 @@ class SpeakerDetector {
           return false;
         }
 
-        // Helper: Get container for indicator
-        function getContainerForIndicator(indicator) {
+        function resolveIndicatorContainer(indicator) {
           const sSel = streamTypeSelectors[0];
           const container = sSel ? indicator.closest(sSel) : null;
           if (container) return container;
@@ -297,8 +305,7 @@ class SpeakerDetector {
           return indicator.parentElement;
         }
 
-        // Helper: Collect same-origin documents (including iframes)
-        function collectSameOriginDocs() {
+        function collectSameOriginDocuments() {
           const docs = [document];
           const visit = (doc) => {
             const iframes = Array.from(doc.querySelectorAll('iframe'));
@@ -315,12 +322,14 @@ class SpeakerDetector {
           return docs;
         }
 
-        // Mechanism 1: MutationObserver on participant elements
-        function observeTeamsParticipant(participantElement) {
-          const participantId = getTeamsParticipantId(participantElement);
-          const participantName = getTeamsParticipantName(participantElement);
+        // Change-driven check #1: watch class attribute mutations on a
+        // participant tile directly. Cheap once attached, and catches
+        // speaking-class toggles the instant they happen.
+        function watchParticipantClassChanges(participantElement) {
+          const participantId = resolveParticipantId(participantElement);
+          const participantName = resolveParticipantName(participantElement);
 
-          speakingStates.set(participantId, 'silent');
+          classBasedSpeakingState.set(participantId, 'silent');
 
           console.log(`[Teams Speaker] Observing: ${participantName} (ID: ${participantId})`);
 
@@ -331,28 +340,28 @@ class SpeakerDetector {
                 if (participantElement.contains(targetElement)) {
                   const voiceLevelElement = participantElement.querySelector(voiceLevelSelectors[0]);
                   const hasVoiceLevelElement = !!voiceLevelElement;
-                  const isVoiceLevelVisible = hasVoiceLevelElement && isElementActuallyVisible(voiceLevelElement);
+                  const isVoiceLevelVisible = hasVoiceLevelElement && isRendered(voiceLevelElement);
 
-                  const isNowVisiblySpeaking = speakingClasses.some(cls => targetElement.classList.contains(cls));
-                  const isNowVisiblySilent = silenceClasses.some(cls => targetElement.classList.contains(cls));
+                  const matchesSpeakingClass = speakingClasses.some(cls => targetElement.classList.contains(cls));
+                  const matchesSilenceClass = silenceClasses.some(cls => targetElement.classList.contains(cls));
 
                   let isCurrentlySpeaking = false;
                   if (hasVoiceLevelElement) {
-                    isCurrentlySpeaking = !isVoiceLevelVisible || isNowVisiblySpeaking;
+                    isCurrentlySpeaking = !isVoiceLevelVisible || matchesSpeakingClass;
                   } else {
-                    isCurrentlySpeaking = isNowVisiblySpeaking && !isNowVisiblySilent;
+                    isCurrentlySpeaking = matchesSpeakingClass && !matchesSilenceClass;
                   }
 
-                  const previousState = speakingStates.get(participantId) || 'silent';
+                  const previousState = classBasedSpeakingState.get(participantId) || 'silent';
 
                   if (isCurrentlySpeaking && previousState !== 'speaking') {
                     console.log(`[Teams Speaker] SPEAKER_START: ${participantName}`);
                     emitSpeakerEvent('SPEAKER_START', participantName, participantId);
-                    speakingStates.set(participantId, 'speaking');
+                    classBasedSpeakingState.set(participantId, 'speaking');
                   } else if (!isCurrentlySpeaking && previousState === 'speaking') {
                     console.log(`[Teams Speaker] SPEAKER_END: ${participantName}`);
                     emitSpeakerEvent('SPEAKER_END', participantName, participantId);
-                    speakingStates.set(participantId, 'silent');
+                    classBasedSpeakingState.set(participantId, 'silent');
                   }
                 }
               }
@@ -366,13 +375,14 @@ class SpeakerDetector {
             subtree: true
           });
 
-          participantElement.dataset.vexaObserverAttached = 'true';
+          participantElement.dataset.twinSpeakerObserverBound = 'true';
         }
 
-        // Mechanism 2: MutationObserver on voice-level indicators (added in mechanism 4)
-
-        // Mechanism 3: Polling at 500ms for containers
-        const pollTeamsActiveSpeakers = () => {
+        // Time-driven check #1: sweep known participant containers every
+        // CONTAINER_POLL_MS and diff the speaking state. Backstops the
+        // mutation observer for any container whose relevant class change
+        // doesn't bubble through the watched subtree.
+        function pollContainers() {
           try {
             const containers = [];
             for (const sel of containerSelectors) {
@@ -380,169 +390,157 @@ class SpeakerDetector {
             }
 
             containers.forEach((container) => {
-              const participantId = String(getTeamsParticipantId(container) || 'unknown');
-              const participantName = String(getTeamsParticipantName(container) || participantId);
-              const speaking = isSpeakingForContainer(container);
-              const prev = lastSpeakingStateById.get(participantId) || 'silent';
+              const participantId = String(resolveParticipantId(container) || 'unknown');
+              const participantName = String(resolveParticipantName(container) || participantId);
+              const speaking = isContainerSpeaking(container);
+              const prev = containerPollState.get(participantId) || 'silent';
 
               if (speaking && prev !== 'speaking') {
                 console.log(`[Teams Speaker Poll] SPEAKER_START: ${participantName}`);
                 emitSpeakerEvent('SPEAKER_START', participantName, participantId);
-                lastSpeakingStateById.set(participantId, 'speaking');
+                containerPollState.set(participantId, 'speaking');
               } else if (!speaking && prev === 'speaking') {
                 console.log(`[Teams Speaker Poll] SPEAKER_END: ${participantName}`);
                 emitSpeakerEvent('SPEAKER_END', participantName, participantId);
-                lastSpeakingStateById.set(participantId, 'silent');
-              } else if (!lastSpeakingStateById.has(participantId)) {
-                lastSpeakingStateById.set(participantId, speaking ? 'speaking' : 'silent');
+                containerPollState.set(participantId, 'silent');
+              } else if (!containerPollState.has(participantId)) {
+                containerPollState.set(participantId, speaking ? 'speaking' : 'silent');
               }
             });
           } catch (e) {
-            console.error('[Teams Speaker] Poll error:', e);
+            console.error('[Teams Speaker] Container poll error:', e);
           }
-        };
+        }
 
-        // Mechanism 4: Polling at 150ms for voice indicators + MutationObserver
-        const pollTeamsVoiceIndicators = () => {
+        function reportIndicatorTransition(participantId, participantName, hasOcclusion, source) {
+          const wasSpeaking = indicatorState.get(participantId) === true;
+          const now = Date.now();
+          const lastTs = indicatorEventTimestamps.get(participantId) || 0;
+          if ((now - lastTs) < DEBOUNCE_MS) return;
+
+          const speaking = hasOcclusion;
+          if (speaking && !wasSpeaking) {
+            console.log(`[Teams Speaker ${source}] SPEAKER_START: ${participantName}`);
+            emitSpeakerEvent('SPEAKER_START', participantName, participantId);
+            indicatorState.set(participantId, true);
+            indicatorEventTimestamps.set(participantId, now);
+          } else if (!speaking && wasSpeaking) {
+            console.log(`[Teams Speaker ${source}] SPEAKER_END: ${participantName}`);
+            emitSpeakerEvent('SPEAKER_END', participantName, participantId);
+            indicatorState.set(participantId, false);
+            indicatorEventTimestamps.set(participantId, now);
+          }
+        }
+
+        // Time-driven check #2 + change-driven check #2: find every
+        // voice-level indicator (including inside same-origin iframes),
+        // attach a targeted mutation observer to each one the first time
+        // it's seen, and also evaluate its current state every
+        // INDICATOR_POLL_MS in case the observer's attribute filter
+        // misses a compound style/class change.
+        function pollAndObserveIndicators() {
           try {
             const vSel = voiceLevelSelectors[0];
             if (!vSel) return;
-            const allDocs = collectSameOriginDocs();
+            const allDocs = collectSameOriginDocuments();
             const indicators = [];
             for (const d of allDocs) {
               d.querySelectorAll(vSel).forEach(el => indicators.push(el));
             }
 
             indicators.forEach((indicator) => {
-              const container = getContainerForIndicator(indicator);
+              const container = resolveIndicatorContainer(indicator);
               if (!container) return;
-              const participantId = String(getTeamsParticipantId(container) || 'unknown');
-              const participantName = String(getTeamsParticipantName(container) || participantId);
+              const participantId = String(resolveParticipantId(container) || 'unknown');
+              const participantName = String(resolveParticipantName(container) || participantId);
 
-              // Add MutationObserver for quick visibility flips
-              // VEXA APPROACH: Watch for vdi-frame-occlusion class changes
-              if (!observedIndicators.has(indicator)) {
+              if (!trackedIndicators.has(indicator)) {
                 try {
                   const observer = new MutationObserver(() => {
-                    // PRIMARY: Check for vdi-frame-occlusion (Vexa's approach)
-                    const hasOcclusion = hasVdiFrameOcclusion(indicator);
-                    const wasSpeaking = lastIndicatorStateById.get(participantId) === true;
-                    const now = Date.now();
-                    const lastTs = lastEventTsById.get(participantId) || 0;
-
-                    // Debounce: only emit if enough time has passed
-                    if ((now - lastTs) < DEBOUNCE_MS) return;
-
-                    if (hasOcclusion && !wasSpeaking) {
-                      console.log(`[Teams Speaker Indicator] SPEAKER_START (vdi-occlusion): ${participantName}`);
-                      emitSpeakerEvent('SPEAKER_START', participantName, participantId);
-                      lastIndicatorStateById.set(participantId, true);
-                      lastEventTsById.set(participantId, now);
-                    } else if (!hasOcclusion && wasSpeaking) {
-                      console.log(`[Teams Speaker Indicator] SPEAKER_END (vdi-occlusion): ${participantName}`);
-                      emitSpeakerEvent('SPEAKER_END', participantName, participantId);
-                      lastIndicatorStateById.set(participantId, false);
-                      lastEventTsById.set(participantId, now);
-                    }
+                    reportIndicatorTransition(
+                      participantId,
+                      participantName,
+                      hasOcclusionOverlay(indicator),
+                      'Indicator'
+                    );
                   });
-                  // Watch both the indicator and its parent container for class changes
                   observer.observe(indicator, { attributes: true, attributeFilter: ['class', 'style', 'aria-hidden'] });
                   if (indicator.parentElement) {
                     observer.observe(indicator.parentElement, { attributes: true, attributeFilter: ['class'] });
                   }
-                  observedIndicators.add(indicator);
-                  observedIndicatorsList.add(indicator);
+                  trackedIndicators.add(indicator);
+                  trackedIndicatorList.add(indicator);
                 } catch {}
               }
 
-              // Check current state using VEXA approach
-              const hasOcclusion = hasVdiFrameOcclusion(indicator);
-              const prevSpeaking = lastIndicatorStateById.get(participantId) === true;
-              const now = Date.now();
-              const lastTs = lastEventTsById.get(participantId) || 0;
-
-              if (hasOcclusion && !prevSpeaking && (now - lastTs) > DEBOUNCE_MS) {
-                console.log(`[Teams Speaker Indicator Poll] SPEAKER_START (vdi-occlusion): ${participantName}`);
-                emitSpeakerEvent('SPEAKER_START', participantName, participantId);
-                lastIndicatorStateById.set(participantId, true);
-                lastEventTsById.set(participantId, now);
-              } else if (!hasOcclusion && prevSpeaking && (now - lastTs) > DEBOUNCE_MS) {
-                console.log(`[Teams Speaker Indicator Poll] SPEAKER_END (vdi-occlusion): ${participantName}`);
-                emitSpeakerEvent('SPEAKER_END', participantName, participantId);
-                lastIndicatorStateById.set(participantId, false);
-                lastEventTsById.set(participantId, now);
-              }
+              reportIndicatorTransition(
+                participantId,
+                participantName,
+                hasOcclusionOverlay(indicator),
+                'Indicator Poll'
+              );
             });
           } catch (e) {
             console.error('[Teams Speaker] Voice indicator poll error:', e);
           }
-        };
-
-        // Mechanism 5: requestAnimationFrame loop for near real-time indicator sampling
-        // VEXA APPROACH: Check for vdi-frame-occlusion class
-        function fastIndicatorTick() {
-          try {
-            const now = Date.now();
-            observedIndicatorsList.forEach((indicator) => {
-              if (!indicator.isConnected) {
-                observedIndicatorsList.delete(indicator);
-                return;
-              }
-              const container = getContainerForIndicator(indicator);
-              if (!container) return;
-              const participantId = String(getTeamsParticipantId(container) || 'unknown');
-              const participantName = String(getTeamsParticipantName(container) || participantId);
-
-              // VEXA APPROACH: Check for vdi-frame-occlusion class (speaking indicator)
-              const hasOcclusion = hasVdiFrameOcclusion(indicator);
-              const wasSpeaking = lastIndicatorStateById.get(participantId) === true;
-              const lastTs = lastEventTsById.get(participantId) || 0;
-
-              if (hasOcclusion && !wasSpeaking && (now - lastTs) > DEBOUNCE_MS) {
-                console.log(`[Teams Speaker RAF] SPEAKER_START (vdi-occlusion): ${participantName}`);
-                emitSpeakerEvent('SPEAKER_START', participantName, participantId);
-                lastIndicatorStateById.set(participantId, true);
-                lastEventTsById.set(participantId, now);
-              } else if (!hasOcclusion && wasSpeaking && (now - lastTs) > DEBOUNCE_MS) {
-                console.log(`[Teams Speaker RAF] SPEAKER_END (vdi-occlusion): ${participantName}`);
-                emitSpeakerEvent('SPEAKER_END', participantName, participantId);
-                lastIndicatorStateById.set(participantId, false);
-                lastEventTsById.set(participantId, now);
-              }
-            });
-          } catch {}
-          requestAnimationFrame(fastIndicatorTick);
         }
 
-        // Initial scan for participants
-        function scanForAllTeamsParticipants() {
+        // Time-driven check #3: a requestAnimationFrame loop over already
+        // tracked indicators for near-real-time sampling between the two
+        // slower polls above.
+        function tickTrackedIndicators() {
+          try {
+            trackedIndicatorList.forEach((indicator) => {
+              if (!indicator.isConnected) {
+                trackedIndicatorList.delete(indicator);
+                return;
+              }
+              const container = resolveIndicatorContainer(indicator);
+              if (!container) return;
+              const participantId = String(resolveParticipantId(container) || 'unknown');
+              const participantName = String(resolveParticipantName(container) || participantId);
+
+              reportIndicatorTransition(
+                participantId,
+                participantName,
+                hasOcclusionOverlay(indicator),
+                'RAF'
+              );
+            });
+          } catch {}
+          requestAnimationFrame(tickTrackedIndicators);
+        }
+
+        function scanForParticipants() {
           for (const selector of participantSelectors) {
             const participantElements = document.querySelectorAll(selector);
             for (let i = 0; i < participantElements.length; i++) {
               const el = participantElements[i];
-              if (!el.dataset.vexaObserverAttached) {
-                observeTeamsParticipant(el);
+              if (!el.dataset.twinSpeakerObserverBound) {
+                watchParticipantClassChanges(el);
               }
             }
           }
         }
 
-        // Monitor for new participants
-        const bodyObserver = new MutationObserver((mutationsList) => {
+        // Change-driven check #3: watch the meeting container for newly
+        // added participant tiles (gallery reflow, late joiners, view
+        // switches) and attach the same per-tile observer to each.
+        const containerObserver = new MutationObserver((mutationsList) => {
           for (const mutation of mutationsList) {
             if (mutation.type === 'childList') {
               mutation.addedNodes.forEach(node => {
                 if (node.nodeType === Node.ELEMENT_NODE) {
                   const elementNode = node;
                   for (const selector of participantSelectors) {
-                    if (elementNode.matches && elementNode.matches(selector) && !elementNode.dataset.vexaObserverAttached) {
-                      observeTeamsParticipant(elementNode);
+                    if (elementNode.matches && elementNode.matches(selector) && !elementNode.dataset.twinSpeakerObserverBound) {
+                      watchParticipantClassChanges(elementNode);
                     }
                     const childElements = elementNode.querySelectorAll ? elementNode.querySelectorAll(selector) : [];
                     for (let i = 0; i < childElements.length; i++) {
                       const childEl = childElements[i];
-                      if (!childEl.dataset.vexaObserverAttached) {
-                        observeTeamsParticipant(childEl);
+                      if (!childEl.dataset.twinSpeakerObserverBound) {
+                        watchParticipantClassChanges(childEl);
                       }
                     }
                   }
@@ -552,28 +550,19 @@ class SpeakerDetector {
           }
         });
 
-        // Start all mechanisms
-        console.log('[Teams Speaker] Starting 5-mechanism detection...');
+        console.log('[Teams Speaker] Starting detection (class-mutation + container poll + indicator poll/observer + RAF)...');
 
-        // 1. Initial scan and MutationObservers
-        scanForAllTeamsParticipants();
+        scanForParticipants();
 
-        // 2. Body observer for new participants
         const meetingContainer = document.querySelector(meetingContainerSelectors[0]) || document.body;
-        bodyObserver.observe(meetingContainer, { childList: true, subtree: true });
+        containerObserver.observe(meetingContainer, { childList: true, subtree: true });
 
-        // 3. Container polling (500ms)
-        setInterval(pollTeamsActiveSpeakers, POLL_MS);
+        setInterval(pollContainers, CONTAINER_POLL_MS);
+        setInterval(pollAndObserveIndicators, INDICATOR_POLL_MS);
+        requestAnimationFrame(tickTrackedIndicators);
 
-        // 4. Voice indicator polling (150ms)
-        setInterval(pollTeamsVoiceIndicators, 150);
+        console.log('[Teams Speaker] All detection mechanisms started');
 
-        // 5. requestAnimationFrame loop
-        requestAnimationFrame(fastIndicatorTick);
-
-        console.log('[Teams Speaker] All 5 mechanisms started');
-
-        // Expose participant functions
         window.getTeamsActiveParticipantsCount = () => {
           let count = 0;
           for (const selector of participantSelectors) {
@@ -586,7 +575,7 @@ class SpeakerDetector {
           const names = [];
           for (const selector of participantSelectors) {
             document.querySelectorAll(selector).forEach(el => {
-              names.push(getTeamsParticipantName(el));
+              names.push(resolveParticipantName(el));
             });
           }
           return [...new Set(names)];
@@ -605,17 +594,15 @@ class SpeakerDetector {
         audioActivitySelectors: teamsAudioActivitySelectors,
         participantIdSelectors: teamsParticipantIdSelectors,
         meetingContainerSelectors: teamsMeetingContainerSelectors,
-        occlusionSelectors: teamsOcclusionSelectors
+        occlusionClass: OCCLUSION_CLASS
       });
 
-      // Listen for speaker events from the browser context
       await this.page.exposeFunction('__teamsSpeakerCallback', (eventType, participantName, participantId) => {
         if (this.onSpeakerChange) {
           this.onSpeakerChange(eventType, participantName, participantId);
         }
       });
 
-      // Set up event listener in browser context
       await this.page.evaluate(() => {
         window.addEventListener('teamsSpeakerEvent', (event) => {
           const { eventType, participantName, participantId } = event.detail;
@@ -642,7 +629,6 @@ class SpeakerDetector {
     await this.start((eventType, participantName, participantId) => {
       const timestamp = Date.now();
 
-      // Store event in history for later lookup
       this.speakerHistory.push({
         type: eventType,
         name: participantName,
@@ -650,23 +636,21 @@ class SpeakerDetector {
         timestamp: timestamp
       });
 
-      // Keep only last 5 minutes of history (300,000 ms)
       const cutoff = timestamp - 300000;
       while (this.speakerHistory.length > 0 && this.speakerHistory[0].timestamp < cutoff) {
         this.speakerHistory.shift();
       }
 
-      // Update current speakers map
       if (eventType === 'SPEAKER_START') {
         this.currentSpeakers.set(participantId, {
           name: participantName,
           startTime: timestamp
         });
         this.lastSpeaker = participantName;
-        console.log(`[Teams Speaker] 🗣️ Speaking: ${participantName} (tracking ${this.currentSpeakers.size} active speakers)`);
+        console.log(`[Teams Speaker] Speaking: ${participantName} (tracking ${this.currentSpeakers.size} active speakers)`);
       } else if (eventType === 'SPEAKER_END') {
         this.currentSpeakers.delete(participantId);
-        console.log(`[Teams Speaker] 🔇 Stopped: ${participantName} (tracking ${this.currentSpeakers.size} active speakers)`);
+        console.log(`[Teams Speaker] Stopped: ${participantName} (tracking ${this.currentSpeakers.size} active speakers)`);
       }
     });
   }
@@ -678,9 +662,7 @@ class SpeakerDetector {
    * @returns {string|null} - Speaker name or null if not found
    */
   getSpeakerAtTime(absoluteTime, tolerance = 5000) {
-    // First check if anyone is currently speaking
     if (this.currentSpeakers.size > 0) {
-      // Return the most recent speaker who started before this time
       let bestMatch = null;
       let closestTime = Infinity;
 
@@ -697,9 +679,7 @@ class SpeakerDetector {
       }
     }
 
-    // Look through history for speakers active at this time
-    // Build speaker activity intervals from events
-    const speakerIntervals = new Map(); // participantId -> [{start, end, name}]
+    const speakerIntervals = new Map();
 
     for (const event of this.speakerHistory) {
       if (!speakerIntervals.has(event.id)) {
@@ -711,7 +691,6 @@ class SpeakerDetector {
       if (event.type === 'SPEAKER_START') {
         intervals.push({ start: event.timestamp, end: null, name: event.name });
       } else if (event.type === 'SPEAKER_END') {
-        // Find the most recent open interval and close it
         for (let i = intervals.length - 1; i >= 0; i--) {
           if (intervals[i].end === null) {
             intervals[i].end = event.timestamp;
@@ -721,7 +700,6 @@ class SpeakerDetector {
       }
     }
 
-    // Find speakers whose intervals overlap with the target time (with tolerance)
     const targetStart = absoluteTime - tolerance;
     const targetEnd = absoluteTime + tolerance;
     let bestSpeaker = null;
@@ -729,9 +707,8 @@ class SpeakerDetector {
 
     for (const [id, intervals] of speakerIntervals) {
       for (const interval of intervals) {
-        const intervalEnd = interval.end || Date.now(); // Open intervals are still speaking
+        const intervalEnd = interval.end || Date.now();
 
-        // Check for overlap
         const overlapStart = Math.max(interval.start, targetStart);
         const overlapEnd = Math.min(intervalEnd, targetEnd);
 
@@ -749,7 +726,6 @@ class SpeakerDetector {
       return bestSpeaker;
     }
 
-    // Fallback: return last known speaker if within tolerance
     if (this.lastSpeaker && this.speakerHistory.length > 0) {
       const lastEvent = this.speakerHistory[this.speakerHistory.length - 1];
       if (Math.abs(absoluteTime - lastEvent.timestamp) < tolerance * 2) {
