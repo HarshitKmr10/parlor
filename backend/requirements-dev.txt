@@ -13,10 +13,12 @@ pydantic-settings>=2.1,<3
 email-validator>=2.1            # required by pydantic EmailStr
 python-multipart>=0.0.27
 python-dotenv>=1.0
-# CVE-2026-48710 / GHSA-86qp-5c8j-p5mr: Host-header path desync fixed in
-# starlette 1.0.1+. fastapi 0.133 is the earliest release that drops the
-# <1.0 upper bound on starlette, so it's the minimum compatible pair.
-starlette>=1.0.1,<1.1
+# Superseded by later starlette CVEs (GHSA fixes landing through 1.3.1,
+# including the arbitrary-HTTP-method-dispatch and request.form() DoS
+# advisories) — the 1.0.1 pin from the original CVE-2026-48710 fix no
+# longer covers those. fastapi 0.133 is still the minimum fastapi that
+# drops its upper bound on starlette, so it stays compatible with 1.3.1+.
+starlette>=1.3.1,<1.4
 
 # Database
 asyncpg>=0.30,<1.0
