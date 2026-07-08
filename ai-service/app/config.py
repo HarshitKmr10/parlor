@@ -9,13 +9,21 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from typing import Literal
 
 # --- Model identifiers (see Anthropic / OpenAI model catalogs) -------------
 # Premium = final summary + chat answers. Cheap = live/embed-adjacent tasks.
-ANTHROPIC_PREMIUM_MODEL = "claude-sonnet-4-6"
-ANTHROPIC_CHEAP_MODEL = "claude-haiku-4-5-20251001"
-OPENAI_PREMIUM_MODEL = "gpt-4o"
-OPENAI_CHEAP_MODEL = "gpt-4o-mini"
+# Each is overridable via a dedicated env var so a deployment can be pinned to
+# a specific model generation without a code change; the literal here is only
+# the current-generation default.
+ANTHROPIC_PREMIUM_MODEL = (
+    os.environ.get("ANTHROPIC_MODEL_PREMIUM") or "claude-sonnet-4-6"
+)
+ANTHROPIC_CHEAP_MODEL = (
+    os.environ.get("ANTHROPIC_MODEL_CHEAP") or "claude-haiku-4-5-20251001"
+)
+OPENAI_PREMIUM_MODEL = os.environ.get("OPENAI_MODEL_PREMIUM") or "gpt-4o"
+OPENAI_CHEAP_MODEL = os.environ.get("OPENAI_MODEL_CHEAP") or "gpt-4o-mini"
 
 # Azure OpenAI routes by *deployment name*, not model id. The default chat
 # deployment maps to the user's "5.4 mini" (deployment id ``gpt-5.4-mini`` in
@@ -42,6 +50,36 @@ AZURE_OPENAI_DEPLOYMENT = (
 AZURE_OPENAI_EMBEDDING_DEPLOYMENT = (
     os.environ.get("AZURE_OPENAI_EMBEDDING_DEPLOYMENT") or None
 )
+# Cheap-tier chat deployment. Previously the single AZURE_OPENAI_DEPLOYMENT
+# was reused for both premium and cheap calls; when this is unset the
+# provider still falls back to the premium deployment, preserving that
+# behavior for anyone who hasn't set up a second deployment.
+AZURE_OPENAI_CHEAP_DEPLOYMENT = (
+    os.environ.get("AZURE_OPENAI_CHEAP_DEPLOYMENT") or None
+)
+
+# Generic OpenAI-Chat-Completions-API-compatible endpoint (OpenRouter,
+# self-hosted vLLM/Ollama/LM Studio, or any other compatible deployment). See
+# app/providers/openai_compatible_provider.py for the rationale for a single
+# parameterized provider instead of one class per vendor.
+OPENAI_COMPATIBLE_DEFAULT_MODEL = "gpt-4o-mini"
+OPENAI_COMPATIBLE_BASE_URL = os.environ.get("OPENAI_COMPATIBLE_BASE_URL") or None
+OPENAI_COMPATIBLE_API_KEY = os.environ.get("OPENAI_COMPATIBLE_API_KEY") or None
+OPENAI_COMPATIBLE_MODEL = (
+    os.environ.get("OPENAI_COMPATIBLE_MODEL") or OPENAI_COMPATIBLE_DEFAULT_MODEL
+)
+
+ProviderMode = Literal["fallback", "pinned"]
+_PROVIDER_MODES: tuple[ProviderMode, ...] = ("fallback", "pinned")
+
+
+class ConfigError(RuntimeError):
+    """Raised when environment-derived configuration is invalid.
+
+    Distinct from :class:`app.providers.base.ProviderError` (a runtime
+    provider-call failure): this is a startup-time misconfiguration that
+    should fail loudly rather than degrade into an unexpected chain.
+    """
 
 # Vector index tuning.
 IVFFLAT_LISTS = 100
@@ -94,15 +132,32 @@ class Settings:
     database_url: str | None
     mode: str = field(default="mock")
     port: int = 8100
+    provider_mode: ProviderMode = "fallback"
+    pinned_provider: str | None = None
+    anthropic_premium_model: str = ANTHROPIC_PREMIUM_MODEL
+    anthropic_cheap_model: str = ANTHROPIC_CHEAP_MODEL
+    openai_premium_model: str = OPENAI_PREMIUM_MODEL
+    openai_cheap_model: str = OPENAI_CHEAP_MODEL
+    azure_openai_cheap_deployment: str | None = AZURE_OPENAI_CHEAP_DEPLOYMENT
+    openai_compatible_base_url: str | None = OPENAI_COMPATIBLE_BASE_URL
+    openai_compatible_api_key: str | None = OPENAI_COMPATIBLE_API_KEY
+    openai_compatible_model: str = OPENAI_COMPATIBLE_MODEL
 
     @property
     def azure_configured(self) -> bool:
         return bool(self.azure_openai_endpoint and self.azure_openai_api_key)
 
     @property
+    def openai_compatible_configured(self) -> bool:
+        return bool(self.openai_compatible_base_url)
+
+    @property
     def has_any_key(self) -> bool:
         return bool(
-            self.anthropic_api_key or self.openai_api_key or self.azure_configured
+            self.anthropic_api_key
+            or self.openai_api_key
+            or self.azure_configured
+            or self.openai_compatible_configured
         )
 
     @property
@@ -117,6 +172,7 @@ def load_settings() -> Settings:
     openai_key = os.environ.get("OPENAI_API_KEY") or None
     azure_endpoint = AZURE_OPENAI_ENDPOINT
     azure_key = AZURE_OPENAI_API_KEY
+    openai_compatible_configured = bool(OPENAI_COMPATIBLE_BASE_URL)
     order = _split_csv(
         os.environ.get("AI_PROVIDER_ORDER", "azure,anthropic,openai")
     )
@@ -124,7 +180,9 @@ def load_settings() -> Settings:
 
     requested_mode = os.environ.get("AI_MODE", "").strip().lower()
     azure_configured = bool(azure_endpoint and azure_key)
-    has_key = bool(anthropic_key or openai_key or azure_configured)
+    has_key = bool(
+        anthropic_key or openai_key or azure_configured or openai_compatible_configured
+    )
     if requested_mode in {"mock", "live"}:
         mode = requested_mode
     else:
@@ -138,6 +196,22 @@ def load_settings() -> Settings:
 
     port = int(os.environ.get("AI_SERVICE_PORT", "8100"))
 
+    provider_mode_raw = (os.environ.get("AI_PROVIDER_MODE") or "fallback").strip().lower()
+    if provider_mode_raw not in _PROVIDER_MODES:
+        raise ConfigError(
+            f"AI_PROVIDER_MODE must be one of {_PROVIDER_MODES!r}, got "
+            f"{provider_mode_raw!r}"
+        )
+    provider_mode: ProviderMode = provider_mode_raw  # type: ignore[assignment]
+
+    pinned_provider = os.environ.get("AI_PINNED_PROVIDER") or None
+    if provider_mode == "pinned" and not pinned_provider:
+        raise ConfigError(
+            "AI_PINNED_PROVIDER is required when AI_PROVIDER_MODE=pinned "
+            "(set it to one of the configured provider names, e.g. "
+            "'anthropic', 'openai', 'azure', 'openai_compatible')"
+        )
+
     return Settings(
         anthropic_api_key=anthropic_key,
         openai_api_key=openai_key,
@@ -150,6 +224,16 @@ def load_settings() -> Settings:
         database_url=database_url,
         mode=mode,
         port=port,
+        provider_mode=provider_mode,
+        pinned_provider=pinned_provider,
+        anthropic_premium_model=ANTHROPIC_PREMIUM_MODEL,
+        anthropic_cheap_model=ANTHROPIC_CHEAP_MODEL,
+        openai_premium_model=OPENAI_PREMIUM_MODEL,
+        openai_cheap_model=OPENAI_CHEAP_MODEL,
+        azure_openai_cheap_deployment=AZURE_OPENAI_CHEAP_DEPLOYMENT,
+        openai_compatible_base_url=OPENAI_COMPATIBLE_BASE_URL,
+        openai_compatible_api_key=OPENAI_COMPATIBLE_API_KEY,
+        openai_compatible_model=OPENAI_COMPATIBLE_MODEL,
     )
 
 

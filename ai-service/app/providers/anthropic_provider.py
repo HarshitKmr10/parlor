@@ -27,13 +27,21 @@ class AnthropicProvider(LLMProvider):
     name = "anthropic"
     supports_embeddings = False
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        premium_model: str = ANTHROPIC_PREMIUM_MODEL,
+        cheap_model: str = ANTHROPIC_CHEAP_MODEL,
+    ) -> None:
         self._client = anthropic.AsyncAnthropic(
             api_key=api_key, timeout=PROVIDER_TIMEOUT, max_retries=0
         )
+        self._premium_model = premium_model
+        self._cheap_model = cheap_model
 
     def _model(self, premium: bool) -> str:
-        return ANTHROPIC_PREMIUM_MODEL if premium else ANTHROPIC_CHEAP_MODEL
+        return self._premium_model if premium else self._cheap_model
 
     async def complete_json(
         self,

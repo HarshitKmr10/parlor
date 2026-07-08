@@ -1,8 +1,10 @@
 """Azure OpenAI provider using the official ``openai`` SDK's ``AsyncAzureOpenAI``.
 
 Azure routes by **deployment name**, not model id, so ``model=`` is set to the
-configured deployment (``AZURE_OPENAI_DEPLOYMENT`` for chat). Structured output
-uses ``response_format`` with a JSON schema; chat uses a plain completion.
+configured deployment (``AZURE_OPENAI_DEPLOYMENT`` for premium chat calls,
+``AZURE_OPENAI_CHEAP_DEPLOYMENT`` for cheap-tier calls -- falling back to the
+premium deployment when the cheap one is unset). Structured output uses
+``response_format`` with a JSON schema; chat uses a plain completion.
 
 Notes on gpt-5.x deployments (e.g. ``gpt-5.4-mini``): these models reject the
 legacy ``max_tokens`` parameter and require ``max_completion_tokens`` instead.
@@ -24,6 +26,7 @@ import openai
 
 from ..config import (
     AZURE_OPENAI_API_VERSION,
+    AZURE_OPENAI_CHEAP_DEPLOYMENT,
     AZURE_OPENAI_DEPLOYMENT,
     AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
     EMBEDDING_DIM,
@@ -42,6 +45,7 @@ class AzureOpenAIProvider(LLMProvider):
         api_key: str,
         api_version: str = AZURE_OPENAI_API_VERSION,
         deployment: str = AZURE_OPENAI_DEPLOYMENT,
+        cheap_deployment: str | None = AZURE_OPENAI_CHEAP_DEPLOYMENT,
         embedding_deployment: str | None = AZURE_OPENAI_EMBEDDING_DEPLOYMENT,
     ) -> None:
         self._client = openai.AsyncAzureOpenAI(
@@ -51,14 +55,16 @@ class AzureOpenAIProvider(LLMProvider):
             timeout=PROVIDER_TIMEOUT,
             max_retries=0,
         )
-        # Azure routes by deployment name; a single chat deployment is used for
-        # both premium and cheap tiers (the resource's "mini" deployment is the
-        # configured default and is already economical).
+        # Azure routes by deployment name. ``cheap_deployment`` lets premium
+        # and cheap calls target different deployments (mirroring the
+        # Anthropic/OpenAI providers); when unset it falls back to reusing
+        # the premium deployment for both tiers, preserving prior behavior.
         self._deployment = deployment
+        self._cheap_deployment = cheap_deployment or deployment
         self._embedding_deployment = embedding_deployment or None
 
-    def _model(self, premium: bool) -> str:  # noqa: ARG002 - parity with siblings
-        return self._deployment
+    def _model(self, premium: bool) -> str:
+        return self._deployment if premium else self._cheap_deployment
 
     async def _create_chat(
         self,

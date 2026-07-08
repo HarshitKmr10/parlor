@@ -23,13 +23,21 @@ from .base import LLMProvider, ProviderError
 class OpenAIProvider(LLMProvider):
     name = "openai"
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(
+        self,
+        api_key: str,
+        *,
+        premium_model: str = OPENAI_PREMIUM_MODEL,
+        cheap_model: str = OPENAI_CHEAP_MODEL,
+    ) -> None:
         self._client = openai.AsyncOpenAI(
             api_key=api_key, timeout=PROVIDER_TIMEOUT, max_retries=0
         )
+        self._premium_model = premium_model
+        self._cheap_model = cheap_model
 
     def _model(self, premium: bool) -> str:
-        return OPENAI_PREMIUM_MODEL if premium else OPENAI_CHEAP_MODEL
+        return self._premium_model if premium else self._cheap_model
 
     async def complete_json(
         self,

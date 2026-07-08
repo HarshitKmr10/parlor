@@ -13,13 +13,13 @@ import asyncio
 
 import pytest
 
-from app.config import Settings
+from app.config import ConfigError, Settings
 from app.providers.base import LLMProvider, ProviderError
 from app.providers.router import ProviderRouter
 
 
-def _mock_settings(provider_order: list[str] | None = None) -> Settings:
-    return Settings(
+def _mock_settings(provider_order: list[str] | None = None, **overrides) -> Settings:
+    base = dict(
         anthropic_api_key=None,
         openai_api_key=None,
         azure_openai_endpoint=None,
@@ -31,13 +31,15 @@ def _mock_settings(provider_order: list[str] | None = None) -> Settings:
         database_url=None,
         mode="mock",
     )
+    base.update(overrides)
+    return Settings(**base)
 
 
-def _live_settings() -> Settings:
+def _live_settings(**overrides) -> Settings:
     """Settings with ``mode="live"`` so ``_chain()`` will actually consult
     ``router._live`` (fake providers injected directly by tests below)
     instead of collapsing straight to the mock-only chain."""
-    settings = _mock_settings()
+    settings = _mock_settings(**overrides)
     return Settings(**{**settings.__dict__, "mode": "live"})
 
 
@@ -278,3 +280,70 @@ class TestRequestTimeBudget:
         result = await router.embed(["hi"])
 
         assert len(result) == 1
+
+
+class TestPinnedProviderMode:
+    """``AI_PROVIDER_MODE=pinned`` must build a chain containing ONLY the
+    pinned provider (plus the mock safety net) -- never the other
+    live-configured providers, even if they appear in ``AI_PROVIDER_ORDER``."""
+
+    def test_pinned_chain_contains_only_the_pinned_provider(self):
+        settings = _live_settings(
+            anthropic_api_key="anthropic-key",
+            openai_api_key="openai-key",
+            provider_order=["anthropic", "openai"],
+            provider_mode="pinned",
+            pinned_provider="openai",
+        )
+
+        router = ProviderRouter(settings)
+
+        assert [p.name for p in router._live] == ["openai"]  # noqa: SLF001
+
+    @pytest.mark.asyncio
+    async def test_pinned_mode_never_tries_other_live_providers_on_failure(self):
+        """Even when the pinned provider fails, the router must fall straight
+        to mock rather than trying any other configured live provider."""
+        settings = _live_settings(
+            anthropic_api_key="anthropic-key",
+            openai_api_key="openai-key",
+            provider_order=["anthropic", "openai"],
+            provider_mode="pinned",
+            pinned_provider="anthropic",
+        )
+        router = ProviderRouter(settings)
+        failing_pinned = _FakeProvider("anthropic", fail=True)
+        never_called = _FakeProvider("openai")
+        router._live = [failing_pinned]  # noqa: SLF001 - simulate the pinned provider failing
+
+        result = await router.embed(["hi"])
+
+        assert len(result) == 1  # mock safety net answered
+        assert never_called.embed_calls == []
+
+    def test_pinned_mode_with_unconfigured_provider_fails_fast_at_construction(self):
+        """An invalid/unconfigured AI_PINNED_PROVIDER must raise immediately
+        when the router is built (i.e. at process startup via
+        app.dependencies), not silently fall back to fallback-mode behavior
+        and not defer the failure to the first request."""
+        settings = _live_settings(
+            anthropic_api_key=None,  # anthropic pinned but NOT configured
+            openai_api_key="openai-key",
+            provider_order=["anthropic", "openai"],
+            provider_mode="pinned",
+            pinned_provider="anthropic",
+        )
+
+        with pytest.raises(ConfigError, match="anthropic"):
+            ProviderRouter(settings)
+
+    def test_pinned_mode_with_unknown_provider_name_fails_fast(self):
+        settings = _live_settings(
+            openai_api_key="openai-key",
+            provider_order=["openai"],
+            provider_mode="pinned",
+            pinned_provider="does-not-exist",
+        )
+
+        with pytest.raises(ConfigError, match="does-not-exist"):
+            ProviderRouter(settings)

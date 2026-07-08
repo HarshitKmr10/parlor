@@ -1,9 +1,14 @@
 """Provider router: ordered fall-through across configured providers.
 
-In ``live`` mode, providers are tried in ``AI_PROVIDER_ORDER`` and the first to
-succeed wins; on :class:`ProviderError` the router falls through to the next.
-If every live provider fails, it degrades to the mock provider so the request
-still returns a structured (clearly labeled) response rather than a 5xx.
+In ``live`` mode with ``AI_PROVIDER_MODE=fallback`` (the default), providers
+are tried in ``AI_PROVIDER_ORDER`` and the first to succeed wins; on
+:class:`ProviderError` the router falls through to the next. With
+``AI_PROVIDER_MODE=pinned``, only ``AI_PINNED_PROVIDER`` is tried -- no
+fall-through across other live providers. In both modes, if every live
+provider attempt fails (or is skipped), the router degrades to the mock
+provider so the request still returns a structured (clearly labeled)
+response rather than a 5xx; this mock safety net is never disabled by pinned
+mode.
 
 In ``mock`` mode only the mock provider is used.
 """
@@ -15,11 +20,12 @@ import logging
 import time
 from typing import Any, Awaitable, Callable, TypeVar
 
-from ..config import REQUEST_TIME_BUDGET, Settings
+from ..config import REQUEST_TIME_BUDGET, ConfigError, Settings
 from .anthropic_provider import AnthropicProvider
 from .azure_openai_provider import AzureOpenAIProvider
 from .base import LLMProvider, ProviderError
 from .mock_provider import MockProvider
+from .openai_compatible_provider import OpenAICompatibleProvider
 from .openai_provider import OpenAIProvider
 
 logger = logging.getLogger("ai-service.router")
@@ -41,30 +47,75 @@ class ProviderRouter:
         self._live: list[LLMProvider] = []
 
         if not settings.is_mock:
-            builders = {
+            builders: dict[str, Callable[[], LLMProvider | None]] = {
                 "azure": lambda: AzureOpenAIProvider(
                     endpoint=settings.azure_openai_endpoint,
                     api_key=settings.azure_openai_api_key,
                     api_version=settings.azure_openai_api_version,
                     deployment=settings.azure_openai_deployment,
+                    cheap_deployment=settings.azure_openai_cheap_deployment,
                     embedding_deployment=settings.azure_openai_embedding_deployment,
                 )
                 if settings.azure_configured
                 else None,
-                "anthropic": lambda: AnthropicProvider(settings.anthropic_api_key)
+                "anthropic": lambda: AnthropicProvider(
+                    settings.anthropic_api_key,
+                    premium_model=settings.anthropic_premium_model,
+                    cheap_model=settings.anthropic_cheap_model,
+                )
                 if settings.anthropic_api_key
                 else None,
-                "openai": lambda: OpenAIProvider(settings.openai_api_key)
+                "openai": lambda: OpenAIProvider(
+                    settings.openai_api_key,
+                    premium_model=settings.openai_premium_model,
+                    cheap_model=settings.openai_cheap_model,
+                )
                 if settings.openai_api_key
                 else None,
+                "openai_compatible": lambda: OpenAICompatibleProvider(
+                    base_url=settings.openai_compatible_base_url,
+                    api_key=settings.openai_compatible_api_key,
+                    model=settings.openai_compatible_model,
+                )
+                if settings.openai_compatible_configured
+                else None,
             }
-            for name in settings.provider_order:
-                build = builders.get(name)
-                if build is None:
-                    continue
-                provider = build()
-                if provider is not None:
-                    self._live.append(provider)
+
+            if settings.provider_mode == "pinned":
+                self._live = self._build_pinned_chain(settings, builders)
+            else:
+                for name in settings.provider_order:
+                    build = builders.get(name)
+                    if build is None:
+                        continue
+                    provider = build()
+                    if provider is not None:
+                        self._live.append(provider)
+
+    @staticmethod
+    def _build_pinned_chain(
+        settings: Settings, builders: dict[str, Callable[[], LLMProvider | None]]
+    ) -> list[LLMProvider]:
+        """Resolve ``AI_PINNED_PROVIDER`` to a single live provider.
+
+        Fails loudly at construction time (i.e. at process startup, since
+        ``app.dependencies`` builds the router singleton at import time)
+        rather than silently degrading to fallback mode or deferring the
+        error to the first request -- an operator who pins a provider by
+        name expects a misconfigured pin to be caught immediately.
+        """
+
+        pinned_name = settings.pinned_provider
+        build = builders.get(pinned_name) if pinned_name else None
+        provider = build() if build is not None else None
+        if provider is None:
+            raise ConfigError(
+                f"AI_PROVIDER_MODE=pinned but AI_PINNED_PROVIDER={pinned_name!r} "
+                "is not a configured live provider. Known provider names: "
+                f"{sorted(builders)}. Check that its required env vars/keys "
+                "(e.g. the API key, or base URL for openai_compatible) are set."
+            )
+        return [provider]
 
     @property
     def available(self) -> list[str]:
