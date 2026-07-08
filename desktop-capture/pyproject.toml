@@ -8,9 +8,21 @@ version = "0.1.0"
 description = "Botless desktop audio capture client for the Parlor meeting assistant (Granola-style, no bot joins the call)."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Parlor" }]
 keywords = ["meetings", "transcription", "system-audio", "whisper", "parlor"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications",
+    "Topic :: Multimedia :: Sound/Audio :: Capture/Recording",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 
 dependencies = [
     # CLI + config
@@ -28,6 +40,11 @@ dependencies = [
 # core pipeline (and the `mock` STT backend) installs fast everywhere.
 whisper = ["faster-whisper>=1.0"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21"]
+
+[project.urls]
+Homepage = "https://github.com/HarshitKmr10/parlor"
+Repository = "https://github.com/HarshitKmr10/parlor"
+Issues = "https://github.com/HarshitKmr10/parlor/issues"
 
 [project.scripts]
 parlor-capture = "parlor_capture.cli:app"

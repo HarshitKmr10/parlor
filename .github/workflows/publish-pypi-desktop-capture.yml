@@ -1,0 +1,71 @@
+# Publish the `desktop-capture/` package (PyPI distribution name:
+# "parlor-capture", import path `import parlor_capture`) to PyPI using OIDC
+# trusted publishing.
+#
+# ONE-TIME MANUAL SETUP REQUIRED BEFORE THIS CAN EVER SUCCEED:
+# Trusted publishing has no API token/secret to configure here — instead,
+# PyPI must be told in advance to trust workflow runs from this exact repo
+# + workflow file. Only the project owner (an account with publish rights
+# for the "parlor-capture" PyPI project) can do this, and it must be done
+# manually on pypi.org:
+#
+#   1. Log in to https://pypi.org with the account that owns/will own the
+#      "parlor-capture" project.
+#   2. If the project does NOT exist on PyPI yet: go to
+#      https://pypi.org/manage/account/publishing/ ("Publishing" under
+#      Account Settings) and use the "Add a new pending publisher" form.
+#      Fill in:
+#        PyPI Project Name: parlor-capture
+#        Owner:             HarshitKmr10
+#        Repository name:   parlor
+#        Workflow name:     publish-pypi-desktop-capture.yml
+#        Environment name:  (leave blank unless you add `environment:` below)
+#      Submitting this creates a "pending" trusted publisher; the first
+#      successful run of this workflow then automatically creates the
+#      "parlor-capture" project on PyPI and claims it.
+#   3. If the project already exists on PyPI: go to the project's page ->
+#      Manage -> Publishing, and add the same repo/workflow/environment
+#      values as a trusted publisher there instead.
+#
+# Until that one-time step is done, every run of this workflow will fail at
+# the publish step with an authentication error from PyPI — that is
+# expected and does not indicate a bug in this file.
+#
+# This workflow is NOT wired to run automatically on every tag/release yet
+# on purpose — publishing to PyPI is a one-way door and a decision for a
+# human with actual publish rights. Trigger it manually (workflow_dispatch)
+# once the trusted-publisher setup above is done and a release is ready.
+name: Publish desktop-capture to PyPI
+
+on:
+  workflow_dispatch: {}
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    name: Build and publish parlor-capture
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: desktop-capture/pyproject.toml
+
+      - name: Install build tooling
+        run: pip install build
+
+      - name: Build sdist + wheel
+        working-directory: desktop-capture
+        run: python -m build
+
+      - name: Publish to PyPI (OIDC trusted publishing)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: desktop-capture/dist
