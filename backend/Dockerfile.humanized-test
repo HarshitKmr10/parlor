@@ -1,6 +1,7 @@
-# Linux test image to validate the Google Meet join with Vexa's vendored mocap
-# humanizer. Playwright 1.56 base (Chromium 141, matching our Chrome/141 UA) +
-# Xvfb + xdotool (XTEST input for the humanized layer).
+# Linux test image to validate the Google Meet join with the bundled
+# humanized OS-level input module (see THIRD_PARTY_NOTICES.md). Playwright
+# 1.56 base (Chromium 141, matching our Chrome/141 UA) + Xvfb + xdotool
+# (XTEST input for the humanized layer).
 FROM mcr.microsoft.com/playwright:v1.56.0-noble
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

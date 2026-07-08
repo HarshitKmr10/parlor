@@ -5,8 +5,9 @@ staying off Google's bot flag (anti-detection) and joining as an authenticated
 Workspace user (signed-in bots). Keep this in sync with the code it describes —
 file paths and commands below are real.
 
-Code lives under `src/bot/bot_scripts/googlemeet/`. This bot tracks the Vexa
-upstream (`modules/join/src/googlemeet`); see [Tracking upstream](#tracking-upstream).
+Code lives under `src/bot/bot_scripts/googlemeet/`. See
+[Maintaining this over time](#maintaining-this-over-time) for how to keep it
+working as Google Meet's DOM and anti-bot posture change.
 
 ---
 
@@ -77,21 +78,26 @@ iframe — `iframe[title*="recaptcha challenge"]`, `...bframe`, `...api2/anchor`
 not a mere `/recaptcha/` frame URL, which false-fires on clean joins). The exit
 reason surfaces as `blocked_recaptcha` in `index.js`'s failure classification.
 
-### Tracking upstream
+### Maintaining this over time
 
-This bot mirrors Vexa's `modules/join/src/googlemeet`. To re-check upstream for
-new evasion techniques:
+Google periodically tightens Meet's anti-automation posture (new fingerprint
+checks, stealth-plugin evasions that stop working, reCAPTCHA trigger changes).
+This file and the code under `googlemeet/` are the source of truth — there is
+no external upstream to sync against. When a join starts failing or getting
+flagged:
 
-```bash
-cd ~/vexa
-git fetch --all --tags
-# Replace <checkpoint-tag> with whatever upstream ref/tag you last synced against.
-git show <checkpoint-tag>:modules/join/src/googlemeet/join.ts | less
-git log --oneline -- modules/join/src/googlemeet   # scan for new commits
-```
-
-Watch for changes to the stealth flags, the humanized input layer, and the
-reCAPTCHA/`blocked` classification, and port them here.
+1. Reproduce against a real meeting with `screenshotPath` enabled in
+   `waitForAdmission` (see `admission.js`) to capture the exact failure
+   surface (blocked/rejected/limbo).
+2. Check the log line at join (`Input mode: ...`) to rule out a humanized-input
+   regression before suspecting the stealth/fingerprint layer.
+3. Diff the actual DOM Google now serves against the selectors in
+   `selectors.js` — Meet's structural attributes (`data-participant-id`,
+   `jsname`, aria-labels) tend to be stable longer than CSS class names, so
+   prefer those when adding new selectors.
+4. Update this doc's "Anti-detection" section alongside any code change so the
+   reasoning behind a selector or flag doesn't rot into a mystery for the next
+   person debugging a join failure.
 
 ---
 
