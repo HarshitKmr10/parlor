@@ -23,7 +23,9 @@ constant from the original paper (Cormack, Clarke & Buettcher, SIGIR 2009,
 "Reciprocal Rank Fusion Outperforms Condorcet and Individual Rank Learning
 Methods") and is what most production hybrid-search implementations (Zep/
 Graphiti, Letta, Elasticsearch's RRF retriever) use unchanged rather than
-re-tuning per corpus -- see docs/TWIN-CENTRIC-REDESIGN.md §2.4/§2.5.
+re-tuning per corpus. Hand-tuning ``k`` (or a weighted blend) per workspace
+would need labeled relevance data this system doesn't collect, so the
+standard constant is used as-is rather than guessed at.
 """
 
 from __future__ import annotations
