@@ -23,6 +23,7 @@ import { CommentsTab } from "@/components/meetings/detail/CommentsTab";
 import { GenerateSummary } from "@/components/meetings/detail/GenerateSummary";
 import { RegenerateSummary } from "@/components/meetings/detail/RegenerateSummary";
 import { ShareButton } from "@/components/meetings/detail/ShareButton";
+import { ExportButton } from "@/components/meetings/detail/ExportButton";
 import { BackendDownState } from "@/components/ui/BackendDownState";
 
 export const metadata: Metadata = {
@@ -131,7 +132,8 @@ export default async function MeetingDetailPage({
         <div className="min-w-0 flex-1">
           <MeetingHeader meeting={meeting} />
         </div>
-        <div className="shrink-0 pt-1">
+        <div className="flex shrink-0 items-start gap-2 pt-1">
+          <ExportButton meetingId={meeting.id} />
           <ShareButton meetingId={meeting.id} />
         </div>
       </div>
