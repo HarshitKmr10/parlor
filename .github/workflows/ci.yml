@@ -156,10 +156,9 @@ jobs:
       # pnpm 11's build-script approval gate blocks EVERY subsequent pnpm
       # command (not just install) until sharp/unrs-resolver's postinstall
       # scripts are approved. web/pnpm-workspace.yaml's checked-in
-      # `allowBuilds` block is currently the literal placeholder text ("set
-      # this to true or false"), not real booleans, so a clean checkout does
-      # NOT self-approve. Approving explicitly here keeps this job from
-      # depending on that file being fixed first — worth fixing separately.
+      # `allowBuilds` block already approves both, but CI runs from a fresh,
+      # unattended checkout with no interactive approval step, so we approve
+      # explicitly here too rather than relying solely on that file.
       - name: Approve pnpm build scripts
         working-directory: web
         run: pnpm approve-builds --all
