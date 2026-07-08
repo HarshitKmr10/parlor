@@ -1,0 +1,16 @@
+# No funding platform is set up for this project yet.
+#
+# GitHub Sponsors is NOT currently enabled for the HarshitKmr10 account
+# (verified via `gh api graphql -f query='query{user(login:"HarshitKmr10"){hasSponsorsListing}}'`
+# -> hasSponsorsListing: false as of 2026-07-09), and there is no Open
+# Collective, Patreon, Ko-fi, or other funding platform configured for this
+# repository. Uncomment and fill in the relevant line below once one of
+# these is actually live — do not enable a line that points at a
+# non-existent or inactive account, since GitHub will surface it as a
+# "Sponsor this project" button that 404s or leads nowhere useful.
+#
+# github: [HarshitKmr10]
+# open_collective: parlor
+# patreon: username
+# ko_fi: username
+# custom: ["https://example.com/donate"]
