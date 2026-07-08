@@ -541,7 +541,7 @@ def test_configure_requires_admin_role(gw_member_client):
         json={
             "authMode": "dwd",
             "serviceAccountJson": _FAKE_SA_JSON,
-            "delegatedAdminEmail": "admin@verdant-test.com",
+            "delegatedAdminEmail": "admin@parlor-test.com",
             "enabled": True,
         },
     )
