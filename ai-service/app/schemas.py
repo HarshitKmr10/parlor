@@ -13,6 +13,9 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
+from .providers.base import TokenUsage
+from .providers.pricing import estimate_cost_usd
+
 
 class CamelModel(BaseModel):
     """Base model: camelCase JSON aliases, accept by name or alias."""
@@ -52,11 +55,40 @@ class Chapter(CamelModel):
     t_end_sec: float | None = None
 
 
+class TokenUsageOut(CamelModel):
+    """Additive, observability-only usage/cost readout for an LLM call.
+
+    Never used to gate functionality -- this exists purely so the product
+    can show a user their own usage. ``estimated_cost_usd`` is a rough
+    estimate (see ``app/providers/pricing.py``), not billing-grade
+    accounting, and is ``None`` for models not in the price table.
+    """
+
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    provider: str
+    model: str
+    estimated_cost_usd: float | None = None
+
+
+def token_usage_to_schema(usage: TokenUsage) -> TokenUsageOut:
+    return TokenUsageOut(
+        prompt_tokens=usage.prompt_tokens,
+        completion_tokens=usage.completion_tokens,
+        total_tokens=usage.total_tokens,
+        provider=usage.provider,
+        model=usage.model,
+        estimated_cost_usd=estimate_cost_usd(usage),
+    )
+
+
 class MeetingInsights(CamelModel):
     summary: str
     key_points: list[str] = Field(default_factory=list)
     action_items: list[ActionItem] = Field(default_factory=list)
     chapters: list[Chapter] = Field(default_factory=list)
+    usage: TokenUsageOut | None = None
 
 
 class Citation(CamelModel):
@@ -99,6 +131,7 @@ class EmbedRequest(CamelModel):
 
 class EmbedResponse(CamelModel):
     embedded: int
+    usage: TokenUsageOut | None = None
 
 
 class ChatRequest(CamelModel):
@@ -111,6 +144,7 @@ class ChatRequest(CamelModel):
 class ChatResponse(CamelModel):
     answer: str
     citations: list[Citation] = Field(default_factory=list)
+    usage: TokenUsageOut | None = None
 
 
 class AssistRequest(CamelModel):

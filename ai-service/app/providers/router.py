@@ -23,7 +23,7 @@ from typing import Any, Awaitable, Callable, TypeVar
 from ..config import REQUEST_TIME_BUDGET, ConfigError, Settings
 from .anthropic_provider import AnthropicProvider
 from .azure_openai_provider import AzureOpenAIProvider
-from .base import LLMProvider, ProviderError
+from .base import LLMProvider, ProviderError, TokenUsage
 from .mock_provider import MockProvider
 from .openai_compatible_provider import OpenAICompatibleProvider
 from .openai_provider import OpenAIProvider
@@ -273,6 +273,13 @@ class ProviderRouter:
         )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
+        safe_texts = self._safe_embed_texts(texts)
+        return await self._run_chain(
+            lambda provider: provider.embed(safe_texts),
+            op="embed",
+        )
+
+    def _safe_embed_texts(self, texts: list[str]) -> list[str]:
         blank_count = sum(1 for t in texts if not t.strip())
         if blank_count:
             logger.warning(
@@ -286,9 +293,96 @@ class ProviderRouter:
         # returned list stays positionally aligned with the caller's segments
         # — callers (e.g. EmbeddingStore.upsert_segments) zip embeddings back
         # onto segments by index.
-        safe_texts = [t if t.strip() else _BLANK_SEGMENT_PLACEHOLDER for t in texts]
+        return [t if t.strip() else _BLANK_SEGMENT_PLACEHOLDER for t in texts]
 
+    # -- Usage-capturing variants -------------------------------------------
+    #
+    # Additive counterparts to the methods above: same fallback-chain
+    # semantics, but the raw provider result is paired with a TokenUsage so
+    # routes can surface usage/cost on the HTTP response. Kept as separate
+    # methods (rather than changing the return type of complete_json/
+    # complete_text/complete_json_validated/embed) so this never disturbs the
+    # existing fallback-chain machinery or its callers/tests.
+
+    async def complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        premium: bool = True,
+        max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,
+    ) -> tuple[str, TokenUsage]:
         return await self._run_chain(
-            lambda provider: provider.embed(safe_texts),
+            lambda provider: provider.complete_json_with_usage(
+                system=system,
+                user=user,
+                schema=schema,
+                premium=premium,
+                max_tokens=max_tokens,
+                mock_context=mock_context,
+            ),
+            op="complete_json",
+        )
+
+    async def complete_json_validated_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        parse: Callable[[str], _T],
+        premium: bool = True,
+        max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,
+        op: str = "complete_json",
+    ) -> tuple[_T, TokenUsage]:
+        """Like :meth:`complete_json_validated`, but also returns the
+        winning provider's :class:`TokenUsage` alongside the parsed value."""
+
+        async def attempt(provider: LLMProvider) -> tuple[_T, TokenUsage]:
+            raw, usage = await provider.complete_json_with_usage(
+                system=system,
+                user=user,
+                schema=schema,
+                premium=premium,
+                max_tokens=max_tokens,
+                mock_context=mock_context,
+            )
+            try:
+                parsed = parse(raw)
+            except Exception as exc:  # noqa: BLE001 - any parse/validation failure
+                raise ProviderError(
+                    provider.name, f"schema-invalid output: {exc}"
+                ) from exc
+            return parsed, usage
+
+        return await self._run_chain(attempt, op=op)
+
+    async def complete_text_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        premium: bool = True,
+        max_tokens: int = 2000,
+        mock_context: dict[str, Any] | None = None,
+    ) -> tuple[str, TokenUsage]:
+        return await self._run_chain(
+            lambda provider: provider.complete_text_with_usage(
+                system=system,
+                user=user,
+                premium=premium,
+                max_tokens=max_tokens,
+                mock_context=mock_context,
+            ),
+            op="complete_text",
+        )
+
+    async def embed_with_usage(self, texts: list[str]) -> tuple[list[list[float]], TokenUsage]:
+        safe_texts = self._safe_embed_texts(texts)
+        return await self._run_chain(
+            lambda provider: provider.embed_with_usage(safe_texts),
             op="embed",
         )

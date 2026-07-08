@@ -28,7 +28,7 @@ from typing import Any
 import openai
 
 from ..config import PROVIDER_TIMEOUT
-from .base import LLMProvider, ProviderError
+from .base import LLMProvider, ProviderError, TokenUsage
 
 _NO_KEY_PLACEHOLDER = "not-needed"
 
@@ -58,6 +58,26 @@ class OpenAICompatibleProvider(LLMProvider):
         max_tokens: int = 8000,
         mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
     ) -> str:
+        content, _usage = await self.complete_json_with_usage(
+            system=system,
+            user=user,
+            schema=schema,
+            premium=premium,
+            max_tokens=max_tokens,
+            mock_context=mock_context,
+        )
+        return content
+
+    async def complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        premium: bool = True,
+        max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
+    ) -> tuple[str, TokenUsage]:
         try:
             response = await self._client.chat.completions.create(
                 model=self._model(premium),
@@ -83,7 +103,7 @@ class OpenAICompatibleProvider(LLMProvider):
         content = response.choices[0].message.content
         if not content:
             raise ProviderError(self.name, "empty completion content")
-        return content
+        return content, self._usage_from_response(response)
 
     async def complete_text(
         self,
@@ -94,6 +114,24 @@ class OpenAICompatibleProvider(LLMProvider):
         max_tokens: int = 2000,
         mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
     ) -> str:
+        content, _usage = await self.complete_text_with_usage(
+            system=system,
+            user=user,
+            premium=premium,
+            max_tokens=max_tokens,
+            mock_context=mock_context,
+        )
+        return content
+
+    async def complete_text_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        premium: bool = True,
+        max_tokens: int = 2000,
+        mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
+    ) -> tuple[str, TokenUsage]:
         try:
             response = await self._client.chat.completions.create(
                 model=self._model(premium),
@@ -111,11 +149,39 @@ class OpenAICompatibleProvider(LLMProvider):
         content = response.choices[0].message.content
         if not content:
             raise ProviderError(self.name, "empty completion content")
-        return content
+        return content, self._usage_from_response(response)
+
+    def _usage_from_response(self, response: Any) -> TokenUsage:
+        # TODO: OpenRouter's response extends the standard OpenAI usage
+        # object with a real per-request ``usage.cost`` field (in USD) on
+        # some plans/models. When present it is a more accurate number than
+        # our static pricing.py table (which cannot know the true cost of an
+        # arbitrary routed/self-hosted model). We don't currently thread that
+        # through as a distinct "actual cost" -- pricing.estimate_cost_usd
+        # will just return None for unrecognized model ids -- but a future
+        # pass could check ``getattr(response.usage, "cost", None)`` here and
+        # surface it separately when this provider is pointed at OpenRouter.
+        #
+        # Read defensively: some self-hosted/non-conformant OpenAI-compatible
+        # backends (and test doubles) may omit ``usage`` entirely.
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return TokenUsage(0, 0, 0, self.name, self._model_name)
+        return TokenUsage(
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
+            provider=self.name,
+            model=self._model_name,
+        )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
+        vectors, _usage = await self.embed_with_usage(texts)
+        return vectors
+
+    async def embed_with_usage(self, texts: list[str]) -> tuple[list[list[float]], TokenUsage]:
         if not texts:
-            return []
+            return [], TokenUsage(0, 0, 0, self.name, self._model_name)
         try:
             response = await self._client.embeddings.create(
                 model=self._model_name,
@@ -126,4 +192,11 @@ class OpenAICompatibleProvider(LLMProvider):
         except Exception as exc:
             raise ProviderError(self.name, str(exc)) from exc
 
-        return [item.embedding for item in response.data]
+        usage = TokenUsage(
+            prompt_tokens=response.usage.prompt_tokens,
+            completion_tokens=0,
+            total_tokens=response.usage.total_tokens,
+            provider=self.name,
+            model=self._model_name,
+        )
+        return [item.embedding for item in response.data], usage

@@ -32,7 +32,7 @@ from ..config import (
     EMBEDDING_DIM,
     PROVIDER_TIMEOUT,
 )
-from .base import LLMProvider, ProviderError
+from .base import LLMProvider, ProviderError, TokenUsage
 
 
 class AzureOpenAIProvider(LLMProvider):
@@ -109,6 +109,26 @@ class AzureOpenAIProvider(LLMProvider):
         max_tokens: int = 8000,
         mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
     ) -> str:
+        content, _usage = await self.complete_json_with_usage(
+            system=system,
+            user=user,
+            schema=schema,
+            premium=premium,
+            max_tokens=max_tokens,
+            mock_context=mock_context,
+        )
+        return content
+
+    async def complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        premium: bool = True,
+        max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
+    ) -> tuple[str, TokenUsage]:
         try:
             response = await self._create_chat(
                 deployment=self._model(premium),
@@ -134,7 +154,7 @@ class AzureOpenAIProvider(LLMProvider):
         content = response.choices[0].message.content
         if not content:
             raise ProviderError(self.name, "empty completion content")
-        return content
+        return content, self._usage_from_response(response, premium)
 
     async def complete_text(
         self,
@@ -145,6 +165,24 @@ class AzureOpenAIProvider(LLMProvider):
         max_tokens: int = 2000,
         mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
     ) -> str:
+        content, _usage = await self.complete_text_with_usage(
+            system=system,
+            user=user,
+            premium=premium,
+            max_tokens=max_tokens,
+            mock_context=mock_context,
+        )
+        return content
+
+    async def complete_text_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        premium: bool = True,
+        max_tokens: int = 2000,
+        mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
+    ) -> tuple[str, TokenUsage]:
         try:
             response = await self._create_chat(
                 deployment=self._model(premium),
@@ -162,11 +200,36 @@ class AzureOpenAIProvider(LLMProvider):
         content = response.choices[0].message.content
         if not content:
             raise ProviderError(self.name, "empty completion content")
-        return content
+        return content, self._usage_from_response(response, premium)
+
+    def _usage_from_response(self, response: Any, premium: bool) -> TokenUsage:
+        # Azure routes by deployment name (``self._model(premium)``), which is
+        # what we tag the usage with even though the pricing table in
+        # ``pricing.py`` is keyed by underlying model id -- a deployment alias
+        # will usually miss the table and estimate as ``None`` unless it
+        # happens to match a known model name.
+        #
+        # ``usage`` is read defensively: the real Azure/OpenAI SDK always
+        # populates it, but test doubles and some non-conformant
+        # OpenAI-compatible backends may omit it entirely.
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return TokenUsage(0, 0, 0, self.name, self._model(premium))
+        return TokenUsage(
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
+            provider=self.name,
+            model=self._model(premium),
+        )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
+        vectors, _usage = await self.embed_with_usage(texts)
+        return vectors
+
+    async def embed_with_usage(self, texts: list[str]) -> tuple[list[list[float]], TokenUsage]:
         if not texts:
-            return []
+            return [], TokenUsage(0, 0, 0, self.name, self._embedding_deployment or "unknown")
         if not self._embedding_deployment:
             # No Azure embedding deployment configured; let the router fall
             # through to a provider that can embed (ultimately the mock embedder)
@@ -185,4 +248,11 @@ class AzureOpenAIProvider(LLMProvider):
         except Exception as exc:
             raise ProviderError(self.name, str(exc)) from exc
 
-        return [item.embedding for item in response.data]
+        usage = TokenUsage(
+            prompt_tokens=response.usage.prompt_tokens,
+            completion_tokens=0,
+            total_tokens=response.usage.total_tokens,
+            provider=self.name,
+            model=self._embedding_deployment,
+        )
+        return [item.embedding for item in response.data], usage

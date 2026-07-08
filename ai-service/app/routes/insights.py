@@ -20,6 +20,7 @@ from ..schemas import (
     EmbedResponse,
     MeetingInsights,
     SummarizeRequest,
+    token_usage_to_schema,
 )
 
 logger = logging.getLogger("ai-service.routes")
@@ -71,7 +72,9 @@ async def embed(
         return EmbedResponse(embedded=0)
 
     try:
-        embeddings = await provider_router.embed([s.text for s in payload.segments])
+        embeddings, usage = await provider_router.embed_with_usage(
+            [s.text for s in payload.segments]
+        )
     except ProviderError as exc:
         logger.error("embed failed: %s", exc)
         raise _error(502, "provider_error", exc.message) from exc
@@ -87,7 +90,7 @@ async def embed(
         logger.error("embed store write failed: %s", exc)
         raise _error(502, "store_error", "Failed to persist embeddings.") from exc
 
-    return EmbedResponse(embedded=count)
+    return EmbedResponse(embedded=count, usage=token_usage_to_schema(usage))
 
 
 @router.post("/chat", response_model=ChatResponse, response_model_by_alias=True)

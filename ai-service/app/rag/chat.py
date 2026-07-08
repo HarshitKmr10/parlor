@@ -15,7 +15,7 @@ import logging
 
 from ..config import DEFAULT_TOP_K
 from ..providers import ProviderRouter
-from ..schemas import ChatMessage, ChatResponse, Citation
+from ..schemas import ChatMessage, ChatResponse, Citation, token_usage_to_schema
 from .store import EmbeddingStore, RetrievedSegment
 
 logger = logging.getLogger("ai-service.chat")
@@ -115,7 +115,11 @@ async def answer_question(
         f"Question: {question}"
     )
 
-    answer = await router.complete_text(
+    # Usage reflects only the answer-generation call, not the retrieval
+    # embedding call above -- the completion is the dominant cost, and
+    # folding the (typically much smaller) embedding usage in would need a
+    # second usage field or a combine step for marginal accuracy gain.
+    answer, usage = await router.complete_text_with_usage(
         system=_SYSTEM,
         user=user,
         premium=True,
@@ -125,4 +129,4 @@ async def answer_question(
         },
     )
 
-    return ChatResponse(answer=answer, citations=citations)
+    return ChatResponse(answer=answer, citations=citations, usage=token_usage_to_schema(usage))

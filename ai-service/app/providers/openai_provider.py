@@ -17,7 +17,7 @@ from ..config import (
     OPENAI_PREMIUM_MODEL,
     PROVIDER_TIMEOUT,
 )
-from .base import LLMProvider, ProviderError
+from .base import LLMProvider, ProviderError, TokenUsage
 
 
 class OpenAIProvider(LLMProvider):
@@ -49,6 +49,26 @@ class OpenAIProvider(LLMProvider):
         max_tokens: int = 8000,
         mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
     ) -> str:
+        content, _usage = await self.complete_json_with_usage(
+            system=system,
+            user=user,
+            schema=schema,
+            premium=premium,
+            max_tokens=max_tokens,
+            mock_context=mock_context,
+        )
+        return content
+
+    async def complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        premium: bool = True,
+        max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
+    ) -> tuple[str, TokenUsage]:
         try:
             response = await self._client.chat.completions.create(
                 model=self._model(premium),
@@ -74,7 +94,7 @@ class OpenAIProvider(LLMProvider):
         content = response.choices[0].message.content
         if not content:
             raise ProviderError(self.name, "empty completion content")
-        return content
+        return content, self._usage_from_response(response, premium)
 
     async def complete_text(
         self,
@@ -85,6 +105,24 @@ class OpenAIProvider(LLMProvider):
         max_tokens: int = 2000,
         mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
     ) -> str:
+        content, _usage = await self.complete_text_with_usage(
+            system=system,
+            user=user,
+            premium=premium,
+            max_tokens=max_tokens,
+            mock_context=mock_context,
+        )
+        return content
+
+    async def complete_text_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        premium: bool = True,
+        max_tokens: int = 2000,
+        mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
+    ) -> tuple[str, TokenUsage]:
         try:
             response = await self._client.chat.completions.create(
                 model=self._model(premium),
@@ -102,11 +140,29 @@ class OpenAIProvider(LLMProvider):
         content = response.choices[0].message.content
         if not content:
             raise ProviderError(self.name, "empty completion content")
-        return content
+        return content, self._usage_from_response(response, premium)
+
+    def _usage_from_response(self, response: Any, premium: bool) -> TokenUsage:
+        # Read defensively: the real SDK always populates ``usage``, but test
+        # doubles may omit it.
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return TokenUsage(0, 0, 0, self.name, self._model(premium))
+        return TokenUsage(
+            prompt_tokens=usage.prompt_tokens,
+            completion_tokens=usage.completion_tokens,
+            total_tokens=usage.total_tokens,
+            provider=self.name,
+            model=self._model(premium),
+        )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
+        vectors, _usage = await self.embed_with_usage(texts)
+        return vectors
+
+    async def embed_with_usage(self, texts: list[str]) -> tuple[list[list[float]], TokenUsage]:
         if not texts:
-            return []
+            return [], TokenUsage(0, 0, 0, self.name, OPENAI_EMBEDDING_MODEL)
         try:
             response = await self._client.embeddings.create(
                 model=OPENAI_EMBEDDING_MODEL,
@@ -118,4 +174,11 @@ class OpenAIProvider(LLMProvider):
         except Exception as exc:
             raise ProviderError(self.name, str(exc)) from exc
 
-        return [item.embedding for item in response.data]
+        usage = TokenUsage(
+            prompt_tokens=response.usage.prompt_tokens,
+            completion_tokens=0,
+            total_tokens=response.usage.total_tokens,
+            provider=self.name,
+            model=OPENAI_EMBEDDING_MODEL,
+        )
+        return [item.embedding for item in response.data], usage

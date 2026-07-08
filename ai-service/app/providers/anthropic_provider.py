@@ -18,7 +18,7 @@ from ..config import (
     ANTHROPIC_PREMIUM_MODEL,
     PROVIDER_TIMEOUT,
 )
-from .base import LLMProvider, ProviderError
+from .base import LLMProvider, ProviderError, TokenUsage
 
 _STRUCTURED_TOOL_NAME = "emit_result"
 
@@ -53,6 +53,26 @@ class AnthropicProvider(LLMProvider):
         max_tokens: int = 8000,
         mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
     ) -> str:
+        content, _usage = await self.complete_json_with_usage(
+            system=system,
+            user=user,
+            schema=schema,
+            premium=premium,
+            max_tokens=max_tokens,
+            mock_context=mock_context,
+        )
+        return content
+
+    async def complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        premium: bool = True,
+        max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
+    ) -> tuple[str, TokenUsage]:
         try:
             response = await self._client.messages.create(
                 model=self._model(premium),
@@ -73,9 +93,10 @@ class AnthropicProvider(LLMProvider):
         except Exception as exc:  # defensive: any unexpected SDK failure
             raise ProviderError(self.name, str(exc)) from exc
 
+        usage = self._usage_from_response(response, premium)
         for block in response.content:
             if block.type == "tool_use" and block.name == _STRUCTURED_TOOL_NAME:
-                return json.dumps(block.input)
+                return json.dumps(block.input), usage
         raise ProviderError(self.name, "no tool_use block in response")
 
     async def complete_text(
@@ -87,6 +108,24 @@ class AnthropicProvider(LLMProvider):
         max_tokens: int = 2000,
         mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
     ) -> str:
+        content, _usage = await self.complete_text_with_usage(
+            system=system,
+            user=user,
+            premium=premium,
+            max_tokens=max_tokens,
+            mock_context=mock_context,
+        )
+        return content
+
+    async def complete_text_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        premium: bool = True,
+        max_tokens: int = 2000,
+        mock_context: dict[str, Any] | None = None,  # noqa: ARG002 - mock-only
+    ) -> tuple[str, TokenUsage]:
         try:
             response = await self._client.messages.create(
                 model=self._model(premium),
@@ -102,7 +141,18 @@ class AnthropicProvider(LLMProvider):
         parts = [b.text for b in response.content if b.type == "text"]
         if not parts:
             raise ProviderError(self.name, "no text block in response")
-        return "".join(parts)
+        return "".join(parts), self._usage_from_response(response, premium)
+
+    def _usage_from_response(self, response: Any, premium: bool) -> TokenUsage:
+        input_tokens = response.usage.input_tokens
+        output_tokens = response.usage.output_tokens
+        return TokenUsage(
+            prompt_tokens=input_tokens,
+            completion_tokens=output_tokens,
+            total_tokens=input_tokens + output_tokens,
+            provider=self.name,
+            model=self._model(premium),
+        )
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         # Anthropic has no embeddings endpoint; signal fall-through.

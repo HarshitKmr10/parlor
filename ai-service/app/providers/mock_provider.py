@@ -24,9 +24,23 @@ import re
 from typing import Any
 
 from ..config import EMBEDDING_DIM
-from .base import LLMProvider
+from .base import LLMProvider, TokenUsage
 
 _WORD_RE = re.compile(r"[A-Za-z][A-Za-z'-]+")
+
+_MOCK_MODEL_NAME = "mock-model"
+
+
+def _estimate_tokens(text: str) -> int:
+    """Deterministic, proportional token estimate for the mock provider.
+
+    No real tokenizer is invoked (mock mode never calls out to an LLM); this
+    is a rough ~4-chars-per-token approximation, consistent with the same
+    assumption already used for chunk sizing (see ``MAX_CHARS_PER_CHUNK``),
+    just so usage numbers look plausible and scale with input size in dev.
+    """
+
+    return max(1, len(text) // 4)
 
 
 def hash_embedding(text: str, dim: int = EMBEDDING_DIM) -> list[float]:
@@ -152,3 +166,71 @@ class MockProvider(LLMProvider):
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         return [hash_embedding(t) for t in texts]
+
+    async def complete_json_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        schema: dict[str, Any],
+        premium: bool = True,
+        max_tokens: int = 8000,
+        mock_context: dict[str, Any] | None = None,
+    ) -> tuple[str, TokenUsage]:
+        content = await self.complete_json(
+            system=system,
+            user=user,
+            schema=schema,
+            premium=premium,
+            max_tokens=max_tokens,
+            mock_context=mock_context,
+        )
+        prompt_tokens = _estimate_tokens(system + user)
+        completion_tokens = _estimate_tokens(content)
+        usage = TokenUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+            provider=self.name,
+            model=_MOCK_MODEL_NAME,
+        )
+        return content, usage
+
+    async def complete_text_with_usage(
+        self,
+        *,
+        system: str,
+        user: str,
+        premium: bool = True,
+        max_tokens: int = 2000,
+        mock_context: dict[str, Any] | None = None,
+    ) -> tuple[str, TokenUsage]:
+        content = await self.complete_text(
+            system=system,
+            user=user,
+            premium=premium,
+            max_tokens=max_tokens,
+            mock_context=mock_context,
+        )
+        prompt_tokens = _estimate_tokens(system + user)
+        completion_tokens = _estimate_tokens(content)
+        usage = TokenUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=prompt_tokens + completion_tokens,
+            provider=self.name,
+            model=_MOCK_MODEL_NAME,
+        )
+        return content, usage
+
+    async def embed_with_usage(self, texts: list[str]) -> tuple[list[list[float]], TokenUsage]:
+        vectors = await self.embed(texts)
+        prompt_tokens = _estimate_tokens("".join(texts))
+        usage = TokenUsage(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=0,
+            total_tokens=prompt_tokens,
+            provider=self.name,
+            model=_MOCK_MODEL_NAME,
+        )
+        return vectors, usage
