@@ -30,6 +30,12 @@ apply to a specific self-hosted misconfiguration (e.g., an intentionally
 exposed dev-mode default) are still welcome, but may be resolved by
 documentation rather than a code change.
 
+Recording-consent compliance is also on the operator: the bot-join feature
+(and the botless capture client) record conversations, and consent
+requirements vary by jurisdiction. This isn't a security vulnerability class
+we track here, but see the README's "Recording consent" section before
+enabling bot-join against real calls with other participants.
+
 ## Supported versions
 
 This project does not yet maintain long-lived release branches; security

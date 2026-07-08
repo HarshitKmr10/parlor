@@ -1,5 +1,11 @@
 # Bot runtime: launching real meeting bots locally
 
+> **Recording consent:** dispatching a bot into a real meeting records it.
+> Recording-consent laws vary by jurisdiction (many require all-party
+> consent), and this repo doesn't and can't enforce compliance for you — see
+> the README's "Recording consent" section before pointing this at a call
+> with other people. This doc is only about the technical dispatch paths.
+
 ## The three dispatch modes
 
 Every meeting funnels through `dispatch_meeting(...)` in `src/main.py`. Which

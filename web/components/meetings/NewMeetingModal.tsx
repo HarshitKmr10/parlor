@@ -124,6 +124,7 @@ export function NewMeetingModal({ isOpen, onClose }: Props) {
           value={meetingUrl}
           onChange={(event) => setMeetingUrl(event.target.value)}
           error={urlError}
+          hint="Parlor's bot records this call. Recording-consent laws vary by location — make sure you're allowed to record before it joins."
           required
         />
 

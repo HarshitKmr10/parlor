@@ -247,6 +247,25 @@ make up-api
 > cache. Use `make up-api` for quick backend/product iteration or for just
 > trying the product.
 
+### Recording consent
+
+The bot-join path (this section) dispatches a bot into a real call and
+records it — audio, video where applicable, and the resulting transcript.
+Recording-consent laws vary by jurisdiction: many US states and several
+countries require **all-party consent**, not just the host's. This is a live
+legal question for meeting-bot products generally (see, e.g., *Brewer v.
+Otter.ai*, filed 2025, alleging wiretap-law violations from a meeting bot
+recording non-consenting participants).
+
+This is not legal advice, and Parlor cannot know or enforce what your
+jurisdiction requires. If you enable bot-join, **you are responsible for
+complying with your applicable recording-consent laws** before dispatching
+the bot into a meeting with other people — typically by disclosing the
+recording and getting participants' consent up front (Parlor's bot joins
+under a visible display name for exactly this reason). The botless
+`desktop-capture/` path carries the same obligation whenever it captures
+audio from a call with other participants, not just this one.
+
 ### URLs (defaults; override in `.env`)
 
 | Service        | URL                              | Notes                              |
@@ -337,6 +356,15 @@ All configuration is via `.env` (see `.env.example` for every variable, with
 documentation). No secrets are baked into images or compose files. Optional
 integrations (Google/Microsoft calendar OAuth, Slack, SMTP) are documented in
 `.env.example` and are **not** required for the stack to boot.
+
+## Backup & operations
+
+All persistent data — meetings, transcripts, summaries, embeddings, auth —
+lives in the `parlor_pgdata` Docker volume backing the shared Postgres.
+See [`docs/OPERATIONS.md`](docs/OPERATIONS.md) for `pg_dump`/`pg_restore`
+backup and restore steps, and approximate RAM/CPU/disk sizing for the
+API-only path (`make up-api`) vs. the full separated-worker path with the
+real bot (`make up`).
 
 ## Known limitations
 
