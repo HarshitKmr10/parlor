@@ -62,9 +62,26 @@ class ProductMeetingsRepo:
     async def get_scoped(
         self, meeting_id: str, workspace_id: str
     ) -> Optional[dict]:
+        """Fetch a non-deleted meeting. Soft-deleted meetings 404 like they
+        don't exist -- use `get_scoped_any` for restore/recovery flows that
+        need to see tombstoned rows too."""
         table = _meeting_table(self._db)
         rows = await self._db.store.query_raw(
             f"SELECT id, title, insights FROM {table} "
+            f"WHERE id = $1::uuid AND workspace_id = $2::uuid "
+            f"AND deleted_at IS NULL",
+            meeting_id,
+            workspace_id,
+        )
+        return rows[0] if rows else None
+
+    async def get_scoped_any(
+        self, meeting_id: str, workspace_id: str
+    ) -> Optional[dict]:
+        """Like `get_scoped` but also returns soft-deleted rows."""
+        table = _meeting_table(self._db)
+        rows = await self._db.store.query_raw(
+            f"SELECT id, title, insights, deleted_at FROM {table} "
             f"WHERE id = $1::uuid AND workspace_id = $2::uuid",
             meeting_id,
             workspace_id,
@@ -78,9 +95,13 @@ class ProductMeetingsRepo:
         statuses: Optional[list[str]],
         limit: int,
         offset: int,
+        deleted: bool = False,
     ) -> list[str]:
         table = _meeting_table(self._db)
-        clauses = ["workspace_id = $1::uuid"]
+        clauses = [
+            "workspace_id = $1::uuid",
+            "deleted_at IS NOT NULL" if deleted else "deleted_at IS NULL",
+        ]
         params: list[Any] = [workspace_id]
         if statuses:
             internal: list[str] = []
@@ -94,18 +115,26 @@ class ProductMeetingsRepo:
                 params.extend(internal)
         params.append(limit)
         params.append(offset)
+        order_col = "deleted_at" if deleted else "created_at"
         sql = (
             f"SELECT id FROM {table} WHERE {' AND '.join(clauses)} "
-            f"ORDER BY created_at DESC LIMIT ${len(params) - 1} OFFSET ${len(params)}"
+            f"ORDER BY {order_col} DESC LIMIT ${len(params) - 1} OFFSET ${len(params)}"
         )
         rows = await self._db.store.query_raw(sql, *params)
         return [str(r["id"]) for r in rows]
 
     async def count(
-        self, *, workspace_id: str, statuses: Optional[list[str]]
+        self,
+        *,
+        workspace_id: str,
+        statuses: Optional[list[str]],
+        deleted: bool = False,
     ) -> int:
         table = _meeting_table(self._db)
-        clauses = ["workspace_id = $1::uuid"]
+        clauses = [
+            "workspace_id = $1::uuid",
+            "deleted_at IS NOT NULL" if deleted else "deleted_at IS NULL",
+        ]
         params: list[Any] = [workspace_id]
         if statuses:
             internal: list[str] = []

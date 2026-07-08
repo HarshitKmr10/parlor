@@ -31,7 +31,8 @@ All three surfaces (backend, ai-service, web) build against this. Keep it in syn
 - `CalendarAccount { id, provider: 'google'|'microsoft', email, autoJoin: boolean, connectedAt }`
 
 ## Meetings (backend, workspace-scoped)
-- `GET  /api/v1/meetings?status=&limit=&offset=` → `{ items: Meeting[], total, limit, offset }`
+- `GET  /api/v1/meetings?status=&limit=&offset=` → `{ items: Meeting[], total, limit, offset }` (excludes meetings soft-deleted by the retention sweeper)
+- `GET  /api/v1/meetings/deleted?limit=&offset=` → `{ items: Meeting[], total, limit, offset }` (admin only; soft-deleted-but-not-yet-hard-deleted meetings, still inside the `RETENTION_TOMBSTONE_DAYS` recovery window)
 - `POST /api/v1/meetings` `{ meetingUrl, title?, scheduledAt?, botName? }` → `Meeting` (creates + dispatches bot via existing joiner)
 - `POST /api/v1/meetings/botless` `{ title?, source?: 'desktop' }` → `Meeting` (creates a workspace-scoped meeting WITHOUT a bot: synthetic `meetingUrl` `desktop://<workspaceId>/<ts>`, `platform: 'desktop'`, `status: 'ongoing'`, `botName` null). Used by the desktop-capture client.
 - `GET  /api/v1/meetings/{id}` → `Meeting & { insights?: MeetingInsights }`
@@ -42,6 +43,13 @@ All three surfaces (backend, ai-service, web) build against this. Keep it in syn
 - `DELETE /api/v1/meetings/{id}` → stop/cancel → `Meeting` (also fires the completion pipeline on the `→ completed` transition)
 - `POST /api/v1/meetings/{id}/summarize` → triggers ai-service; returns `MeetingInsights` (also stored)
 - `POST /api/v1/meetings/{id}/ask` `{ question, history?: {role,content}[] }` → `{ answer, citations: Citation[] }` (proxies ai-service `/chat`)
+
+## Compliance & retention (backend, workspace-scoped, admin only unless noted)
+- `GET  /api/v1/retention-settings` → `{ retentionDays: number|null, legalHold: boolean }`
+- `PUT  /api/v1/retention-settings` `{ retentionDays?, legalHold }` → same shape
+- `GET  /api/v1/export` → JSON data bundle (GDPR portability); excludes soft-deleted meetings
+- `POST /api/v1/meetings/{id}/restore` → `204`; un-hides a retention soft-delete from search/list/reports/Ask. 404 once the meeting is past `RETENTION_TOMBSTONE_DAYS` and hard-deleted.
+- Retention sweeper is two-phase: meetings past `retentionDays` are soft-deleted (`deletedAt` set, embeddings dropped immediately) on the first sweep, then permanently hard-deleted on a later sweep once `RETENTION_TOMBSTONE_DAYS` (env-configurable, default 30) has elapsed since the soft-delete. `legalHold` pauses both phases.
 
 ## Calendar (backend)
 - `GET  /api/v1/calendar/accounts` → `CalendarAccount[]`

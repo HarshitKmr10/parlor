@@ -1,10 +1,14 @@
 """Retention & compliance API (workspace-scoped).
 
-  GET /api/v1/retention-settings
-  PUT /api/v1/retention-settings
-  GET /api/v1/export            -> JSON data bundle (GDPR portability)
+  GET  /api/v1/retention-settings
+  PUT  /api/v1/retention-settings
+  GET  /api/v1/export                          -> JSON data bundle (GDPR portability)
+  POST /api/v1/meetings/{meeting_id}/restore   -> undo a retention soft-delete
 
-Deletion runs in the background sweeper; legal hold pauses it. Export is
+Deletion runs in the background sweeper as a two-phase soft-delete then
+hard-delete (see ``services/retention_sweeper.py``); legal hold pauses both
+phases. Restore only works inside the tombstone recovery window -- once a
+meeting is hard-deleted it's gone for good. Export and restore are
 audit-logged.
 """
 
@@ -18,6 +22,7 @@ from ...audit import record_audit
 from ...compliance import RetentionRepo
 from ..database.connection import DatabaseConnection
 from .deps import AuthContext, get_current_context, get_db
+from .errors import ApiError
 from .rbac import require_role
 from .schemas import RetentionSettings, RetentionSettingsUpdate
 
@@ -91,3 +96,31 @@ async def export_data(
             "Content-Disposition": 'attachment; filename="parlor-export.json"'
         },
     )
+
+
+@router.post("/meetings/{meeting_id}/restore")
+async def restore_meeting(
+    meeting_id: str,
+    ctx: AuthContext = Depends(require_role("admin")),
+    repo: RetentionRepo = Depends(_repo),
+    db: DatabaseConnection = Depends(get_db),
+) -> Response:
+    """Undo a retention soft-delete, un-hiding the meeting from search, list,
+    reports and Ask. 404s if the meeting was never soft-deleted or has already
+    passed the tombstone window and been hard-deleted."""
+    restored = await repo.restore_meeting(meeting_id, ctx.workspace.id)
+    if not restored:
+        raise ApiError(
+            404,
+            "not_found",
+            "Meeting not found in the recovery window for this workspace",
+        )
+    await record_audit(
+        db,
+        workspace_id=ctx.workspace.id,
+        actor_id=ctx.user.id if ctx.user else None,
+        action="meeting.restored",
+        resource_type="meeting",
+        resource_id=meeting_id,
+    )
+    return Response(status_code=204)

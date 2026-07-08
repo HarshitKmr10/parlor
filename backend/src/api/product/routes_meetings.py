@@ -25,6 +25,7 @@ from .mappers import (
     to_meeting,
 )
 from .meetings_repo import ProductMeetingsRepo
+from .rbac import require_role
 from .schemas import (
     AskRequest,
     AskResponse,
@@ -158,6 +159,41 @@ async def list_meetings(
         if record is None:
             continue
         scoped = await repo.get_scoped(mid, workspace.id)
+        title = scoped.get("title") if scoped else None
+        m = to_meeting(record, title=title)
+        m.workspace_id = workspace.id
+        items.append(m)
+
+    return MeetingListResponse(items=items, total=total, limit=limit, offset=offset)
+
+
+@router.get("/deleted", response_model=MeetingListResponse)
+async def list_deleted_meetings(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    ctx: AuthContext = Depends(require_role("admin")),
+    service: MeetingService = Depends(_service),
+    repo: ProductMeetingsRepo = Depends(_repo),
+) -> MeetingListResponse:
+    """Soft-deleted-but-not-yet-hard-deleted meetings, for an admin to find and
+    restore. Only meetings still inside the `RETENTION_TOMBSTONE_DAYS` recovery
+    window are returned -- once hard-deleted, a meeting is gone for good."""
+    workspace = ctx.workspace
+    ids = await repo.list_ids(
+        workspace_id=workspace.id,
+        statuses=None,
+        limit=limit,
+        offset=offset,
+        deleted=True,
+    )
+    total = await repo.count(workspace_id=workspace.id, statuses=None, deleted=True)
+
+    items: list[Meeting] = []
+    for mid in ids:
+        record = await service.get_meeting_by_id(mid)
+        if record is None:
+            continue
+        scoped = await repo.get_scoped_any(mid, workspace.id)
         title = scoped.get("title") if scoped else None
         m = to_meeting(record, title=title)
         m.workspace_id = workspace.id

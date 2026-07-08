@@ -24,7 +24,7 @@ async def get_usage(
     rows = await db.store.query_raw(
         "SELECT id, status, "
         "EXTRACT(EPOCH FROM (bot_leave_time - bot_join_time)) AS duration_sec "
-        "FROM meeting_joiner WHERE workspace_id = $1::uuid",
+        "FROM meeting_joiner WHERE workspace_id = $1::uuid AND deleted_at IS NULL",
         ctx.workspace.id,
     )
     summary = summarize_usage(rows)

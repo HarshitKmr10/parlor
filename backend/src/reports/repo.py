@@ -21,6 +21,7 @@ class ReportsRepo:
                    EXTRACT(EPOCH FROM (bot_leave_time - bot_join_time)) AS duration_sec
             FROM {table}
             WHERE workspace_id = $1::uuid
+              AND deleted_at IS NULL
               AND created_at >= $2 AND created_at < $3
             ORDER BY created_at DESC
             LIMIT $4
@@ -41,28 +42,41 @@ class ReportsRepo:
     async def action_item_rollup(
         self, workspace_id: str, start: Any, end: Any
     ) -> Dict[str, Any]:
-        """Totals + per-assignee open/done for items created in the window."""
+        """Totals + per-assignee open/done for items created in the window.
+
+        Excludes action items belonging to a soft-deleted meeting -- otherwise
+        the digest would keep surfacing assignee/done counts sourced from a
+        meeting that's supposed to be hidden pending its retention tombstone.
+        """
+        not_from_deleted_meeting = (
+            "NOT EXISTS ("
+            "SELECT 1 FROM meeting_joiner m "
+            "WHERE m.id = action_items.meeting_id AND m.deleted_at IS NOT NULL"
+            ")"
+        )
         totals = await self._db.store.query_raw(
-            """
+            f"""
             SELECT COUNT(*) AS total,
                    COUNT(*) FILTER (WHERE NOT done) AS open,
                    COUNT(*) FILTER (WHERE done) AS done
             FROM action_items
             WHERE workspace_id = $1::uuid
               AND created_at >= $2 AND created_at < $3
+              AND {not_from_deleted_meeting}
             """,
             workspace_id,
             start,
             end,
         )
         by_assignee = await self._db.store.query_raw(
-            """
+            f"""
             SELECT COALESCE(assignee, '(unassigned)') AS assignee,
                    COUNT(*) FILTER (WHERE NOT done) AS open,
                    COUNT(*) FILTER (WHERE done) AS done
             FROM action_items
             WHERE workspace_id = $1::uuid
               AND created_at >= $2 AND created_at < $3
+              AND {not_from_deleted_meeting}
             GROUP BY COALESCE(assignee, '(unassigned)')
             ORDER BY open DESC, done DESC
             LIMIT 25

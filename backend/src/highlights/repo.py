@@ -135,6 +135,7 @@ class HighlightsRepo:
             FROM meeting_highlights h
             LEFT JOIN {table} m ON m.id = h.meeting_id
             WHERE h.workspace_id = $1::uuid
+              AND (m.deleted_at IS NULL)
             ORDER BY h.created_at DESC
             LIMIT $2 OFFSET $3
             """,
@@ -145,9 +146,16 @@ class HighlightsRepo:
         return [self._normalize(r) for r in (rows or [])]
 
     async def count_for_workspace(self, workspace_id: str) -> int:
+        from ..api.product.meetings_repo import _meeting_table  # noqa: PLC0415
+
+        table = _meeting_table(self._db)
         rows = await self._db.store.query_raw(
-            "SELECT COUNT(*) AS n FROM meeting_highlights "
-            "WHERE workspace_id = $1::uuid",
+            f"""
+            SELECT COUNT(*) AS n FROM meeting_highlights h
+            LEFT JOIN {table} m ON m.id = h.meeting_id
+            WHERE h.workspace_id = $1::uuid
+              AND (m.deleted_at IS NULL)
+            """,
             workspace_id,
         )
         return int(rows[0]["n"]) if rows else 0

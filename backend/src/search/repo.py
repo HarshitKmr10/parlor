@@ -33,6 +33,7 @@ class SearchRepo:
             SELECT id, title, transcript, insights
             FROM {table}
             WHERE workspace_id = $1::uuid
+              AND deleted_at IS NULL
               AND (
                 COALESCE(title, '') ILIKE $2 ESCAPE '\\'
                 OR transcript::text ILIKE $2 ESCAPE '\\'
