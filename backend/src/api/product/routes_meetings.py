@@ -134,7 +134,16 @@ async def _load_scoped_meeting(
     return record, scoped
 
 
-@router.get("", response_model=MeetingListResponse)
+@router.get(
+    "",
+    response_model=MeetingListResponse,
+    summary="List meetings",
+    description=(
+        "Returns the workspace's meetings, optionally filtered by a comma-"
+        "separated `status` list. Excludes meetings soft-deleted by the "
+        "retention sweeper — use `/deleted` to see those."
+    ),
+)
 async def list_meetings(
     status: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
@@ -170,7 +179,17 @@ async def list_meetings(
     return MeetingListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
-@router.get("/deleted", response_model=MeetingListResponse)
+@router.get(
+    "/deleted",
+    response_model=MeetingListResponse,
+    summary="List soft-deleted meetings",
+    description=(
+        "Soft-deleted-but-not-yet-hard-deleted meetings, for an admin to "
+        "find and restore. Only meetings still inside the "
+        "`RETENTION_TOMBSTONE_DAYS` recovery window are returned — once "
+        "hard-deleted, a meeting is gone for good. Requires the admin role."
+    ),
+)
 async def list_deleted_meetings(
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
@@ -178,9 +197,6 @@ async def list_deleted_meetings(
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> MeetingListResponse:
-    """Soft-deleted-but-not-yet-hard-deleted meetings, for an admin to find and
-    restore. Only meetings still inside the `RETENTION_TOMBSTONE_DAYS` recovery
-    window are returned -- once hard-deleted, a meeting is gone for good."""
     workspace = ctx.workspace
     ids = await repo.list_ids(
         workspace_id=workspace.id,
@@ -205,7 +221,21 @@ async def list_deleted_meetings(
     return MeetingListResponse(items=items, total=total, limit=limit, offset=offset)
 
 
-@router.post("", response_model=Meeting, status_code=201)
+@router.post(
+    "",
+    response_model=Meeting,
+    status_code=201,
+    summary="Create a meeting and dispatch a bot",
+    description=(
+        "Creates a workspace-scoped meeting from a Zoom/Meet/Teams URL and "
+        "dispatches a bot to join it via the existing joiner infrastructure "
+        "(immediately, or at `scheduledAt` if set). Dispatch failures are "
+        "non-fatal to this response — the meeting row still exists and can "
+        "be picked up by the scheduler/queue. 400 `invalid_meeting_url` for "
+        "an unrecognized or unsupported URL. Subject to the workspace's "
+        "meeting quota."
+    ),
+)
 async def create_meeting(
     body: MeetingCreateRequest,
     workspace: Workspace = Depends(get_current_workspace),
@@ -265,7 +295,40 @@ async def create_meeting(
     return meeting
 
 
-@router.post("/botless", response_model=Meeting, status_code=201)
+@router.post(
+    "/botless",
+    response_model=Meeting,
+    status_code=201,
+    summary="Create a botless (desktop-capture) meeting",
+    description=(
+        "Creates a workspace-scoped meeting WITHOUT dispatching a bot, for "
+        "the desktop-capture client: audio is captured and transcribed "
+        "client-side, then segments are pushed via `POST /{id}/transcript`. "
+        "The meeting gets a synthetic `desktop://<workspaceId>/<timestamp>` "
+        "URL, `platform: 'desktop'`, starts `ongoing`, and has no bot name. "
+        "Subject to the workspace's meeting quota."
+    ),
+    responses={
+        201: {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "3f9c2b1a-4d5e-4f6a-8b7c-9d0e1f2a3b4c",
+                        "workspaceId": "c9bf9e57-1685-4c89-bafb-ff5af830be8a",
+                        "title": "Weekly sync",
+                        "platform": "desktop",
+                        "meetingUrl": "desktop://c9bf9e57-1685-4c89-bafb-ff5af830be8a/20260115T093000000000Z",
+                        "status": "ongoing",
+                        "participants": [],
+                        "hasSummary": False,
+                        "hasRecording": False,
+                        "createdAt": "2026-01-15T09:30:00Z",
+                    }
+                }
+            }
+        }
+    },
+)
 async def create_botless_meeting(
     body: BotlessCreateRequest,
     workspace: Workspace = Depends(get_current_workspace),
@@ -273,13 +336,6 @@ async def create_botless_meeting(
     repo: ProductMeetingsRepo = Depends(_repo),
     db: DatabaseConnection = Depends(get_db),
 ) -> Meeting:
-    """Create a workspace-scoped meeting WITHOUT dispatching a bot.
-
-    Used by the desktop-capture client: audio is captured + transcribed
-    client-side and segments are pushed via ``POST /{id}/transcript``. The
-    meeting carries a synthetic ``desktop://<workspaceId>/<timestamp>`` URL,
-    platform ``desktop``, starts ``ongoing``, and has no bot name.
-    """
     await enforce_meeting_quota(db, workspace.id)
 
     from datetime import datetime, timezone  # noqa: PLC0415
@@ -309,7 +365,32 @@ async def create_botless_meeting(
     return meeting
 
 
-@router.post("/{meeting_id}/transcript", response_model=TranscriptIngestResponse)
+@router.post(
+    "/{meeting_id}/transcript",
+    response_model=TranscriptIngestResponse,
+    summary="Append transcript segments",
+    description=(
+        "Appends externally-captured transcript segments to a meeting "
+        "(used by desktop-capture and native-capture ingestion), reusing "
+        "the same internal path the bot uses so the transcript JSON, "
+        "segment count, and last-segment time stay consistent. Segments "
+        "are appended in `tStartSec` order; out-of-order or missing "
+        "`createdAt` timestamps are clamped so the `since` cursor used by "
+        "polling and the live WebSocket never regresses."
+    ),
+    responses={
+        200: {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "appended": 3,
+                        "lastSegmentAt": "2026-01-15T09:34:12Z",
+                    }
+                }
+            }
+        }
+    },
+)
 async def ingest_transcript(
     meeting_id: str,
     body: TranscriptIngestRequest,
@@ -317,15 +398,6 @@ async def ingest_transcript(
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> TranscriptIngestResponse:
-    """Append externally-captured transcript segments to a meeting.
-
-    Reuses the internal ``append_transcript_segment`` so the row's transcript
-    JSON, ``totalSegments`` and ``lastSegmentTime`` stay consistent with the
-    bot-driven path. Each segment is appended in ``tStartSec`` order; the
-    ``createdAt`` (or "now") timestamp drives the ``since`` cursor + live WS.
-    Out-of-order or missing timestamps are clamped to a monotonic value so the
-    cursor never regresses.
-    """
     record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
 
     from datetime import datetime, timezone  # noqa: PLC0415
@@ -369,7 +441,19 @@ async def ingest_transcript(
     return TranscriptIngestResponse(appended=appended, last_segment_at=last_at)
 
 
-@router.post("/{meeting_id}/capture/{provider}", response_model=TranscriptIngestResponse)
+@router.post(
+    "/{meeting_id}/capture/{provider}",
+    response_model=TranscriptIngestResponse,
+    summary="Ingest a platform-native transcript",
+    description=(
+        "Botless native capture: ingests a platform-native transcript "
+        "(e.g. Zoom/Teams cloud recording JSON, or WebVTT for `provider=vtt`) "
+        "without a bot joining. The payload is normalized to internal "
+        "segments and appended via the same path as bot/botless capture. "
+        "400 `unsupported_provider`/`invalid_payload`/`empty_transcript` on "
+        "bad input."
+    ),
+)
 async def capture_native(
     meeting_id: str,
     provider: str,
@@ -378,10 +462,6 @@ async def capture_native(
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> TranscriptIngestResponse:
-    """Botless native capture: ingest a platform-native transcript (Zoom/Teams
-    cloud recording, or WebVTT) without a bot joining. The payload is normalized
-    to internal segments and appended via the same path as bot/botless capture.
-    """
     from ...capture import normalize  # noqa: PLC0415
 
     raw = await request.body()
@@ -418,25 +498,48 @@ async def capture_native(
     )
 
 
-@router.post("/{meeting_id}/complete", response_model=Meeting)
+@router.post(
+    "/{meeting_id}/complete",
+    response_model=Meeting,
+    summary="Complete a meeting",
+    description=(
+        "Finalizes a meeting (`ongoing` → `completed`) and fires the "
+        "embed→summarize→recap pipeline. Used by botless desktop-capture "
+        "to end a session. Idempotent — a no-op returning the current "
+        "state if the meeting is already terminal. Uses a guarded "
+        "conditional update so two concurrent finalize requests can't both "
+        "trigger the pipeline."
+    ),
+    responses={
+        200: {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "id": "3f9c2b1a-4d5e-4f6a-8b7c-9d0e1f2a3b4c",
+                        "workspaceId": "c9bf9e57-1685-4c89-bafb-ff5af830be8a",
+                        "title": "Weekly sync",
+                        "platform": "desktop",
+                        "meetingUrl": "desktop://c9bf9e57-1685-4c89-bafb-ff5af830be8a/20260115T093000000000Z",
+                        "status": "completed",
+                        "startedAt": "2026-01-15T09:30:00Z",
+                        "endedAt": "2026-01-15T10:02:00Z",
+                        "durationSec": 1920,
+                        "participants": [],
+                        "hasSummary": False,
+                        "hasRecording": False,
+                        "createdAt": "2026-01-15T09:30:00Z",
+                    }
+                }
+            }
+        }
+    },
+)
 async def complete_meeting(
     meeting_id: str,
     workspace: Workspace = Depends(get_current_workspace),
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> Meeting:
-    """Finalize a meeting (``ongoing`` → ``completed``) and run the AI pipeline.
-
-    Used by botless desktop-capture to finalize a session. Idempotent: if the
-    meeting is already terminal, this is a no-op that returns the current state.
-    Transitioning to ``completed`` fires the embed→summarize→recap pipeline.
-
-    Uses the guarded ``complete_if_active`` (a conditional UPDATE) rather than
-    an unconditional ``update_meeting_status`` so two concurrent finalize
-    requests can't both observe a non-terminal status and both fire the
-    pipeline — only the request whose write actually lands (first past the
-    row lock) triggers it. See #60.
-    """
     record, scoped = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     if record.status.value not in ("completed", "failed"):
         if await service.complete_if_active(meeting_id):
@@ -447,7 +550,12 @@ async def complete_meeting(
     return meeting
 
 
-@router.get("/{meeting_id}", response_model=MeetingWithInsights)
+@router.get(
+    "/{meeting_id}",
+    response_model=MeetingWithInsights,
+    summary="Get a meeting",
+    description="Returns a single meeting with its AI insights (summary, key points, action items, chapters), if available. 404 if not found in this workspace.",
+)
 async def get_meeting(
     meeting_id: str,
     workspace: Workspace = Depends(get_current_workspace),
@@ -463,7 +571,16 @@ async def get_meeting(
     return result
 
 
-@router.get("/{meeting_id}/transcript", response_model=TranscriptResponse)
+@router.get(
+    "/{meeting_id}/transcript",
+    response_model=TranscriptResponse,
+    summary="Get a meeting's transcript",
+    description=(
+        "Returns transcript segments for a meeting, optionally only those "
+        "after an ISO-8601 `since` cursor (for incremental polling). 400 "
+        "`invalid_since` if `since` isn't a valid timestamp."
+    ),
+)
 async def get_transcript(
     meeting_id: str,
     since: Optional[str] = Query(None),
@@ -494,7 +611,19 @@ async def get_transcript(
 _SUPPORTED_EXPORT_FORMATS = {"markdown"}
 
 
-@router.get("/{meeting_id}/export")
+@router.get(
+    "/{meeting_id}/export",
+    summary="Export a meeting as Markdown",
+    description=(
+        "Streams a Markdown file download with the meeting's title, date, "
+        "participants, summary, key points, action items (as a checklist), "
+        "chapters, and a bounded inline transcript excerpt. Only "
+        "`format=markdown` is implemented today — it's Notion- and "
+        "Obsidian-compatible by construction, since both import/read `.md` "
+        "files natively. 400 `unsupported_export_format` for anything else; "
+        "PDF export is planned but not yet implemented."
+    ),
+)
 async def export_meeting(
     meeting_id: str,
     format: str = Query("markdown"),
@@ -502,14 +631,6 @@ async def export_meeting(
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> Response:
-    """Export a meeting's summary/action items/transcript as a document.
-
-    Only ``format=markdown`` is implemented today. Markdown covers Notion and
-    Obsidian too: Obsidian reads ``.md`` files directly as vault notes, and
-    Notion imports Markdown natively (Import -> Markdown & CSV), so neither
-    needs a bespoke push integration. PDF export is planned but not yet
-    implemented — see docs/API-CONTRACT.md.
-    """
     fmt = format.lower()
     if fmt not in _SUPPORTED_EXPORT_FORMATS:
         raise ApiError(
@@ -534,19 +655,23 @@ async def export_meeting(
     )
 
 
-@router.get("/{meeting_id}/analytics", response_model=MeetingAnalytics)
+@router.get(
+    "/{meeting_id}/analytics",
+    response_model=MeetingAnalytics,
+    summary="Get meeting conversation analytics",
+    description=(
+        "Returns talk-time, interactivity, and sentiment analytics for a "
+        "meeting, computed deterministically from the diarized transcript "
+        "with no LLM call — works even if the AI service is unavailable. "
+        "Returns zeroed metrics for a meeting with no transcript yet."
+    ),
+)
 async def get_meeting_analytics(
     meeting_id: str,
     workspace: Workspace = Depends(get_current_workspace),
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> MeetingAnalytics:
-    """Conversation analytics (talk-time, interactivity, sentiment) for a meeting.
-
-    Computed deterministically from the diarized transcript — no LLM call — so it
-    works even when the AI service is unavailable. Returns zeroed metrics for a
-    meeting with no transcript yet.
-    """
     return await _resolved_analytics(meeting_id, workspace, service, repo)
 
 
@@ -568,38 +693,47 @@ async def _resolved_analytics(meeting_id, workspace, service, repo):
     return compute_meeting_analytics(meeting_id, segments)
 
 
-@router.get("/{meeting_id}/coaching", response_model=CoachingScorecard)
+@router.get(
+    "/{meeting_id}/coaching",
+    response_model=CoachingScorecard,
+    summary="Get a meeting coaching scorecard",
+    description=(
+        "Returns a coaching scorecard (talk ratio, monologue risk, "
+        "discovery, balance) derived deterministically from the meeting's "
+        "conversation analytics — no LLM call."
+    ),
+)
 async def get_meeting_coaching(
     meeting_id: str,
     workspace: Workspace = Depends(get_current_workspace),
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> CoachingScorecard:
-    """A coaching scorecard (talk ratio, monologue risk, discovery, balance)
-    derived from the meeting's conversation analytics. Deterministic."""
     from ...coaching import compute_coaching
 
     analytics = await _resolved_analytics(meeting_id, workspace, service, repo)
     return CoachingScorecard.model_validate(compute_coaching(analytics))
 
 
-@router.post("/{meeting_id}/assist", response_model=MeetingAssist)
+@router.post(
+    "/{meeting_id}/assist",
+    response_model=MeetingAssist,
+    summary="Get proactive during-call assist",
+    description=(
+        "Returns a recap-so-far, suggested questions, and coverage gaps "
+        "computed from the transcript captured so far, via the ai-service "
+        "`/assist` path. Meant to be polled repeatedly (~every 20s) while a "
+        "meeting is live, so it uses a short timeout; a slow/unreachable "
+        "ai-service degrades to an empty 'no suggestion this cycle' "
+        "response rather than blocking the caller."
+    ),
+)
 async def get_meeting_assist(
     meeting_id: str,
     workspace: Workspace = Depends(get_current_workspace),
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> MeetingAssist:
-    """Proactive during-call assist: recap-so-far, suggested questions, and
-    coverage gaps computed from the transcript captured so far. Deterministic
-    via the ai-service /assist path.
-
-    Called repeatedly while a meeting is live, so it uses a short ai-service
-    timeout (``ai_client._ASSIST_TIMEOUT``) rather than the generic batch
-    timeout. A slow/unreachable ai-service degrades to an empty "no
-    suggestion this cycle" response instead of blocking the caller for up to
-    the batch timeout — the next poll will simply try again.
-    """
     record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     all_segments = segments_from_transcript(record.transcript)
     segments = [
@@ -619,16 +753,23 @@ async def get_meeting_assist(
     )
 
 
-@router.delete("/{meeting_id}", response_model=Meeting)
+@router.delete(
+    "/{meeting_id}",
+    response_model=Meeting,
+    summary="Stop or cancel a meeting",
+    description=(
+        "Stops an in-progress meeting (or cancels a scheduled one). Also "
+        "fires the completion pipeline on the transition to `completed`. "
+        "Uses a guarded conditional update so a concurrent finalize request "
+        "can't double-fire the pipeline."
+    ),
+)
 async def stop_meeting(
     meeting_id: str,
     workspace: Workspace = Depends(get_current_workspace),
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
 ) -> Meeting:
-    """Stop a meeting. Uses the guarded ``complete_if_active`` (a conditional
-    UPDATE) rather than an unconditional write so a concurrent finalize
-    request can't double-fire the completion pipeline. See #60."""
     record, scoped = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     if record.status.value not in ("completed", "failed"):
         if await service.complete_if_active(meeting_id):
@@ -639,7 +780,19 @@ async def stop_meeting(
     return meeting
 
 
-@router.post("/{meeting_id}/summarize", response_model=MeetingInsights)
+@router.post(
+    "/{meeting_id}/summarize",
+    response_model=MeetingInsights,
+    summary="Summarize a meeting",
+    description=(
+        "Triggers the ai-service to generate a summary, key points, action "
+        "items, and chapters from the transcript (persisted for later "
+        "`GET /{id}`), then best-effort embeds the transcript for `/ask` "
+        "and runs keyword trackers over it. Applies per-workspace PII "
+        "redaction and an optional summary template (`templateId`, or the "
+        "workspace default) before the transcript reaches the AI service."
+    ),
+)
 async def summarize_meeting(
     meeting_id: str,
     template_id: Optional[str] = Query(None),
@@ -733,7 +886,38 @@ async def summarize_meeting(
     return insights
 
 
-@router.post("/{meeting_id}/ask", response_model=AskResponse)
+@router.post(
+    "/{meeting_id}/ask",
+    response_model=AskResponse,
+    summary="Ask a question about one meeting",
+    description=(
+        "Runs RAG retrieval scoped to a single meeting via the ai-service "
+        "`/chat` endpoint, returning an answer with citations back into the "
+        "transcript. Ensures the transcript is embedded first (idempotent "
+        "upsert) even if `/summarize` was never called."
+    ),
+    responses={
+        200: {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "answer": "The team agreed to ship the v2 API by Friday.",
+                        "citations": [
+                            {
+                                "segmentId": "seg_042",
+                                "speakerName": "Jane Doe",
+                                "text": "Let's target Friday for the v2 API release.",
+                                "tStartSec": 812.4,
+                                "meetingId": "3f9c2b1a-4d5e-4f6a-8b7c-9d0e1f2a3b4c",
+                                "meetingTitle": "Weekly sync",
+                            }
+                        ],
+                    }
+                }
+            }
+        }
+    },
+)
 async def ask_meeting(
     meeting_id: str,
     body: AskRequest,
