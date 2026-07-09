@@ -63,7 +63,7 @@ All three surfaces (backend, ai-service, web) build against this. Keep it in syn
 - `POST /summarize` `{ meetingId, meta: { title, participants }, segments: TranscriptSegment[] }` → `MeetingInsights`
 - `POST /embed` `{ workspaceId, meetingId, segments: TranscriptSegment[] }` → `{ embedded: number }` (stores in pgvector)
 - `POST /chat` `{ workspaceId, meetingId?, question, history? }` → `{ answer, citations: Citation[] }` (RAG over embeddings; meetingId optional = cross-meeting)
-- Provider routing: env `AI_PROVIDER_ORDER` (e.g. `anthropic,openai`), keys `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`; cheap model for live/embed, premium for final summary + chat.
+- Provider routing: env `AI_PROVIDER_ORDER` (e.g. `anthropic,openai`; also available but not in the default order: `azure`, `gemini`, `openai_compatible`), keys `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `GEMINI_API_KEY`; cheap model for live/embed, premium for final summary + chat.
 
 ## SSO (backend, generic OIDC)
 - `GET  /api/v1/auth/sso/status` → `{ enabled, provider? }` (`enabled` = an OIDC IdP is configured via env)

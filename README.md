@@ -206,7 +206,7 @@ for the open-source release.
 | Layer | Stack |
 |---|---|
 | Backend API | Python 3.12, [FastAPI](https://fastapi.tiangolo.com/) ^0.120, Pydantic v2, `asyncpg`, Poetry |
-| AI service | Python 3.11+, FastAPI, Pydantic v2, Anthropic + OpenAI SDKs (optional), `asyncpg` |
+| AI service | Python 3.11+, FastAPI, Pydantic v2, Anthropic + OpenAI + Gemini (`google-genai`) SDKs (optional), `asyncpg` |
 | Web | [Next.js](https://nextjs.org/) 16 (App Router), React 19, TypeScript 5, Tailwind CSS 4, SWR |
 | Database | PostgreSQL 16 + [pgvector](https://github.com/pgvector/pgvector) (`pgvector/pgvector:pg16`), one shared instance for both API and vector search |
 | Bot runtime (optional) | Node.js + Playwright/Chromium, Xvfb, PulseAudio, ffmpeg |
@@ -342,12 +342,17 @@ The ai-service auto-detects mock vs. live. To use real models:
    ANTHROPIC_API_KEY=sk-ant-...
    # and/or
    OPENAI_API_KEY=sk-...
+   # and/or
+   GEMINI_API_KEY=...
    AI_MODE=live           # or leave blank to auto-detect when a key is present
    ```
 2. `make down && make up` (rebuild not required; the var is read at runtime).
 
 Provider order is controlled by `AI_PROVIDER_ORDER` (default `anthropic,openai`);
-the first provider that succeeds wins, falling through on error. No code or
+the first provider that succeeds wins, falling through on error. Gemini (and
+Azure/`openai_compatible`) aren't in that default order but are picked up as
+soon as their env var is set — add `gemini` to `AI_PROVIDER_ORDER` (or set
+`AI_PINNED_PROVIDER=gemini`) to actually route calls to it. No code or
 compose changes are needed — only `.env`.
 
 ## End-to-end smoke test
