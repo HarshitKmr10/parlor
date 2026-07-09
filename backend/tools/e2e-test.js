@@ -1,6 +1,6 @@
 /**
  * End-to-end runner: exercises the FULL Google Meet bot pipeline via the real
- * orchestrator (googlemeet/index.js joinMeeting) — join (humanized) → admission →
+ * orchestrator (googlemeet/index.js joinMeeting) — join → admission →
  * live-caption transcription → graceful leave. Proves transcription + leave, not
  * just join. Captions persist to <savePath>/<datetime>/segments.jsonl (file, no DB).
  *

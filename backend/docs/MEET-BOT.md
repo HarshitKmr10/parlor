@@ -17,37 +17,21 @@ Google Meet aggressively flags automated browsers. A flagged bot hits the
 "You can't join this video call" interstitial or a reCAPTCHA challenge and never
 reaches the meeting. Three layers keep the bot looking like a real client.
 
-### 1a. Humanized OS-level input (HARD image requirement)
+### 1a. Join-flow input
 
-Google now rejects browser-synthetic input: Playwright/CDP clicks have
-`isTrusted=false` and no real pointer movement. The bot routes all join-flow
-clicks and text entry through **real OS-level XTEST input** driven by
-`xdotool`, along synthetic min-jerk mouse trajectories (the "mocap" library).
-This produces `isTrusted=true` events that look human.
+The join flow (name entry, mic/camera mute, join button) uses plain
+Playwright clicks and fills — `clickHandle` / `fillField` in `join.js`
+(`buildInputHelpers`), shared by both the anonymous and authenticated join
+branches.
 
-- Implementation: `humanizedInput.js` (`HumanizedInteractor`, `MOCAP_LIBRARY`).
-- Wired into the join flow via the shared `clickHandle` / `fillField` helpers in
-  `join.js` (`buildHumanizedHelpers`). Both the anonymous and the authenticated
-  branches use these — the signed-in path never silently downgrades to synthetic.
-- `xdotool` shells: `mousemove --sync`, `mousedown/up`, `key --clearmodifiers`,
-  `getdisplaygeometry`, `getmouselocation` (`humanizedInput.js`).
-
-**HARD requirement: `xdotool` and `xclip` MUST be in the bot image** (plus an X
-display, e.g. Xvfb). The production image installs them — see
-`Dockerfile.botruntime` (`apt-get install ... xvfb xauth x11-utils xdotool xclip`).
-If they are missing, `HumanizedInteractor.available()` returns false and the bot
-**falls back to flagged synthetic clicks**, which Google can detect.
-
-**Confirm humanized mode is active** by looking for this exact log line at join:
-
-```
-[GoogleMeet Join] Input mode: HUMANIZED (XTEST OS-level input)
-```
-
-If you instead see `Input mode: synthetic (xdotool/X unavailable — fallback)`,
-the image is missing `xdotool`/`xclip` or the X display is unreachable — fix the
-image. (`GMEET_FORCE_SYNTHETIC=true` forces synthetic mode for debugging only;
-never set it in production.)
+An earlier version of this layer routed input through an OS-level XTEST
+mechanism (via `xdotool`) to make click events register as `isTrusted=true`
+rather than the `isTrusted=false` Playwright/CDP normally produces. That
+mechanism was removed — it depended on a bundled third-party module,
+and independent of that, its actual purpose was making automated input
+indistinguishable from a real person's for anti-detection purposes, which
+isn't something to keep maintaining regardless of provenance. Section 1b
+(stealth browser fingerprinting) is unrelated and unaffected.
 
 ### 1b. Stealth browser setup
 
@@ -89,8 +73,8 @@ flagged:
 1. Reproduce against a real meeting with `screenshotPath` enabled in
    `waitForAdmission` (see `admission.js`) to capture the exact failure
    surface (blocked/rejected/limbo).
-2. Check the log line at join (`Input mode: ...`) to rule out a humanized-input
-   regression before suspecting the stealth/fingerprint layer.
+2. Rule out a plain selector/timing regression in the join flow before
+   suspecting the stealth/fingerprint layer.
 3. Diff the actual DOM Google now serves against the selectors in
    `selectors.js` — Meet's structural attributes (`data-participant-id`,
    `jsname`, aria-labels) tend to be stable longer than CSS class names, so
@@ -174,7 +158,7 @@ attached as `contextOptions.storageState` **only if it exists**.
 In authenticated mode (`join.js` `joinAuthenticated`) the bot:
 
 1. **Skips the name input** (uses the Google account identity).
-2. Mutes mic + camera via the humanized click path.
+2. Mutes mic + camera via the same click helpers as the anonymous path.
 3. **Races three outcomes:**
    - **"Join now"** (`googleJoinNowSelectors`) → direct authenticated join.
    - **"Switch here"** (`googleSwitchHereSelectors`) → same account already in
@@ -232,10 +216,9 @@ You can confirm which mode a given run used from the launch logs:
 |---|---|
 | `googlemeet/browser.js` | Stealth chromium, launch/context options, `resolveAuthState`, returns `authenticated`. |
 | `googlemeet/generate-auth.js` | Headful CLI to capture a storageState JSON. |
-| `googlemeet/join.js` | Join flow; `joinAuthenticated` branch + humanized helpers. |
+| `googlemeet/join.js` | Join flow; `joinAuthenticated` branch + input helpers. |
 | `googlemeet/selectors.js` | `googleJoinNowSelectors`, `googleSwitchHereSelectors`, etc. |
 | `googlemeet/index.js` | `joinMeeting()` — reads auth options, wires `launchBrowser` + join. |
-| `googlemeet/humanizedInput.js` | XTEST/mocap OS-level input layer. |
 | `googlemeet/admission.js` | reCAPTCHA / `blocked` detection. |
 | `sidecar_launcher.js` | Resolves the storageState path from env, forwards to `joinMeeting`. |
 | `src/sidecar/models.py`, `bot_supervisor.py` | K8s path: `notetaker_email` / `google_auth_state_path` → env. |

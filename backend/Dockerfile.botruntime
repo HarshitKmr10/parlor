@@ -40,10 +40,6 @@ WORKDIR /app
 # build deps for asyncpg/argon2 wheels (mirrors Dockerfile.dev) PLUS the
 # display/audio/media stack the bot needs (mirrors meeting_worker.Dockerfile):
 #   - xvfb + xauth + xdpyinfo  → virtual display :99 for headful Chromium
-#   - xdotool + xclip          → XTEST OS-level input for the humanized join
-#                                layer (isTrusted:true clicks). WITHOUT these the
-#                                bot silently falls back to synthetic clicks
-#                                (isTrusted:false) — the exact signal Google flags.
 #   - pulseaudio + utils       → virtual audio sink for capture
 #   - ffmpeg                   → audio decode for local whisper STT
 #   - curl/gnupg/ca-certs      → nodesource + healthcheck
@@ -53,7 +49,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       gcc g++ libpq-dev postgresql-client \
       curl gnupg ca-certificates \
-      xvfb xauth x11-utils xdotool xclip \
+      xvfb xauth x11-utils \
       pulseaudio pulseaudio-utils \
       ffmpeg \
  && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \

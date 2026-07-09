@@ -4,12 +4,6 @@
  */
 
 const selectors = require('./selectors');
-// Humanized OS-level input: drives genuine XTEST (xdotool) pointer motion +
-// clicks so events are isTrusted:true, which browser-synthetic clicks are not.
-// Motion follows synthetic min-jerk sequences (selected by distance/angle and
-// stretch-rotated to the target) with endpoint verification. Falls back to
-// synthetic Playwright input when xdotool/X is unavailable. See THIRD_PARTY_NOTICES.md.
-const { HumanizedInteractor, MOCAP_LIBRARY } = require('./humanizedInput');
 
 /**
  * Wait for any of the given selectors to become visible
@@ -41,7 +35,7 @@ async function waitForAnySelector(page, selectorList, timeout = 30000) {
 
 /**
  * Like waitForAnySelector, but returns a live ElementHandle for the first visible
- * match (the HumanizedInteractor operates on ElementHandles, not Locators).
+ * match (clickHandle/fillField operate on ElementHandles, not Locators).
  * @param {Page} page - Playwright page
  * @param {string[]} selectorList - selectors to race
  * @param {number} timeout - max wait ms
@@ -232,82 +226,18 @@ async function clickJoinButton(page) {
 }
 
 /**
- * Build the HUMANIZED input helpers (clickHandle / fillField) used by both the
- * authenticated and anonymous join paths. Initialises the OS-level XTEST
- * interactor once and exposes Playwright-fallback-wrapped click/fill closures.
- * Keeping this in one place guarantees the signed-in branch never silently
- * downgrades to synthetic input (which Google flags).
+ * Build the input helpers (clickHandle / fillField) used by both the
+ * authenticated and anonymous join paths — plain Playwright synthetic
+ * click/fill. Kept as a builder (rather than calling page.fill/handle.click
+ * directly at each call site) so both join branches share one implementation.
  * @param {Page} page
- * @param {{screenshotPath: string|null, takeScreenshots: boolean}} ctx
  * @returns {{ clickHandle: Function, fillField: Function }}
  */
-function buildHumanizedHelpers(page, ctx = {}) {
-  const { screenshotPath = null, takeScreenshots = false } = ctx;
-  let humanizer = null;
-  const forceSynthetic = process.env.GMEET_FORCE_SYNTHETIC === 'true';
-  if (forceSynthetic) {
-    console.log('[GoogleMeet Join] Input mode: synthetic (FORCED via GMEET_FORCE_SYNTHETIC)');
-  }
-  try {
-    if (forceSynthetic) throw new Error('force-synthetic');
-    const h = new HumanizedInteractor(MOCAP_LIBRARY, {
-      log: (m) => console.log(m),
-      onMissScreenshot: async (p, reason) => {
-        if (takeScreenshots && screenshotPath) {
-          const { takeScreenshot } = require('./browser');
-          await takeScreenshot(p, screenshotPath, 'humanized_click_miss');
-        }
-      },
-    });
-    // available() is async; we resolve it lazily inside clickHandle the first
-    // time it's used to avoid making this builder async. We probe synchronously
-    // by deferring to the closures below.
-    humanizer = h;
-  } catch (e) {
-    console.log(`[GoogleMeet Join] humanizer init failed (${e.message}); synthetic input`);
-    humanizer = null;
-  }
-
-  // Resolve humanizer availability once, memoized.
-  let availabilityChecked = false;
-  let humanizerActive = false;
-  const ensureAvailability = async () => {
-    if (availabilityChecked) return humanizerActive;
-    availabilityChecked = true;
-    if (!humanizer) { humanizerActive = false; return false; }
-    try {
-      humanizerActive = await humanizer.available();
-      console.log(humanizerActive
-        ? '[GoogleMeet Join] Input mode: HUMANIZED (XTEST OS-level input)'
-        : '[GoogleMeet Join] Input mode: synthetic (xdotool/X unavailable — fallback)');
-    } catch (_) {
-      humanizerActive = false;
-    }
-    return humanizerActive;
-  };
-
-  // Click a resolved ElementHandle via humanized motion, falling back to a
-  // synthetic handle click when humanized is off or its endpoint check throws.
-  const clickHandle = async (handle, label) => {
-    if (await ensureAvailability()) {
-      try { await humanizer.navigateAndClick(page, handle); return; }
-      catch (e) { console.log(`[GoogleMeet Join] humanized click failed for '${label}' (${e.message}); synthetic fallback`); }
-    }
+function buildInputHelpers(page) {
+  const clickHandle = async (handle, _label) => {
     await handle.click({ timeout: 5000 });
   };
-  // Fill a text field via humanized click+type, verifying the value landed;
-  // fall back to page.fill (synthetic) if humanized off or it didn't register.
-  const fillField = async (handle, selector, text, label) => {
-    if (await ensureAvailability()) {
-      try {
-        await humanizer.fillField(page, handle, text);
-        const v = await handle.inputValue().catch(() => '');
-        if (v.trim() === text) return;
-        console.log(`[GoogleMeet Join] humanized fill didn't register for '${label}' (got "${v}"); synthetic fallback`);
-      } catch (e) {
-        console.log(`[GoogleMeet Join] humanized fill failed for '${label}' (${e.message}); synthetic fallback`);
-      }
-    }
+  const fillField = async (_handle, selector, text, _label) => {
     await page.fill(selector, '').catch(() => {});
     await page.fill(selector, text);
   };
@@ -338,7 +268,7 @@ async function joinAuthenticated(page, botName, helpers, ctx = {}) {
   await page.waitForTimeout(3000);
   await maybeShot('auth_lobby');
 
-  // Mute mic + camera (HUMANIZED click path, same as anonymous).
+  // Mute mic + camera (same click path as anonymous).
   try {
     const { handle: micH } = await waitForAnyHandle(page, selectors.googleMicrophoneButtonSelectors, 3000);
     if (micH) { await clickHandle(micH, 'microphone'); console.log('[GoogleMeet Join] Microphone muted'); }
@@ -429,10 +359,9 @@ async function joinGoogleMeetMeeting(page, meetingUrl, botName, options = {}) {
   console.log(`[GoogleMeet Join] Bot name: ${botName}`);
   console.log(`[GoogleMeet Join] Auth mode: ${authenticated ? 'AUTHENTICATED (signed-in)' : 'anonymous guest'}`);
 
-  // Build the humanized input helpers ONCE so both the authenticated and
-  // anonymous paths keep using the same HUMANIZED XTEST click/fill layer
-  // (never weaken stealth by clicking authenticated controls synthetically).
-  const { clickHandle, fillField } = buildHumanizedHelpers(page, { screenshotPath, takeScreenshots });
+  // Build the input helpers ONCE so both the authenticated and anonymous
+  // paths share the same click/fill implementation.
+  const { clickHandle, fillField } = buildInputHelpers(page);
 
   try {
     // Navigate to meeting URL. `domcontentloaded` is enough — Meet keeps
@@ -542,8 +471,8 @@ async function joinGoogleMeetMeeting(page, meetingUrl, botName, options = {}) {
     }
 
     // Proceed with name entry (matchedResult.type === 'name_input').
-    // The HUMANIZED clickHandle / fillField helpers were built once at the top
-    // of joinGoogleMeetMeeting() and are shared with the authenticated path.
+    // clickHandle / fillField were built once at the top of
+    // joinGoogleMeetMeeting() and are shared with the authenticated path.
 
     // Name (handle for the field we just detected)
     const { handle: nameHandle, selector: nameSel } = await waitForAnyHandle(
@@ -597,7 +526,7 @@ async function joinGoogleMeetMeeting(page, meetingUrl, botName, options = {}) {
 module.exports = {
   joinGoogleMeetMeeting,
   joinAuthenticated,
-  buildHumanizedHelpers,
+  buildInputHelpers,
   enterBotName,
   clickJoinButton,
   muteMicrophone,

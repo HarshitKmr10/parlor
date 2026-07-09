@@ -1,8 +1,7 @@
 /**
  * Linux/Xvfb validation runner for the Google Meet join.
- * Uses the REAL bot modules: browser.js (stealth launch) + join.js (now wired to
- * the vendored humanized input module) + admission.js. Run inside the container
- * under Xvfb with xdotool available so join.js auto-selects HUMANIZED input.
+ * Uses the REAL bot modules: browser.js (stealth launch) + join.js + admission.js.
+ * Run inside the container under Xvfb.
  */
 'use strict';
 
