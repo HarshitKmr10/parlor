@@ -120,6 +120,5 @@ export const config = {
     "/action-items/:path*",
     "/trackers/:path*",
     "/reports/:path*",
-    "/developers/:path*",
   ],
 };
