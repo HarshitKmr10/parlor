@@ -88,7 +88,39 @@ async def _issue_tokens(
 
 
 @auth_router.post(
-    "/signup", response_model=SignupResponse, status_code=status.HTTP_201_CREATED
+    "/signup",
+    response_model=SignupResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Sign up a new user and workspace",
+    description=(
+        "Creates a new user and a fresh workspace (the caller becomes its "
+        "owner), then issues an access/refresh token pair. 409 `email_taken` "
+        "if the email is already registered."
+    ),
+    responses={
+        201: {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "user": {
+                            "id": "8f14e45f-ceea-4d3e-9e59-8b2d1f6c4a1a",
+                            "email": "jane@example.com",
+                            "name": "Jane Doe",
+                            "createdAt": "2026-01-15T09:30:00Z",
+                        },
+                        "workspace": {
+                            "id": "c9bf9e57-1685-4c89-bafb-ff5af830be8a",
+                            "name": "Jane's workspace",
+                            "slug": "janes-workspace",
+                            "role": "owner",
+                        },
+                        "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "refreshToken": "8b7f1e2a9c4d4f0e8a1b2c3d4e5f6a7b",
+                    }
+                }
+            }
+        }
+    },
 )
 async def signup(
     body: SignupRequest, repo: AuthRepository = Depends(get_repo)
@@ -124,7 +156,35 @@ async def signup(
     )
 
 
-@auth_router.post("/login", response_model=LoginResponse)
+@auth_router.post(
+    "/login",
+    response_model=LoginResponse,
+    summary="Log in with email and password",
+    description=(
+        "Verifies credentials and issues a fresh access/refresh token pair. "
+        "401 `invalid_credentials` on any mismatch (no distinction between "
+        "unknown email and wrong password, to avoid leaking account "
+        "existence)."
+    ),
+    responses={
+        200: {
+            "content": {
+                "application/json": {
+                    "example": {
+                        "user": {
+                            "id": "8f14e45f-ceea-4d3e-9e59-8b2d1f6c4a1a",
+                            "email": "jane@example.com",
+                            "name": "Jane Doe",
+                            "createdAt": "2026-01-15T09:30:00Z",
+                        },
+                        "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                        "refreshToken": "8b7f1e2a9c4d4f0e8a1b2c3d4e5f6a7b",
+                    }
+                }
+            }
+        }
+    },
+)
 async def login(
     body: LoginRequest, repo: AuthRepository = Depends(get_repo)
 ) -> LoginResponse:
@@ -136,7 +196,18 @@ async def login(
     return LoginResponse(user=user, access_token=access, refresh_token=refresh)
 
 
-@auth_router.post("/refresh", response_model=TokenPairResponse)
+@auth_router.post(
+    "/refresh",
+    response_model=TokenPairResponse,
+    summary="Refresh an access token",
+    description=(
+        "Rotates the presented refresh token for a new access/refresh pair "
+        "in the same token family. Replaying an already-rotated (revoked) "
+        "token is treated as theft and revokes the entire token family, not "
+        "just that one token. 401 `invalid_refresh_token` if invalid, "
+        "expired, revoked, or the user no longer exists."
+    ),
+)
 async def refresh(
     body: RefreshRequest, repo: AuthRepository = Depends(get_repo)
 ) -> TokenPairResponse:
@@ -170,7 +241,12 @@ async def refresh(
     return TokenPairResponse(access_token=access, refresh_token=new_refresh)
 
 
-@auth_router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+@auth_router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Log out",
+    description="Best-effort revocation of the presented refresh token. Idempotent — succeeds even if the token is already invalid.",
+)
 async def logout(
     body: RefreshRequest, repo: AuthRepository = Depends(get_repo)
 ) -> Response:
@@ -179,7 +255,17 @@ async def logout(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@auth_router.post("/forgot-password", status_code=status.HTTP_200_OK)
+@auth_router.post(
+    "/forgot-password",
+    status_code=status.HTTP_200_OK,
+    summary="Request a password reset email",
+    description=(
+        "Always returns 200 with the same generic message regardless of "
+        "whether the email exists, so this endpoint never leaks account "
+        "existence. If the email matches an account, a reset link (valid "
+        "30 minutes) is emailed."
+    ),
+)
 async def forgot_password(
     body: ForgotPasswordRequest, repo: AuthRepository = Depends(get_repo)
 ) -> dict:
@@ -211,7 +297,17 @@ async def forgot_password(
     return {"message": "If that email exists, we sent a password reset link."}
 
 
-@auth_router.post("/reset-password", status_code=status.HTTP_200_OK)
+@auth_router.post(
+    "/reset-password",
+    status_code=status.HTTP_200_OK,
+    summary="Reset a password with a reset token",
+    description=(
+        "Sets a new password using a valid, unused, unexpired reset token. "
+        "As a compromise-or-recovery precaution, revokes every existing "
+        "refresh token for the user, forcing re-login everywhere. 400 "
+        "`invalid_reset_token` if the token is invalid or expired."
+    ),
+)
 async def reset_password(
     body: ResetPasswordRequest, repo: AuthRepository = Depends(get_repo)
 ) -> dict:
@@ -234,7 +330,16 @@ async def reset_password(
     return {"message": "Password has been reset. Please sign in again."}
 
 
-@auth_router.get("/me", response_model=MeResponse)
+@auth_router.get(
+    "/me",
+    response_model=MeResponse,
+    summary="Get the current user and workspaces",
+    description=(
+        "Returns the authenticated user, every workspace they belong to, "
+        "and the currently-selected workspace (from `X-Workspace-Id`). "
+        "400 `user_required` for a non-user (e.g. API-key) credential."
+    ),
+)
 async def me(
     ctx: AuthContext = Depends(get_current_context),
     repo: AuthRepository = Depends(get_repo),
@@ -263,7 +368,10 @@ async def _require_workspace_member(
 
 
 @workspaces_router.get(
-    "/{workspace_id}/api-keys", response_model=list[ApiKey]
+    "/{workspace_id}/api-keys",
+    response_model=list[ApiKey],
+    summary="List API keys",
+    description="Returns metadata for the workspace's API keys (never the key value itself). Requires workspace membership.",
 )
 async def list_api_keys(
     workspace_id: str = Path(...),
@@ -279,6 +387,12 @@ async def list_api_keys(
     "/{workspace_id}/api-keys",
     response_model=ApiKeyCreated,
     status_code=status.HTTP_201_CREATED,
+    summary="Create an API key",
+    description=(
+        "Generates a new API key for the workspace; the full key value is "
+        "returned once here and never again. Only owners/admins can create "
+        "keys."
+    ),
 )
 async def create_api_key(
     body: ApiKeyCreateRequest,
@@ -297,7 +411,10 @@ async def create_api_key(
 
 
 @workspaces_router.delete(
-    "/{workspace_id}/api-keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT
+    "/{workspace_id}/api-keys/{key_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an API key",
+    description="Revokes an API key immediately. Only owners/admins can delete keys. 404 if not found in this workspace.",
 )
 async def delete_api_key(
     workspace_id: str = Path(...),
