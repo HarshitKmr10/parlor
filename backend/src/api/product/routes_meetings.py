@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, WebSocket, Web
 from shared.exceptions import InvalidMeetingURLError
 
 from ...analytics import compute_meeting_analytics
+from ...quota import enforce_meeting_quota
 from ...services.meeting_service import MeetingService
 from ...shared.platformDetector import PlatformDetector
 from ...usage import capture_llm_usage
@@ -210,7 +211,10 @@ async def create_meeting(
     workspace: Workspace = Depends(get_current_workspace),
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
+    db: DatabaseConnection = Depends(get_db),
 ) -> Meeting:
+    await enforce_meeting_quota(db, workspace.id)
+
     platform = PlatformDetector.detect_platform(body.meeting_url)
     if platform == "unknown" or not PlatformDetector.is_supported(platform):
         raise ApiError(
@@ -267,6 +271,7 @@ async def create_botless_meeting(
     workspace: Workspace = Depends(get_current_workspace),
     service: MeetingService = Depends(_service),
     repo: ProductMeetingsRepo = Depends(_repo),
+    db: DatabaseConnection = Depends(get_db),
 ) -> Meeting:
     """Create a workspace-scoped meeting WITHOUT dispatching a bot.
 
@@ -275,6 +280,8 @@ async def create_botless_meeting(
     meeting carries a synthetic ``desktop://<workspaceId>/<timestamp>`` URL,
     platform ``desktop``, starts ``ongoing``, and has no bot name.
     """
+    await enforce_meeting_quota(db, workspace.id)
+
     from datetime import datetime, timezone  # noqa: PLC0415
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
