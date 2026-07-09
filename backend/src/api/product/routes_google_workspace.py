@@ -66,7 +66,18 @@ def _to_config(row: dict) -> GoogleWorkspaceConfig:
     return GoogleWorkspaceConfig.model_validate(row)
 
 
-@router.post("", response_model=GoogleWorkspaceConfig)
+@router.post(
+    "",
+    response_model=GoogleWorkspaceConfig,
+    summary="Configure org-wide Google Workspace capture",
+    description=(
+        "Configures or updates domain-wide-delegation capture for the org "
+        "(service-account JSON + delegated admin email are required on "
+        "first configure under DWD). Once enabled, the backend reads every "
+        "org user's calendar to auto-join scheduled Meet meetings. Requires "
+        "the admin role."
+    ),
+)
 async def configure(
     body: GoogleWorkspaceConfigRequest,
     ctx: AuthContext = Depends(require_role("admin")),
@@ -122,7 +133,17 @@ async def configure(
     return _to_config(row)
 
 
-@router.get("", response_model=GoogleWorkspaceConfig)
+@router.get(
+    "",
+    response_model=GoogleWorkspaceConfig,
+    summary="Get Google Workspace capture config",
+    description=(
+        "Returns the current org-wide capture config; the service-account "
+        "JSON itself is never returned, only a fingerprint + flags. 400 "
+        "`google_workspace_not_configured` if nothing has been set up. "
+        "Requires the admin role."
+    ),
+)
 async def get_config(
     ctx: AuthContext = Depends(require_role("admin")),
     repo: GoogleWorkspaceOrgRepo = Depends(_repo),
@@ -138,7 +159,11 @@ async def get_config(
     return _to_config(row)
 
 
-@router.delete("")
+@router.delete(
+    "",
+    summary="Remove Google Workspace capture config",
+    description="Deletes the org-wide capture config. 400 `google_workspace_not_configured` if nothing was configured. Requires the admin role.",
+)
 async def delete_config(
     ctx: AuthContext = Depends(require_role("admin")),
     repo: GoogleWorkspaceOrgRepo = Depends(_repo),
@@ -153,12 +178,20 @@ async def delete_config(
     return {"deleted": True}
 
 
-@router.get("/users", response_model=GoogleWorkspaceUsersResponse)
+@router.get(
+    "/users",
+    response_model=GoogleWorkspaceUsersResponse,
+    summary="Preview discovered org users",
+    description=(
+        "Lists active org user emails discovered via the Google Directory "
+        "API, proving the configured Directory + domain-wide-delegation "
+        "credentials work end to end. Requires the admin role."
+    ),
+)
 async def list_users(
     ctx: AuthContext = Depends(require_role("admin")),
     repo: GoogleWorkspaceOrgRepo = Depends(_repo),
 ) -> GoogleWorkspaceUsersResponse:
-    """Preview discovered org users — proves Directory + DWD work end to end."""
     auth_config = await repo.get_auth_config(ctx.workspace.id)
     if auth_config is None:
         raise ApiError(
@@ -191,16 +224,21 @@ async def list_users(
 # ── Pass 2: Workspace Events subscription lifecycle ──────────────────────────
 
 
-@router.post("/events/subscribe", response_model=EventSubscribeResponse)
+@router.post(
+    "/events/subscribe",
+    response_model=EventSubscribeResponse,
+    summary="Subscribe to org-wide Meet conference events",
+    description=(
+        "Fans a Workspace Events subscription out to every active org user "
+        "so an instant Meet (one that never touches a calendar) fires a "
+        "Pub/Sub push to the `/google/pubsub/push` webhook, which then "
+        "dispatches a bot. Requires both an enabled org config AND a "
+        "configured Pub/Sub topic. Requires the admin role."
+    ),
+)
 async def subscribe_events(
     ctx: AuthContext = Depends(require_role("admin")),
 ) -> EventSubscribeResponse:
-    """Provision Meet conference-lifecycle subscriptions across the org.
-
-    Fans a Workspace Events subscription out to every active org user so an
-    instant Meet (one that never touches a calendar) fires a Pub/Sub push to our
-    webhook. Requires both an enabled org config AND a Pub/Sub topic.
-    """
     try:
         summary = await MeetEventsService().provision_workspace(ctx.workspace.id)
     except PubSubNotConfiguredError as exc:
@@ -216,21 +254,28 @@ async def subscribe_events(
     return EventSubscribeResponse.model_validate(summary)
 
 
-@router.get("/events/subscriptions", response_model=EventSubscriptionsResponse)
+@router.get(
+    "/events/subscriptions",
+    response_model=EventSubscriptionsResponse,
+    summary="List Meet conference event subscriptions",
+    description="Returns the workspace's Workspace Events subscriptions and their states. Requires the admin role.",
+)
 async def list_event_subscriptions(
     ctx: AuthContext = Depends(require_role("admin")),
 ) -> EventSubscriptionsResponse:
-    """List the workspace's Workspace Events subscriptions + their states."""
     rows = await MeetEventsService().list_subscriptions(ctx.workspace.id)
     subs = [EventSubscription.model_validate(r) for r in rows]
     return EventSubscriptionsResponse(subscriptions=subs, total=len(subs))
 
 
-@router.delete("/events/subscriptions")
+@router.delete(
+    "/events/subscriptions",
+    summary="Tear down Meet conference event subscriptions",
+    description="Removes all Workspace Events subscriptions provisioned for the workspace. Requires the admin role.",
+)
 async def delete_event_subscriptions(
     ctx: AuthContext = Depends(require_role("admin")),
 ) -> dict:
-    """Tear down all Workspace Events subscriptions for the workspace."""
     summary = await MeetEventsService().teardown_workspace(ctx.workspace.id)
     return summary
 
@@ -238,12 +283,16 @@ async def delete_event_subscriptions(
 # ── Pass 2: org meeting policy ───────────────────────────────────────────────
 
 
-@router.get("/policy", response_model=OrgMeetingPolicyModel)
+@router.get(
+    "/policy",
+    response_model=OrgMeetingPolicyModel,
+    summary="Get the org auto-join policy",
+    description="Returns the workspace's org-wide meeting auto-join allow/deny policy (permissive default when none is configured).",
+)
 async def get_policy(
     workspace: Workspace = Depends(get_current_workspace),
     db: DatabaseConnection = Depends(get_db),
 ) -> OrgMeetingPolicyModel:
-    """Current auto-join policy (permissive default when none is configured)."""
     policy = await OrgMeetingPolicyRepo(db).get(workspace.id)
     return OrgMeetingPolicyModel.model_validate(
         {
@@ -257,13 +306,21 @@ async def get_policy(
     )
 
 
-@router.put("/policy", response_model=OrgMeetingPolicyModel)
+@router.put(
+    "/policy",
+    response_model=OrgMeetingPolicyModel,
+    summary="Update the org auto-join policy",
+    description=(
+        "Upserts the workspace's org-wide meeting auto-join policy: mode, "
+        "allow/deny rules, opt-out emails, and recording disclosure text. "
+        "400 `invalid_policy` if the rules don't parse."
+    ),
+)
 async def put_policy(
     body: OrgMeetingPolicyModel,
     workspace: Workspace = Depends(get_current_workspace),
     db: DatabaseConnection = Depends(get_db),
 ) -> OrgMeetingPolicyModel:
-    """Upsert the workspace's auto-join policy."""
     try:
         policy = await OrgMeetingPolicyRepo(db).upsert(
             workspace_id=workspace.id,
