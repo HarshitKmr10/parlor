@@ -85,7 +85,18 @@ def _name_ids(rows: List[dict]) -> List[str]:
     return ids
 
 
-@router.post("/meetings/{meeting_id}/comments", response_model=Comment, status_code=201)
+@router.post(
+    "/meetings/{meeting_id}/comments",
+    response_model=Comment,
+    status_code=201,
+    summary="Add a comment to a meeting",
+    description=(
+        "Adds a comment (optionally anchored to a transcript timestamp/"
+        "segment, and/or threaded under a parent comment) to a meeting. "
+        "`mentions` are filtered against workspace membership; each valid "
+        "mention gets a best-effort notification."
+    ),
+)
 async def create_comment(
     meeting_id: str,
     body: CommentCreate,
@@ -134,7 +145,12 @@ async def create_comment(
     return _to_comment(row, names)
 
 
-@router.get("/meetings/{meeting_id}/comments", response_model=CommentListResponse)
+@router.get(
+    "/meetings/{meeting_id}/comments",
+    response_model=CommentListResponse,
+    summary="List comments for a meeting",
+    description="Returns all comments (with author and mention names resolved) for one meeting.",
+)
 async def list_comments(
     meeting_id: str,
     ctx: AuthContext = Depends(get_current_context),
@@ -148,7 +164,16 @@ async def list_comments(
     return CommentListResponse(items=items, total=len(items))
 
 
-@router.patch("/meetings/{meeting_id}/comments/{comment_id}", response_model=Comment)
+@router.patch(
+    "/meetings/{meeting_id}/comments/{comment_id}",
+    response_model=Comment,
+    summary="Update a comment",
+    description=(
+        "Edits a comment's body/mentions (author-only, 403 otherwise) and/or "
+        "toggles its `resolved` flag (open to any workspace member). 404 if "
+        "not found in this meeting/workspace."
+    ),
+)
 async def update_comment(
     meeting_id: str,
     comment_id: str,
@@ -192,7 +217,12 @@ async def update_comment(
     return _to_comment(row, names)
 
 
-@router.delete("/meetings/{meeting_id}/comments/{comment_id}", status_code=204)
+@router.delete(
+    "/meetings/{meeting_id}/comments/{comment_id}",
+    status_code=204,
+    summary="Delete a comment",
+    description="Deletes a comment (author-only, 403 otherwise). 404 if not found in this meeting/workspace.",
+)
 async def delete_comment(
     meeting_id: str,
     comment_id: str,

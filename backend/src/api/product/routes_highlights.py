@@ -71,6 +71,12 @@ async def _excerpt_for(
     "/meetings/{meeting_id}/highlights",
     response_model=Highlight,
     status_code=201,
+    summary="Create a highlight clip",
+    description=(
+        "Creates a clip (time range + label/note/color) on a meeting. The "
+        "transcript text covering the clip window is snapshotted onto the "
+        "highlight so the reel stays readable if the transcript changes."
+    ),
 )
 async def create_highlight(
     meeting_id: str,
@@ -99,6 +105,8 @@ async def create_highlight(
 @router.get(
     "/meetings/{meeting_id}/highlights",
     response_model=HighlightListResponse,
+    summary="List highlights for a meeting",
+    description="Returns all highlight clips for one meeting.",
 )
 async def list_highlights(
     meeting_id: str,
@@ -115,6 +123,13 @@ async def list_highlights(
 @router.patch(
     "/meetings/{meeting_id}/highlights/{highlight_id}",
     response_model=Highlight,
+    summary="Update a highlight clip",
+    description=(
+        "Updates a highlight's time range, label, note, and/or color. If "
+        "the time range changes, the snapshotted transcript excerpt is "
+        "re-extracted. 400 `invalid_range` if the end precedes the start; "
+        "404 if not found in this meeting/workspace."
+    ),
 )
 async def update_highlight(
     meeting_id: str,
@@ -158,6 +173,8 @@ async def update_highlight(
 @router.delete(
     "/meetings/{meeting_id}/highlights/{highlight_id}",
     status_code=204,
+    summary="Delete a highlight clip",
+    description="Deletes a highlight. 404 if not found in this meeting/workspace.",
 )
 async def delete_highlight(
     meeting_id: str,
@@ -171,14 +188,18 @@ async def delete_highlight(
     await repo.delete(highlight_id, ctx.workspace.id)
 
 
-@router.get("/highlights", response_model=WorkspaceHighlightListResponse)
+@router.get(
+    "/highlights",
+    response_model=WorkspaceHighlightListResponse,
+    summary="List highlights across the workspace",
+    description="Cross-meeting highlights reel for the workspace, newest first.",
+)
 async def list_workspace_highlights(
     ctx: AuthContext = Depends(get_current_context),
     repo: HighlightsRepo = Depends(_repo),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
 ) -> WorkspaceHighlightListResponse:
-    """Cross-meeting highlights reel for the workspace, newest first."""
     rows = await repo.list_for_workspace(ctx.workspace.id, limit=limit, offset=offset)
     total = await repo.count_for_workspace(ctx.workspace.id)
     items = [WorkspaceHighlight.model_validate(r) for r in rows]
