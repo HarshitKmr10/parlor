@@ -59,6 +59,13 @@ def _is_expired(expires_at: datetime) -> bool:
     "/workspaces/{workspace_id}/invites",
     response_model=WorkspaceInviteCreated,
     status_code=201,
+    summary="Invite a teammate to a workspace",
+    description=(
+        "Creates a pending invite and emails an accept link (valid 7 days). "
+        "Owner/admin only. Email delivery failure is logged but doesn't "
+        "fail the request — the invite record and `acceptUrl` are still "
+        "returned."
+    ),
 )
 async def create_invite(
     body: WorkspaceInviteCreateRequest,
@@ -99,7 +106,10 @@ async def create_invite(
 
 
 @router.get(
-    "/workspaces/{workspace_id}/invites", response_model=WorkspaceInviteListResponse
+    "/workspaces/{workspace_id}/invites",
+    response_model=WorkspaceInviteListResponse,
+    summary="List pending workspace invites",
+    description="Returns pending invites for the workspace. Owner/admin only.",
 )
 async def list_invites(
     workspace_id: str = Path(...),
@@ -115,7 +125,10 @@ async def list_invites(
 
 
 @router.delete(
-    "/workspaces/{workspace_id}/invites/{invite_id}", status_code=204
+    "/workspaces/{workspace_id}/invites/{invite_id}",
+    status_code=204,
+    summary="Revoke a workspace invite",
+    description="Revokes a pending invite so its token stops working. Owner/admin only. 404 if not found or already resolved.",
 )
 async def revoke_invite(
     workspace_id: str = Path(...),
@@ -131,7 +144,17 @@ async def revoke_invite(
         raise ApiError(404, "not_found", "Invite not found or already resolved")
 
 
-@router.get("/invites/{token}", response_model=InvitePreview)
+@router.get(
+    "/invites/{token}",
+    response_model=InvitePreview,
+    summary="Preview an invite",
+    description=(
+        "Public, unauthenticated preview of a pending invite — workspace "
+        "name, invited email, and role — plus whether the invited email "
+        "already has an account (`requiresSignup`). 404 if the invite is "
+        "invalid, expired, or already used."
+    ),
+)
 async def preview_invite(
     token: str = Path(...), repo: AuthRepository = Depends(get_repo)
 ) -> InvitePreview:
@@ -169,7 +192,19 @@ def _bearer_email(authorization: str | None) -> str | None:
     return payload.get("email")
 
 
-@router.post("/invites/{token}/accept", response_model=InviteAcceptResponse)
+@router.post(
+    "/invites/{token}/accept",
+    response_model=InviteAcceptResponse,
+    summary="Accept an invite",
+    description=(
+        "Joins the invited email into the EXISTING workspace (never auto-"
+        "provisions a new one). If the email has no account yet, `name` "
+        "and `password` in the body create one inline. If an account "
+        "already exists, the caller must be authenticated as that exact "
+        "email (401 `login_required` otherwise, no body needed). Returns "
+        "fresh session tokens."
+    ),
+)
 async def accept_invite(
     body: InviteAcceptRequest,
     token: str = Path(...),
