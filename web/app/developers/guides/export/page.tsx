@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { GuideHeader, GuideSection, CodeBlock, SourceNote } from "@/components/developers/GuideChrome";
+import { GuideHeader, GuideSection, SourceNote } from "@/components/developers/GuideChrome";
+import { CodeTabs } from "@/components/developers/CodeTabs";
 
 export const metadata: Metadata = {
   title: "Exporting meetings — Parlor developers",
@@ -15,9 +16,33 @@ export default function ExportGuide() {
       />
 
       <GuideSection title="Export as Markdown">
-        <CodeBlock>{`curl -s $API/api/v1/meetings/$MEETING_ID/export?format=markdown \\
+        <CodeTabs
+          curl={`curl -s "$API/api/v1/meetings/$MEETING_ID/export?format=markdown" \\
   -H "Authorization: Bearer $TOKEN" -H "X-Workspace-Id: $WORKSPACE_ID" \\
-  -o meeting.md`}</CodeBlock>
+  -o meeting.md`}
+          python={`r = httpx.get(
+    f"{API}/api/v1/meetings/{meeting_id}/export",
+    params={"format": "markdown"},
+    headers={"Authorization": f"Bearer {token}", "X-Workspace-Id": workspace_id},
+)
+r.raise_for_status()
+open("meeting.md", "wb").write(r.content)`}
+          typescript={`const res = await fetch(
+  \`\${API}/api/v1/meetings/\${meetingId}/export?format=markdown\`,
+  { headers: authHeaders },
+);
+const markdown = await res.text();
+await Deno.writeTextFile("meeting.md", markdown); // or fs.writeFile in Node`}
+          go={`req, _ := http.NewRequest("GET", api+"/api/v1/meetings/"+meetingID+"/export?format=markdown", nil)
+req.Header.Set("Authorization", "Bearer "+token)
+req.Header.Set("X-Workspace-Id", workspaceID)
+resp, _ := http.DefaultClient.Do(req)
+defer resp.Body.Close()
+
+out, _ := os.Create("meeting.md")
+defer out.Close()
+io.Copy(out, resp.Body)`}
+        />
         <p className="mt-3 text-sm text-ink-muted">
           Returns <code className="rounded bg-surface-2 px-1">text/markdown</code>{" "}
           with a <code className="rounded bg-surface-2 px-1">Content-Disposition:
