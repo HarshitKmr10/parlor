@@ -106,11 +106,8 @@ kubectl apply -f meeting-joiner/deploy/deployment.yaml
 kubectl apply -f meeting-joiner/deploy/service.yaml
 ```
 
-Schema staying current with the upstream is your responsibility. The
-upstream CI runs `node meeting-joiner/db/extract-bootstrap.mjs` to fail
-when columns drift between `core/core/db/prisma/schema.prisma` and
-`meeting-joiner/db/bootstrap.sql` — when you periodically pull updates,
-just rerun `psql -f db/bootstrap.sql` for any new columns.
+`bootstrap.sql` is idempotent, so when you pull updates to this repo, just
+rerun `psql -f db/bootstrap.sql` to pick up any new columns.
 
 ## Quickstart — product API dev runtime (Postgres + pgvector + backend)
 
@@ -199,7 +196,6 @@ The full env contract is documented inline in `.env.example`. Quick map:
    GROUP BY exit_reason
    ORDER BY 2 DESC;
   ```
-- **Schema drift.** CI runs `node db/extract-bootstrap.mjs` and `node db/extract-env-example.mjs` on every PR.
 - **Per-meeting transcripts.** The `meeting_joiner.transcript` JSON column carries
   the live transcript; downstream consumers can poll or LISTEN/NOTIFY on it
   via Postgres triggers if real-time consumption is needed.

@@ -8,9 +8,6 @@
     "dev": "nodemon index.js",
     "db:bootstrap": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f db/bootstrap.sql",
     "db:install-schema": "python3 src/scripts/install_schema.py",
-    "db:drift": "node db/extract-bootstrap.mjs",
-    "db:generate:monorepo": "prisma generate --schema=../core/core/db/prisma/schema.prisma",
-    "db:migrate:monorepo": "prisma migrate dev --schema=../core/core/db/prisma/schema.prisma",
     "test": "jest"
   },
   "dependencies": {

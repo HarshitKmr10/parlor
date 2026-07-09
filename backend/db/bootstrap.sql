@@ -4,13 +4,11 @@
 -- Re-running is safe — every statement is guarded with IF NOT EXISTS or
 -- wrapped in a DO block that catches duplicate-object errors.
 --
--- This file is the source of truth for the standalone deployment path.
--- The monorepo path still uses core/core/db/prisma/migrations/ — these
--- two MUST stay in sync. CI runs `node db/extract-bootstrap.mjs` on every
--- PR to fail on drift.
+-- This file is the source of truth for the standalone deployment path —
+-- self-contained, no external schema source to stay in sync with.
 --
--- Schema baseline: aiops staging HEAD as of 2026-05-19 (includes
--- exit_reason, exit_details, transcript_source).
+-- Schema baseline as of 2026-05-19 (includes exit_reason, exit_details,
+-- transcript_source).
 --
 -- Foreign keys to `organizations` and `meetings` are conditional: they
 -- only create when the target table exists in the active schema. In the

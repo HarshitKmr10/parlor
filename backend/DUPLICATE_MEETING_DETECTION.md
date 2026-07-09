@@ -144,8 +144,7 @@ model meeting_joiner {
 
 ### Database
 
-- **`core/core/db/prisma/schema.prisma`** - Updated schema
-- **`core/core/db/prisma/migrations/20260122040451_add_duplicate_meeting_tracking/migration.sql`** - Migration file
+- **`db/bootstrap.sql`** - `is_duplicate` / `original_meeting_id` columns and indexes on `meeting_joiner`
 
 ## Usage Example
 
@@ -208,42 +207,17 @@ POST /meetings
 4. **Customization** - Each requester receives transcripts from their request time
 5. **Scalability** - Handles high-volume duplicate requests efficiently
 
-## Migration Instructions
+## Applying This Schema
 
-### 1. Apply Database Migration
-
-```bash
-cd core/core/db
-npx prisma migrate deploy
-```
-
-Or run the migration SQL directly:
+Already included in `db/bootstrap.sql` — re-running it against an existing
+database is safe (idempotent) and will add the `is_duplicate` /
+`original_meeting_id` columns if they're missing:
 
 ```bash
-psql $DATABASE_URL -f prisma/migrations/20260122040451_add_duplicate_meeting_tracking/migration.sql
+psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f db/bootstrap.sql
 ```
 
-### 2. Regenerate Prisma Clients
-
-```bash
-# Node.js client
-cd core/core/db
-npx prisma generate
-
-# Python client
-cd meeting-joiner
-prisma generate --schema=../core/core/db/prisma/schema.prisma
-```
-
-### 3. Restart Services
-
-```bash
-# Restart meeting-joiner service
-pm2 restart meeting-joiner
-
-# Or if using docker
-docker-compose restart meeting-joiner
-```
+Then restart the backend service for the change to take effect.
 
 ## Testing
 
