@@ -40,6 +40,7 @@ def _mock_settings() -> Settings:
     return Settings(
         anthropic_api_key=None,
         openai_api_key=None,
+        gemini_api_key=None,
         azure_openai_endpoint=None,
         azure_openai_api_key=None,
         azure_openai_api_version="2024-02-15-preview",
