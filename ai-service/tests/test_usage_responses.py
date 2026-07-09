@@ -33,7 +33,7 @@ class TestSummarizeUsage:
     @pytest.mark.asyncio
     async def test_single_chunk_summary_carries_usage_without_disturbing_other_fields(self):
         router = ProviderRouter.__new__(ProviderRouter)
-        router._settings = type("S", (), {"is_mock": True})()  # noqa: SLF001
+        router._settings = type("S", (), {"is_mock": True, "use_premium_by_default": True})()  # noqa: SLF001
         router._mock = MockProvider()  # noqa: SLF001
         router._live = []  # noqa: SLF001
 
@@ -92,7 +92,7 @@ class TestChatUsage:
     @pytest.mark.asyncio
     async def test_answer_question_response_carries_usage_without_disturbing_citations(self):
         router = ProviderRouter.__new__(ProviderRouter)
-        router._settings = type("S", (), {"is_mock": True})()  # noqa: SLF001
+        router._settings = type("S", (), {"is_mock": True, "use_premium_by_default": True})()  # noqa: SLF001
         router._mock = MockProvider()  # noqa: SLF001
         router._live = []  # noqa: SLF001
 

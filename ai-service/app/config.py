@@ -82,6 +82,13 @@ OPENAI_COMPATIBLE_MODEL = (
 ProviderMode = Literal["fallback", "pinned"]
 _PROVIDER_MODES: tuple[ProviderMode, ...] = ("fallback", "pinned")
 
+# Which model tier (see the premium/cheap constants above) summarize/chat use
+# by default. Defaults to "premium" -- unchanged behavior for every existing
+# deployment. A deployment can set AI_DEFAULT_MODEL_TIER=cheap to route those
+# calls at the cheap model instead (e.g. a cost-sensitive hosted instance).
+ModelTier = Literal["premium", "cheap"]
+_MODEL_TIERS: tuple[ModelTier, ...] = ("premium", "cheap")
+
 
 class ConfigError(RuntimeError):
     """Raised when environment-derived configuration is invalid.
@@ -145,6 +152,7 @@ class Settings:
     port: int = 8100
     provider_mode: ProviderMode = "fallback"
     pinned_provider: str | None = None
+    default_model_tier: ModelTier = "premium"
     anthropic_premium_model: str = ANTHROPIC_PREMIUM_MODEL
     anthropic_cheap_model: str = ANTHROPIC_CHEAP_MODEL
     openai_premium_model: str = OPENAI_PREMIUM_MODEL
@@ -177,6 +185,10 @@ class Settings:
             or self.azure_configured
             or self.openai_compatible_configured
         )
+
+    @property
+    def use_premium_by_default(self) -> bool:
+        return self.default_model_tier == "premium"
 
     @property
     def is_mock(self) -> bool:
@@ -227,6 +239,14 @@ def load_settings() -> Settings:
         )
     provider_mode: ProviderMode = provider_mode_raw  # type: ignore[assignment]
 
+    model_tier_raw = (os.environ.get("AI_DEFAULT_MODEL_TIER") or "premium").strip().lower()
+    if model_tier_raw not in _MODEL_TIERS:
+        raise ConfigError(
+            f"AI_DEFAULT_MODEL_TIER must be one of {_MODEL_TIERS!r}, got "
+            f"{model_tier_raw!r}"
+        )
+    default_model_tier: ModelTier = model_tier_raw  # type: ignore[assignment]
+
     pinned_provider = os.environ.get("AI_PINNED_PROVIDER") or None
     if provider_mode == "pinned" and not pinned_provider:
         raise ConfigError(
@@ -250,6 +270,7 @@ def load_settings() -> Settings:
         port=port,
         provider_mode=provider_mode,
         pinned_provider=pinned_provider,
+        default_model_tier=default_model_tier,
         anthropic_premium_model=ANTHROPIC_PREMIUM_MODEL,
         anthropic_cheap_model=ANTHROPIC_CHEAP_MODEL,
         openai_premium_model=OPENAI_PREMIUM_MODEL,

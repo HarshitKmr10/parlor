@@ -122,7 +122,7 @@ async def answer_question(
     answer, usage = await router.complete_text_with_usage(
         system=_SYSTEM,
         user=user,
-        premium=True,
+        premium=router.use_premium_by_default,
         mock_context={
             "question": question,
             "snippets": [s.text for s in retrieved],

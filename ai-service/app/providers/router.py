@@ -132,6 +132,10 @@ class ProviderRouter:
         return [p.name for p in self._live] or ["mock"]
 
     @property
+    def use_premium_by_default(self) -> bool:
+        return self._settings.use_premium_by_default
+
+    @property
     def mock(self) -> MockProvider:
         return self._mock
 

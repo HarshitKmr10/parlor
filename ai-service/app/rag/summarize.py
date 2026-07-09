@@ -144,7 +144,7 @@ async def _summarize_once(
         user=user,
         schema=INSIGHTS_SCHEMA,
         parse=_parse_insights,
-        premium=True,
+        premium=router.use_premium_by_default,
         mock_context=mock_context,
         op="summarize",
     )
