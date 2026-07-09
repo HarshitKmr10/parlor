@@ -32,14 +32,24 @@ async def _repo(db: DatabaseConnection = Depends(get_db)) -> SummaryTemplatesRep
     return SummaryTemplatesRepo(db)
 
 
-@router.get("/presets", response_model=List[SummaryTemplatePreset])
+@router.get(
+    "/presets",
+    response_model=List[SummaryTemplatePreset],
+    summary="List built-in summary template presets",
+    description="Returns the built-in starter templates that can be used as a base when creating a custom summary template.",
+)
 async def list_presets(
     _: AuthContext = Depends(get_current_context),
 ) -> List[SummaryTemplatePreset]:
     return [SummaryTemplatePreset.model_validate(p) for p in PRESETS]
 
 
-@router.get("", response_model=List[SummaryTemplate])
+@router.get(
+    "",
+    response_model=List[SummaryTemplate],
+    summary="List summary templates",
+    description="Returns all custom summary templates created in the workspace.",
+)
 async def list_templates(
     ctx: AuthContext = Depends(get_current_context),
     repo: SummaryTemplatesRepo = Depends(_repo),
@@ -48,7 +58,18 @@ async def list_templates(
     return [SummaryTemplate.model_validate(r) for r in rows]
 
 
-@router.post("", response_model=SummaryTemplate, status_code=201)
+@router.post(
+    "",
+    response_model=SummaryTemplate,
+    status_code=201,
+    summary="Create a summary template",
+    description=(
+        "Creates a custom summary template, optionally seeded from a "
+        "built-in preset via `fromPreset` (explicit fields override the "
+        "preset's). 409 `duplicate_name` if a template with that name "
+        "already exists in the workspace."
+    ),
+)
 async def create_template(
     body: SummaryTemplateCreate,
     ctx: AuthContext = Depends(get_current_context),
@@ -80,7 +101,12 @@ async def create_template(
     return SummaryTemplate.model_validate(row)
 
 
-@router.get("/{template_id}", response_model=SummaryTemplate)
+@router.get(
+    "/{template_id}",
+    response_model=SummaryTemplate,
+    summary="Get a summary template",
+    description="Returns a single custom summary template by id. 404 if not found in this workspace.",
+)
 async def get_template(
     template_id: str,
     ctx: AuthContext = Depends(get_current_context),
@@ -92,7 +118,12 @@ async def get_template(
     return SummaryTemplate.model_validate(row)
 
 
-@router.patch("/{template_id}", response_model=SummaryTemplate)
+@router.patch(
+    "/{template_id}",
+    response_model=SummaryTemplate,
+    summary="Update a summary template",
+    description="Updates a summary template's name, instructions, sections, and/or default flag. 404 if not found in this workspace.",
+)
 async def update_template(
     template_id: str,
     body: SummaryTemplateUpdate,
@@ -112,7 +143,12 @@ async def update_template(
     return SummaryTemplate.model_validate(row)
 
 
-@router.delete("/{template_id}", status_code=204)
+@router.delete(
+    "/{template_id}",
+    status_code=204,
+    summary="Delete a summary template",
+    description="Deletes a custom summary template. 404 if not found in this workspace.",
+)
 async def delete_template(
     template_id: str,
     ctx: AuthContext = Depends(get_current_context),

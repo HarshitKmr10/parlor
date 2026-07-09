@@ -60,7 +60,16 @@ def _norm(keywords) -> list[str]:
 
 
 # NOTE: /hits must be declared before /{tracker_id} so it isn't shadowed.
-@router.get("/hits", response_model=TrackerHitListResponse)
+@router.get(
+    "/hits",
+    response_model=TrackerHitListResponse,
+    summary="List tracker hits",
+    description=(
+        "Returns recorded keyword-tracker matches for the workspace, "
+        "optionally filtered to a single tracker. Hits are recorded when a "
+        "meeting is summarized."
+    ),
+)
 async def list_hits(
     tracker_id: Optional[str] = Query(None, alias="trackerId"),
     ctx: AuthContext = Depends(get_current_context),
@@ -71,7 +80,12 @@ async def list_hits(
     return TrackerHitListResponse(items=items, total=len(items))
 
 
-@router.get("", response_model=list[Tracker])
+@router.get(
+    "",
+    response_model=list[Tracker],
+    summary="List trackers",
+    description="Returns all keyword trackers configured for the workspace.",
+)
 async def list_trackers(
     ctx: AuthContext = Depends(get_current_context),
     repo: TrackersRepo = Depends(_repo),
@@ -79,7 +93,16 @@ async def list_trackers(
     return [_to_tracker(r) for r in await repo.list(ctx.workspace.id)]
 
 
-@router.post("", response_model=Tracker, status_code=201)
+@router.post(
+    "",
+    response_model=Tracker,
+    status_code=201,
+    summary="Create a tracker",
+    description=(
+        "Creates a keyword tracker. Future meeting summarizations will flag "
+        "mentions of its keywords as hits and surface them in notifications."
+    ),
+)
 async def create_tracker(
     body: TrackerCreate,
     ctx: AuthContext = Depends(get_current_context),
@@ -91,7 +114,12 @@ async def create_tracker(
     return _to_tracker(row)
 
 
-@router.patch("/{tracker_id}", response_model=Tracker)
+@router.patch(
+    "/{tracker_id}",
+    response_model=Tracker,
+    summary="Update a tracker",
+    description="Updates a tracker's name, keywords, and/or enabled state. 404 if not found in this workspace.",
+)
 async def update_tracker(
     tracker_id: str,
     body: TrackerUpdate,
@@ -110,7 +138,12 @@ async def update_tracker(
     return _to_tracker(row)
 
 
-@router.delete("/{tracker_id}", status_code=204)
+@router.delete(
+    "/{tracker_id}",
+    status_code=204,
+    summary="Delete a tracker",
+    description="Deletes a tracker. 404 if not found in this workspace.",
+)
 async def delete_tracker(
     tracker_id: str,
     ctx: AuthContext = Depends(get_current_context),

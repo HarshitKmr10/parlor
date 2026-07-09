@@ -39,7 +39,10 @@ async def _meetings_repo(
 
 
 @router.get(
-    "/meetings/{meeting_id}/action-items", response_model=ActionItemListResponse
+    "/meetings/{meeting_id}/action-items",
+    response_model=ActionItemListResponse,
+    summary="List action items for a meeting",
+    description="Returns action items for one meeting, including both AI-extracted and manually-added items.",
 )
 async def list_meeting_action_items(
     meeting_id: str,
@@ -58,6 +61,8 @@ async def list_meeting_action_items(
     "/meetings/{meeting_id}/action-items",
     response_model=ActionItemRecord,
     status_code=201,
+    summary="Add a manual action item",
+    description="Adds a manually-created action item to a meeting (source is recorded as 'manual', distinct from AI-extracted items).",
 )
 async def create_action_item(
     meeting_id: str,
@@ -80,7 +85,12 @@ async def create_action_item(
     return ActionItemRecord.model_validate(row)
 
 
-@router.get("/action-items", response_model=ActionItemListResponse)
+@router.get(
+    "/action-items",
+    response_model=ActionItemListResponse,
+    summary="List action items across the workspace",
+    description="Cross-meeting 'my tasks' view — filter by assignee and/or open/done state.",
+)
 async def list_workspace_action_items(
     assignee: Optional[str] = Query(None),
     done: Optional[bool] = Query(None),
@@ -89,7 +99,6 @@ async def list_workspace_action_items(
     ctx: AuthContext = Depends(get_current_context),
     repo: ActionItemsRepo = Depends(_repo),
 ) -> ActionItemListResponse:
-    """Cross-meeting task list — filter by assignee and/or open/done."""
     rows = await repo.list_for_workspace(
         ctx.workspace.id, assignee=assignee, done=done, limit=limit, offset=offset
     )
@@ -97,7 +106,12 @@ async def list_workspace_action_items(
     return ActionItemListResponse(items=items, total=len(items))
 
 
-@router.patch("/action-items/{item_id}", response_model=ActionItemRecord)
+@router.patch(
+    "/action-items/{item_id}",
+    response_model=ActionItemRecord,
+    summary="Update an action item",
+    description="Edits, reassigns, or completes an action item. 404 if not found in this workspace.",
+)
 async def update_action_item(
     item_id: str,
     body: ActionItemUpdate,
@@ -117,7 +131,12 @@ async def update_action_item(
     return ActionItemRecord.model_validate(row)
 
 
-@router.delete("/action-items/{item_id}", status_code=204)
+@router.delete(
+    "/action-items/{item_id}",
+    status_code=204,
+    summary="Delete an action item",
+    description="Deletes an action item. 404 if not found in this workspace.",
+)
 async def delete_action_item(
     item_id: str,
     ctx: AuthContext = Depends(get_current_context),

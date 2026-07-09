@@ -55,7 +55,17 @@ def _share_link(row: dict) -> ShareLink:
     )
 
 
-@router.post("/meetings/{meeting_id}/share", response_model=ShareLink, status_code=201)
+@router.post(
+    "/meetings/{meeting_id}/share",
+    response_model=ShareLink,
+    status_code=201,
+    summary="Create or rotate a meeting share link",
+    description=(
+        "Creates a public, unauthenticated share link for the meeting, or "
+        "rotates the token if one already exists (previous token stops "
+        "working). Audit-logged."
+    ),
+)
 async def create_share(
     meeting_id: str,
     body: ShareCreateRequest,
@@ -94,7 +104,12 @@ async def create_share(
     return _share_link(row)
 
 
-@router.get("/meetings/{meeting_id}/share", response_model=ShareLink)
+@router.get(
+    "/meetings/{meeting_id}/share",
+    response_model=ShareLink,
+    summary="Get the current meeting share link",
+    description="Returns the meeting's active share link and view stats. 404 if none exists.",
+)
 async def get_share(
     meeting_id: str,
     ctx: AuthContext = Depends(get_current_context),
@@ -106,7 +121,12 @@ async def get_share(
     return _share_link(row)
 
 
-@router.delete("/meetings/{meeting_id}/share", status_code=204)
+@router.delete(
+    "/meetings/{meeting_id}/share",
+    status_code=204,
+    summary="Revoke a meeting share link",
+    description="Revokes the meeting's share link so its token stops working. Audit-logged. 404 if none exists.",
+)
 async def revoke_share(
     meeting_id: str,
     ctx: AuthContext = Depends(get_current_context),

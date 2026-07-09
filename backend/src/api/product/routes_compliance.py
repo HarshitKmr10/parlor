@@ -40,7 +40,12 @@ def _to_model(row: dict) -> RetentionSettings:
     )
 
 
-@router.get("/retention-settings", response_model=RetentionSettings)
+@router.get(
+    "/retention-settings",
+    response_model=RetentionSettings,
+    summary="Get retention settings",
+    description="Returns the workspace's retention window (days) and legal-hold flag.",
+)
 async def get_retention(
     ctx: AuthContext = Depends(get_current_context),
     repo: RetentionRepo = Depends(_repo),
@@ -48,7 +53,16 @@ async def get_retention(
     return _to_model(await repo.get(ctx.workspace.id))
 
 
-@router.put("/retention-settings", response_model=RetentionSettings)
+@router.put(
+    "/retention-settings",
+    response_model=RetentionSettings,
+    summary="Update retention settings",
+    description=(
+        "Sets the retention window (days) and/or legal-hold flag for the "
+        "workspace; legal hold pauses the background soft-delete/hard-"
+        "delete sweeper entirely. Audit-logged. Requires the admin role."
+    ),
+)
 async def put_retention(
     body: RetentionSettingsUpdate,
     ctx: AuthContext = Depends(require_role("admin")),
@@ -72,7 +86,15 @@ async def put_retention(
     return _to_model(row)
 
 
-@router.get("/export")
+@router.get(
+    "/export",
+    summary="Export workspace data (GDPR portability)",
+    description=(
+        "Streams a full JSON data bundle for the workspace (meetings, "
+        "transcripts, insights) as a file download, excluding soft-deleted "
+        "meetings. Audit-logged. Requires the admin role."
+    ),
+)
 async def export_data(
     ctx: AuthContext = Depends(require_role("admin")),
     repo: RetentionRepo = Depends(_repo),
@@ -98,16 +120,22 @@ async def export_data(
     )
 
 
-@router.post("/meetings/{meeting_id}/restore")
+@router.post(
+    "/meetings/{meeting_id}/restore",
+    summary="Restore a soft-deleted meeting",
+    description=(
+        "Undoes a retention soft-delete, un-hiding the meeting from search, "
+        "list, reports, and Ask. 404 if the meeting was never soft-deleted "
+        "or has already passed the tombstone window and been hard-deleted. "
+        "Audit-logged. Requires the admin role."
+    ),
+)
 async def restore_meeting(
     meeting_id: str,
     ctx: AuthContext = Depends(require_role("admin")),
     repo: RetentionRepo = Depends(_repo),
     db: DatabaseConnection = Depends(get_db),
 ) -> Response:
-    """Undo a retention soft-delete, un-hiding the meeting from search, list,
-    reports and Ask. 404s if the meeting was never soft-deleted or has already
-    passed the tombstone window and been hard-deleted."""
     restored = await repo.restore_meeting(meeting_id, ctx.workspace.id)
     if not restored:
         raise ApiError(

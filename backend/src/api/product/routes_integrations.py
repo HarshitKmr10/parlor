@@ -33,7 +33,17 @@ async def _repo(db: DatabaseConnection = Depends(get_db)) -> IntegrationsRepo:
     return IntegrationsRepo(db)
 
 
-@router.get("", response_model=List[Integration])
+@router.get(
+    "",
+    response_model=List[Integration],
+    summary="List outbound integrations",
+    description=(
+        "Returns one entry per known integration kind (slack, email, "
+        "notion, hubspot, salesforce), merged with any stored config. Kinds "
+        "with no stored row come back disabled with empty config. Admin-"
+        "gated because stored config carries live credentials."
+    ),
+)
 async def list_integrations(
     ctx: AuthContext = Depends(require_role("admin")),
     repo: IntegrationsRepo = Depends(_repo),
@@ -61,7 +71,17 @@ async def list_integrations(
     return out
 
 
-@router.put("", response_model=Integration)
+@router.put(
+    "",
+    response_model=Integration,
+    summary="Configure an outbound integration",
+    description=(
+        "Upserts config and enabled state for one integration kind (one row "
+        "per workspace + kind). When enabled, this integration is called on "
+        "every `meeting.completed` event to deliver a recap. Requires the "
+        "admin role."
+    ),
+)
 async def upsert_integration(
     body: IntegrationUpdate,
     ctx: AuthContext = Depends(require_role("admin")),
