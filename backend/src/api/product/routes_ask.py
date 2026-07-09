@@ -15,6 +15,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 
+from ...quota import enforce_cost_cap
 from ...usage import capture_llm_usage
 from ..database.connection import DatabaseConnection
 from . import ai_client
@@ -47,6 +48,7 @@ async def ask_workspace(
     repo: ProductMeetingsRepo = Depends(_repo),
     db: DatabaseConnection = Depends(get_db),
 ) -> AskResponse:
+    await enforce_cost_cap(db, workspace.id)
     payload = {
         "workspaceId": workspace.id,
         "meetingId": None,  # null => workspace-wide retrieval

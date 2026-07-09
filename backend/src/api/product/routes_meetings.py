@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, WebSocket, Web
 from shared.exceptions import InvalidMeetingURLError
 
 from ...analytics import compute_meeting_analytics
-from ...quota import enforce_meeting_quota
+from ...quota import enforce_cost_cap, enforce_meeting_quota
 from ...services.meeting_service import MeetingService
 from ...shared.platformDetector import PlatformDetector
 from ...usage import capture_llm_usage
@@ -801,6 +801,7 @@ async def summarize_meeting(
     repo: ProductMeetingsRepo = Depends(_repo),
     db: DatabaseConnection = Depends(get_db),
 ) -> MeetingInsights:
+    await enforce_cost_cap(db, workspace.id)
     record, scoped = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     segments = [
         s.model_dump(by_alias=True) for s in segments_from_transcript(record.transcript)
@@ -926,6 +927,7 @@ async def ask_meeting(
     repo: ProductMeetingsRepo = Depends(_repo),
     db: DatabaseConnection = Depends(get_db),
 ) -> AskResponse:
+    await enforce_cost_cap(db, workspace.id)
     record, _ = await _load_scoped_meeting(meeting_id, workspace.id, service, repo)
     # Ensure the transcript is embedded so RAG has vectors even if the user
     # never clicked "Generate summary". /embed upserts, so this is idempotent.
