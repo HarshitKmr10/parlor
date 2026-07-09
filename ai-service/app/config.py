@@ -24,6 +24,10 @@ ANTHROPIC_CHEAP_MODEL = (
 )
 OPENAI_PREMIUM_MODEL = os.environ.get("OPENAI_MODEL_PREMIUM") or "gpt-4o"
 OPENAI_CHEAP_MODEL = os.environ.get("OPENAI_MODEL_CHEAP") or "gpt-4o-mini"
+GEMINI_PREMIUM_MODEL = (
+    os.environ.get("GEMINI_MODEL_PREMIUM") or "gemini-3.1-pro-preview"
+)
+GEMINI_CHEAP_MODEL = os.environ.get("GEMINI_MODEL_CHEAP") or "gemini-3.5-flash"
 
 # Azure OpenAI routes by *deployment name*, not model id. The default chat
 # deployment maps to the user's "5.4 mini" (deployment id ``gpt-5.4-mini`` in
@@ -35,6 +39,12 @@ AZURE_OPENAI_DEFAULT_API_VERSION = "2024-02-15-preview"
 # dimension so the pgvector column width is identical across modes.
 OPENAI_EMBEDDING_MODEL = "text-embedding-3-small"
 EMBEDDING_DIM = 1536
+
+# Gemini embedding model. ``gemini-embedding-001`` is the current
+# google-genai embedding model (the older ``text-embedding-004`` has been
+# superseded); truncated to EMBEDDING_DIM via output_dimensionality so the
+# pgvector column width stays identical across providers.
+GEMINI_EMBEDDING_MODEL = "gemini-embedding-001"
 
 # Azure config resolved from the environment at import time (mirrors the other
 # provider settings). The chat deployment defaults to the "5.4 mini" deployment;
@@ -123,6 +133,7 @@ class Settings:
 
     anthropic_api_key: str | None
     openai_api_key: str | None
+    gemini_api_key: str | None
     azure_openai_endpoint: str | None
     azure_openai_api_key: str | None
     azure_openai_api_version: str
@@ -138,6 +149,8 @@ class Settings:
     anthropic_cheap_model: str = ANTHROPIC_CHEAP_MODEL
     openai_premium_model: str = OPENAI_PREMIUM_MODEL
     openai_cheap_model: str = OPENAI_CHEAP_MODEL
+    gemini_premium_model: str = GEMINI_PREMIUM_MODEL
+    gemini_cheap_model: str = GEMINI_CHEAP_MODEL
     azure_openai_cheap_deployment: str | None = AZURE_OPENAI_CHEAP_DEPLOYMENT
     openai_compatible_base_url: str | None = OPENAI_COMPATIBLE_BASE_URL
     openai_compatible_api_key: str | None = OPENAI_COMPATIBLE_API_KEY
@@ -148,6 +161,10 @@ class Settings:
         return bool(self.azure_openai_endpoint and self.azure_openai_api_key)
 
     @property
+    def gemini_configured(self) -> bool:
+        return bool(self.gemini_api_key)
+
+    @property
     def openai_compatible_configured(self) -> bool:
         return bool(self.openai_compatible_base_url)
 
@@ -156,6 +173,7 @@ class Settings:
         return bool(
             self.anthropic_api_key
             or self.openai_api_key
+            or self.gemini_api_key
             or self.azure_configured
             or self.openai_compatible_configured
         )
@@ -170,6 +188,7 @@ def load_settings() -> Settings:
 
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY") or None
     openai_key = os.environ.get("OPENAI_API_KEY") or None
+    gemini_key = os.environ.get("GEMINI_API_KEY") or None
     azure_endpoint = AZURE_OPENAI_ENDPOINT
     azure_key = AZURE_OPENAI_API_KEY
     openai_compatible_configured = bool(OPENAI_COMPATIBLE_BASE_URL)
@@ -181,7 +200,11 @@ def load_settings() -> Settings:
     requested_mode = os.environ.get("AI_MODE", "").strip().lower()
     azure_configured = bool(azure_endpoint and azure_key)
     has_key = bool(
-        anthropic_key or openai_key or azure_configured or openai_compatible_configured
+        anthropic_key
+        or openai_key
+        or gemini_key
+        or azure_configured
+        or openai_compatible_configured
     )
     if requested_mode in {"mock", "live"}:
         mode = requested_mode
@@ -209,12 +232,13 @@ def load_settings() -> Settings:
         raise ConfigError(
             "AI_PINNED_PROVIDER is required when AI_PROVIDER_MODE=pinned "
             "(set it to one of the configured provider names, e.g. "
-            "'anthropic', 'openai', 'azure', 'openai_compatible')"
+            "'anthropic', 'openai', 'gemini', 'azure', 'openai_compatible')"
         )
 
     return Settings(
         anthropic_api_key=anthropic_key,
         openai_api_key=openai_key,
+        gemini_api_key=gemini_key,
         azure_openai_endpoint=azure_endpoint,
         azure_openai_api_key=azure_key,
         azure_openai_api_version=AZURE_OPENAI_API_VERSION,
@@ -230,6 +254,8 @@ def load_settings() -> Settings:
         anthropic_cheap_model=ANTHROPIC_CHEAP_MODEL,
         openai_premium_model=OPENAI_PREMIUM_MODEL,
         openai_cheap_model=OPENAI_CHEAP_MODEL,
+        gemini_premium_model=GEMINI_PREMIUM_MODEL,
+        gemini_cheap_model=GEMINI_CHEAP_MODEL,
         azure_openai_cheap_deployment=AZURE_OPENAI_CHEAP_DEPLOYMENT,
         openai_compatible_base_url=OPENAI_COMPATIBLE_BASE_URL,
         openai_compatible_api_key=OPENAI_COMPATIBLE_API_KEY,
