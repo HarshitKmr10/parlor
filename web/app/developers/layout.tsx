@@ -12,7 +12,7 @@ export default function DevelopersLayout({ children }: { children: React.ReactNo
           <div className="mb-10 lg:mb-0">
             <DevSidebar apiBaseUrl={PUBLIC_API_BASE_URL} />
           </div>
-          <div>{children}</div>
+          <div className="max-w-2xl">{children}</div>
         </div>
       </main>
       <SiteFooter />
