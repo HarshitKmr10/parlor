@@ -55,14 +55,31 @@ def _validate_events(event_types: list[str]) -> None:
         )
 
 
-@router.get("/events", response_model=WebhookEventCatalog)
+@router.get(
+    "/events",
+    response_model=WebhookEventCatalog,
+    summary="List available webhook event types",
+    description="Returns the catalog of event types an endpoint can subscribe to (e.g. `meeting.completed`, `summary.ready`).",
+)
 async def list_events(
     _: AuthContext = Depends(get_current_context),
 ) -> WebhookEventCatalog:
     return WebhookEventCatalog(event_types=list(EVENT_TYPES))
 
 
-@router.post("", response_model=WebhookEndpoint, status_code=201)
+@router.post(
+    "",
+    response_model=WebhookEndpoint,
+    status_code=201,
+    summary="Register a webhook endpoint",
+    description=(
+        "Registers an HTTPS endpoint to receive signed event deliveries. "
+        "The URL must be `https://` and passes an SSRF guard (rejects "
+        "localhost/private/loopback/link-local addresses). An empty "
+        "`eventTypes` list (the default) subscribes to every event. The "
+        "signing secret is generated server-side and returned once here."
+    ),
+)
 async def create_endpoint(
     body: WebhookEndpointCreate,
     ctx: AuthContext = Depends(get_current_context),
@@ -81,7 +98,12 @@ async def create_endpoint(
     return WebhookEndpoint.model_validate(row)
 
 
-@router.get("", response_model=list[WebhookEndpoint])
+@router.get(
+    "",
+    response_model=list[WebhookEndpoint],
+    summary="List webhook endpoints",
+    description="Returns all webhook endpoints registered for the workspace.",
+)
 async def list_endpoints(
     ctx: AuthContext = Depends(get_current_context),
     repo: WebhooksRepo = Depends(_repo),
@@ -90,7 +112,12 @@ async def list_endpoints(
     return [WebhookEndpoint.model_validate(r) for r in rows]
 
 
-@router.get("/{endpoint_id}", response_model=WebhookEndpoint)
+@router.get(
+    "/{endpoint_id}",
+    response_model=WebhookEndpoint,
+    summary="Get a webhook endpoint",
+    description="Returns one webhook endpoint. 404 if not found in this workspace.",
+)
 async def get_endpoint(
     endpoint_id: str,
     ctx: AuthContext = Depends(get_current_context),
@@ -102,7 +129,12 @@ async def get_endpoint(
     return WebhookEndpoint.model_validate(row)
 
 
-@router.patch("/{endpoint_id}", response_model=WebhookEndpoint)
+@router.patch(
+    "/{endpoint_id}",
+    response_model=WebhookEndpoint,
+    summary="Update a webhook endpoint",
+    description="Updates a webhook endpoint's URL, description, subscribed event types, and/or enabled state. 404 if not found in this workspace.",
+)
 async def update_endpoint(
     endpoint_id: str,
     body: WebhookEndpointUpdate,
@@ -125,7 +157,12 @@ async def update_endpoint(
     return WebhookEndpoint.model_validate(row)
 
 
-@router.delete("/{endpoint_id}", status_code=204)
+@router.delete(
+    "/{endpoint_id}",
+    status_code=204,
+    summary="Delete a webhook endpoint",
+    description="Deletes a webhook endpoint. 404 if not found in this workspace.",
+)
 async def delete_endpoint(
     endpoint_id: str,
     ctx: AuthContext = Depends(get_current_context),
@@ -135,13 +172,18 @@ async def delete_endpoint(
         raise ApiError(404, "not_found", "Webhook endpoint not found")
 
 
-@router.post("/{endpoint_id}/test", response_model=WebhookDelivery, status_code=201)
+@router.post(
+    "/{endpoint_id}/test",
+    response_model=WebhookDelivery,
+    status_code=201,
+    summary="Send a test webhook delivery",
+    description="Enqueues a synthetic `webhook.test` event to this endpoint immediately, useful for verifying signature handling.",
+)
 async def send_test_event(
     endpoint_id: str,
     ctx: AuthContext = Depends(get_current_context),
     repo: WebhooksRepo = Depends(_repo),
 ) -> WebhookDelivery:
-    """Enqueue a synthetic ``webhook.test`` delivery to this endpoint."""
     ep = await repo.get_endpoint(endpoint_id, ctx.workspace.id)
     if ep is None:
         raise ApiError(404, "not_found", "Webhook endpoint not found")
@@ -162,7 +204,12 @@ async def send_test_event(
     return WebhookDelivery.model_validate(row)
 
 
-@router.get("/{endpoint_id}/deliveries", response_model=WebhookDeliveryListResponse)
+@router.get(
+    "/{endpoint_id}/deliveries",
+    response_model=WebhookDeliveryListResponse,
+    summary="List deliveries for a webhook endpoint",
+    description="Returns the delivery log (attempts, status, response codes) for one webhook endpoint.",
+)
 async def list_deliveries(
     endpoint_id: str,
     ctx: AuthContext = Depends(get_current_context),
@@ -175,7 +222,12 @@ async def list_deliveries(
     return WebhookDeliveryListResponse(items=items, total=len(items))
 
 
-@router.post("/deliveries/{delivery_id}/redeliver", status_code=202)
+@router.post(
+    "/deliveries/{delivery_id}/redeliver",
+    status_code=202,
+    summary="Redeliver a webhook delivery",
+    description="Puts a delivery back on the queue for an immediate retry, regardless of its current backoff schedule.",
+)
 async def redeliver(
     delivery_id: str,
     ctx: AuthContext = Depends(get_current_context),

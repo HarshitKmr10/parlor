@@ -79,13 +79,27 @@ async def _fetch_userinfo(config, code: str) -> dict:
         return ui.json()
 
 
-@router.get("/status", response_model=SsoStatus)
+@router.get(
+    "/status",
+    response_model=SsoStatus,
+    summary="Get SSO status",
+    description="Returns whether an OIDC identity provider is configured via env for this deployment, and its label.",
+)
 async def sso_status() -> SsoStatus:
     config = oidc_config_from_env()
     return SsoStatus(enabled=config is not None, provider=config.provider if config else None)
 
 
-@router.get("/authorize-url", response_model=SsoAuthorizeUrl)
+@router.get(
+    "/authorize-url",
+    response_model=SsoAuthorizeUrl,
+    summary="Get the SSO authorize URL",
+    description=(
+        "Builds the IdP authorization URL the browser should redirect to, "
+        "embedding a signed, 10-minute CSRF state token. 400 `sso_disabled` "
+        "if no IdP is configured."
+    ),
+)
 async def authorize_url() -> SsoAuthorizeUrl:
     config = oidc_config_from_env()
     if config is None:
@@ -94,7 +108,18 @@ async def authorize_url() -> SsoAuthorizeUrl:
     return SsoAuthorizeUrl(url=build_authorize_url(config, state))
 
 
-@router.post("/exchange", response_model=SignupResponse)
+@router.post(
+    "/exchange",
+    response_model=SignupResponse,
+    summary="Exchange an SSO auth code for a session",
+    description=(
+        "Verifies the CSRF state, exchanges the authorization code with the "
+        "IdP, and finds-or-creates the user plus a default workspace on "
+        "first login. Existing links resolve via the IdP's stable "
+        "(issuer, subject) identity, never by email. Returns the same "
+        "shape as signup/login."
+    ),
+)
 async def exchange(
     body: SsoExchangeRequest, repo: AuthRepository = Depends(get_repo)
 ) -> SignupResponse:

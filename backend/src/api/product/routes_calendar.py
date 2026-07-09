@@ -73,7 +73,12 @@ def _to_account(row: dict) -> CalendarAccount:
     )
 
 
-@router.get("/accounts", response_model=List[CalendarAccount])
+@router.get(
+    "/accounts",
+    response_model=List[CalendarAccount],
+    summary="List connected calendar accounts",
+    description="Returns the workspace's connected Google/Microsoft calendar accounts and their auto-join setting.",
+)
 async def list_accounts(
     workspace: Workspace = Depends(get_current_workspace),
     repo: CalendarRepo = Depends(_repo),
@@ -82,7 +87,17 @@ async def list_accounts(
     return [_to_account(r) for r in rows]
 
 
-@router.get("/connect/{provider}")
+@router.get(
+    "/connect/{provider}",
+    summary="Start calendar OAuth connect flow",
+    description=(
+        "Redirects (302) to the given provider's ('google' or 'microsoft') "
+        "OAuth consent screen, with the workspace + user packed into a "
+        "short-lived signed state token. 501 `calendar_provider_not_"
+        "configured` if that provider's client id/secret isn't set on this "
+        "server."
+    ),
+)
 async def connect(
     provider: str,
     ctx: AuthContext = Depends(get_current_context),
@@ -101,7 +116,16 @@ async def connect(
     return RedirectResponse(url, status_code=302)
 
 
-@router.get("/callback/{provider}")
+@router.get(
+    "/callback/{provider}",
+    summary="Calendar OAuth callback",
+    description=(
+        "Provider redirects here after consent. No auth header — trust "
+        "comes from the signed `state` param, which carries the workspace "
+        "and user id. Exchanges the code for tokens, fetches the account "
+        "email, and encrypts + upserts the connected account."
+    ),
+)
 async def callback(
     provider: str,
     code: Optional[str] = Query(None),
@@ -158,7 +182,12 @@ async def callback(
     return _to_account(row)
 
 
-@router.patch("/accounts/{account_id}", response_model=CalendarAccount)
+@router.patch(
+    "/accounts/{account_id}",
+    response_model=CalendarAccount,
+    summary="Update a calendar account",
+    description="Toggles auto-join for a connected calendar account. When on, the poller auto-dispatches a bot for its upcoming meetings.",
+)
 async def update_account(
     account_id: str,
     body: CalendarAccountUpdate,

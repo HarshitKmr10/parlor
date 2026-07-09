@@ -88,14 +88,25 @@ async def _process_event(parsed: dict[str, Any]) -> None:
         )
 
 
-@router.post("/push")
+@router.post(
+    "/push",
+    summary="Google Cloud Pub/Sub push webhook",
+    description=(
+        "Receives Google Workspace Events CloudEvents about Meet conference "
+        "lifecycle and dispatches the notetaker bot on a conference-started "
+        "event. Called by Google, not product users — authenticated via an "
+        "OIDC bearer token or shared-secret query token instead of the "
+        "normal workspace auth. Always acks fast (202) on anything it "
+        "doesn't need to reject, so Google's retries don't pile up; a "
+        "failed sender-verification check returns 401."
+    ),
+)
 async def pubsub_push(
     request: Request,
     background_tasks: BackgroundTasks,
     token: Optional[str] = None,
     authorization: Optional[str] = Header(None),
 ) -> Response:
-    """Receive a Pub/Sub push delivery. Always acks fast (202) on success."""
     # 1) If verification is configured, ENFORCE it; reject bad senders (401).
     #    If nothing is configured (no creds yet), ack-and-ignore so Google's
     #    retries don't accumulate against an un-provisioned deployment.
