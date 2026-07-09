@@ -53,7 +53,10 @@ services:
       - ./backend/db/0019_retention.sql:/docker-entrypoint-initdb.d/18_retention.sql:ro
       - ./backend/db/0021_summary_language.sql:/docker-entrypoint-initdb.d/20_summary_language.sql:ro
       - ./backend/db/0022_sso_identities.sql:/docker-entrypoint-initdb.d/21_sso_identities.sql:ro
-      - ./backend/db/0024_meeting_tombstone.sql:/docker-entrypoint-initdb.d/22_meeting_tombstone.sql:ro
+      - ./backend/db/0023_password_reset_and_invites.sql:/docker-entrypoint-initdb.d/22_password_reset_and_invites.sql:ro
+      - ./backend/db/0023_refresh_token_family.sql:/docker-entrypoint-initdb.d/23_refresh_token_family.sql:ro
+      - ./backend/db/0024_meeting_tombstone.sql:/docker-entrypoint-initdb.d/24_meeting_tombstone.sql:ro
+      - ./backend/db/0025_llm_usage_events.sql:/docker-entrypoint-initdb.d/25_llm_usage_events.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meeting} -d ${POSTGRES_DB:-meeting}"]
       interval: 3s
