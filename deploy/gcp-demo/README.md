@@ -1,10 +1,40 @@
-# Parlor ephemeral demo on GCP — deployment plan (not yet executed)
+# Parlor ephemeral demo on GCP — deployed
 
-**Status: this has not been deployed.** There is no live demo URL. This
-directory documents the exact plan a maintainer with a real GCP project,
-billing account, and credentials would follow to stand it up. Nothing here
-was run against a real GCP project — this environment has neither `gcloud`
-nor GCP credentials (verified: `gcloud` is not installed here).
+**Status: live.** This plan has been executed end to end against a real GCP
+project and verified working, including through the actual Cloud Scheduler
+trigger path (not just a manual job run):
+
+- Web: https://parlor-demo-web-316016512837.us-central1.run.app
+- Backend API: https://parlor-demo-backend-316016512837.us-central1.run.app
+- ai-service: https://parlor-demo-ai-service-316016512837.us-central1.run.app
+- Region: `us-central1`. Cloud SQL instance: `parlor-demo-db`.
+- Reset job (`parlor-demo-reset`) runs every 10 minutes via Cloud Scheduler
+  (`parlor-demo-reset-schedule`), truncating all product tables and
+  reseeding one fixed demo account (`demo@parlor.example.com` —
+  intentionally not a secret; the account is destroyed and recreated every
+  cycle) with two canned mock meetings.
+- A hard GCP budget (₹3,000/month, alerts at 50/90/100%) is set on the
+  billing account as a safety net independent of this being a low-traffic,
+  mostly-Cloud-Run-billed deployment.
+
+Two real bugs were found and fixed only by actually deploying this (not
+caught by writing the plan or by local docker-compose testing):
+1. The `DATABASE_URL` secret needs an **empty host** with the socket path in
+   `?host=/cloudsql/...` (`postgresql://user:pass@/db?host=...`) —  a
+   `localhost`-style host made asyncpg attempt a real TCP connection instead
+   of the Unix socket, and Cloud Run failed the container's health check.
+2. `reset_demo.py` posted `{"source": "desktop"}` when creating the demo
+   meetings; the actual API field is `platform`, not `source`.
+3. `roles/iam.serviceAccountTokenCreator` on the invoker service account,
+   granted to Cloud Scheduler's own service agent
+   (`service-<PROJECT_NUMBER>@gcp-sa-cloudscheduler.iam.gserviceaccount.com`)
+   — without it, Cloud Scheduler can configure the trigger but can never
+   actually mint a token to invoke the job, and fails silently with no
+   Cloud Run execution ever created.
+
+The step-by-step commands below are kept as the accurate record of what was
+actually run (not a hypothetical plan) — useful for tearing this down,
+rebuilding it in a different project, or understanding exactly what exists.
 
 ## What this is — and isn't
 
@@ -118,11 +148,15 @@ infrastructure for a tier that isn't the point of this project).
   the same "optional and inert until configured" behavior described in the
   root README's "What's included" section.
 
-## Step-by-step (not yet executed)
+## Step-by-step (as actually run)
 
-Everything below is exact enough to run, but requires a real GCP project,
-billing account, and `gcloud auth login` credentials that don't exist in
-this environment.
+This is the real sequence of commands used to stand up the live deployment
+above, kept here so it can be reproduced, torn down, or rebuilt in a
+different project. Two fixes (the DSN host format, and
+`roles/iam.serviceAccountTokenCreator` for the Scheduler service agent) are
+folded into the commands below rather than left as separate corrections —
+following this section top to bottom now reflects what actually works, not
+the original first-draft plan.
 
 ```bash
 # 0. Project setup
@@ -159,34 +193,67 @@ gcloud builds submit ./web \
   --tag "$REGION-docker.pkg.dev/$PROJECT_ID/parlor-demo/web:latest"
 
 # 4. Cloud SQL for PostgreSQL with pgvector
+# NOTE: db-g1-small alone 400s under the ENTERPRISE_PLUS default edition —
+# --edition=ENTERPRISE is required for the classic shared-core tiers.
 gcloud sql instances create parlor-demo-db \
   --database-version=POSTGRES_16 \
+  --edition=ENTERPRISE \
   --tier=db-g1-small \
   --region="$REGION" \
   --storage-size=10GB \
   --storage-auto-increase
 gcloud sql databases create parlor --instance=parlor-demo-db
 gcloud sql users create parlor_demo --instance=parlor-demo-db --password=<GENERATE_WITH_openssl_rand>
-# Enable pgvector once connected (psql via Cloud SQL Auth Proxy, then):
-#   CREATE EXTENSION IF NOT EXISTS vector;
-# Apply this repo's schema migrations from backend/db/*.sql, in the same
-# numeric order docker-compose.yml lists them, against this instance once.
+
+# Connect via the Cloud SQL Auth Proxy (installed with
+# `gcloud components install cloud-sql-proxy`; may land outside PATH — check
+# $(gcloud info --format='value(installation.sdk_root)')/bin) and, as the
+# postgres superuser (CREATE EXTENSION needs superuser, the app user
+# doesn't), run: CREATE EXTENSION IF NOT EXISTS vector; then apply this
+# repo's schema migrations from backend/db/*.sql in the exact order
+# docker-compose.yml's initdb mount list uses them, then grant the app user
+# access:
+#   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO parlor_demo;
+#   GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO parlor_demo;
+#   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO parlor_demo;
+#   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO parlor_demo;
+
+# The DATABASE_URL secret MUST use an empty host with the socket path in the
+# `host` query param -- NOT a `localhost`-style netloc, which makes asyncpg
+# attempt a real TCP connection and fails Cloud Run's health check outright:
+CONNECTION_NAME="$PROJECT_ID:$REGION:parlor-demo-db"
+DATABASE_URL="postgresql://parlor_demo:<PASSWORD>@/parlor?host=/cloudsql/${CONNECTION_NAME}"
+printf '%s' "$DATABASE_URL" | gcloud secrets create parlor-demo-database-url --data-file=-
 
 # 5. Deploy the three Cloud Run services
 gcloud run deploy parlor-demo-backend \
   --image="$REGION-docker.pkg.dev/$PROJECT_ID/parlor-demo/backend:latest" \
   --region="$REGION" --allow-unauthenticated \
-  --add-cloudsql-instances="$PROJECT_ID:$REGION:parlor-demo-db" \
+  --add-cloudsql-instances="$CONNECTION_NAME" \
   --set-env-vars="AI_MODE=mock,RUNTIME_MODE=standalone,MEETING_JOINER_DB_DRIVER=pg" \
   --set-secrets="DATABASE_URL=parlor-demo-database-url:latest"
+# The Cloud Run default compute service account needs explicit access to
+# the secret, or the deploy above fails with a "Permission denied on
+# secret" error:
+gcloud secrets add-iam-policy-binding parlor-demo-database-url \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+# Once the backend is up, wire its URL into ai-service so the two can talk:
+gcloud run services update parlor-demo-backend --region="$REGION" \
+  --update-env-vars="AI_SERVICE_URL=<ai-service URL from the deploy below>"
 
 gcloud run deploy parlor-demo-ai-service \
   --image="$REGION-docker.pkg.dev/$PROJECT_ID/parlor-demo/ai-service:latest" \
   --region="$REGION" --allow-unauthenticated \
-  --add-cloudsql-instances="$PROJECT_ID:$REGION:parlor-demo-db" \
+  --add-cloudsql-instances="$CONNECTION_NAME" \
   --set-env-vars="AI_MODE=mock" \
   --set-secrets="DATABASE_URL=parlor-demo-database-url:latest"
 
+# web needs NEXT_PUBLIC_API_URL baked in at BUILD time (it's inlined into
+# the client bundle), so build/push web only after the backend URL is known:
+docker build --build-arg NEXT_PUBLIC_API_URL="<backend URL from above>" \
+  -t "$REGION-docker.pkg.dev/$PROJECT_ID/parlor-demo/web:latest" web
+docker push "$REGION-docker.pkg.dev/$PROJECT_ID/parlor-demo/web:latest"
 gcloud run deploy parlor-demo-web \
   --image="$REGION-docker.pkg.dev/$PROJECT_ID/parlor-demo/web:latest" \
   --region="$REGION" --allow-unauthenticated \
@@ -198,17 +265,35 @@ gcloud builds submit ./deploy/gcp-demo/reset \
 gcloud run jobs create parlor-demo-reset \
   --image="$REGION-docker.pkg.dev/$PROJECT_ID/parlor-demo/reset-demo:latest" \
   --region="$REGION" \
-  --add-cloudsql-instances="$PROJECT_ID:$REGION:parlor-demo-db" \
+  --set-cloudsql-instances="$CONNECTION_NAME" \
   --set-secrets="DATABASE_URL=parlor-demo-database-url:latest" \
   --set-env-vars="BACKEND_URL=<backend service URL from step 5>"
 
 # 7. Cloud Scheduler: fire the reset job every 10 minutes
+gcloud iam service-accounts create parlor-demo-reset-invoker \
+  --display-name="Parlor demo reset job invoker (Cloud Scheduler only)"
+gcloud run jobs add-iam-policy-binding parlor-demo-reset --region="$REGION" \
+  --member="serviceAccount:parlor-demo-reset-invoker@${PROJECT_ID}.iam.gserviceaccount.com" \
+  --role="roles/run.invoker"
+# Cloud Scheduler's OWN service agent also needs permission to mint a token
+# AS the invoker account -- without this, the schedule looks correctly
+# configured but silently never produces a single Cloud Run execution:
+gcloud iam service-accounts add-iam-policy-binding \
+  parlor-demo-reset-invoker@${PROJECT_ID}.iam.gserviceaccount.com \
+  --member="serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-cloudscheduler.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountTokenCreator"
 gcloud scheduler jobs create http parlor-demo-reset-schedule \
   --location="$REGION" \
   --schedule="*/10 * * * *" \
-  --uri="https://$REGION-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/$PROJECT_ID/jobs/parlor-demo-reset:run" \
+  --uri="https://${REGION}-run.googleapis.com/v2/projects/${PROJECT_ID}/locations/${REGION}/jobs/parlor-demo-reset:run" \
   --http-method=POST \
-  --oauth-service-account-email="<a dedicated service account with roles/run.invoker only>"
+  --oauth-service-account-email="parlor-demo-reset-invoker@${PROJECT_ID}.iam.gserviceaccount.com"
+
+# Recommended: a hard budget so spend is capped regardless of credits/plan.
+gcloud billing budgets create --billing-account=<YOUR_BILLING_ACCOUNT_ID> \
+  --display-name="Parlor demo — hard cap" --budget-amount=35USD \
+  --threshold-rule=percent=0.5 --threshold-rule=percent=0.9 --threshold-rule=percent=1.0 \
+  --filter-projects="projects/$PROJECT_ID"
 
 # 8. Optional: custom domain
 gcloud run domain-mappings create --service=parlor-demo-web \
