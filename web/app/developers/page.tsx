@@ -27,10 +27,14 @@ curl -s -X POST $API/api/v1/webhooks \\
   -H 'Content-Type: application/json' \\
   -d '{"url":"https://you.example.com/hooks","eventTypes":["summary.ready"]}'
 
-# 5. Botless native capture — ingest a Zoom/Teams/WebVTT transcript (no bot)
-curl -s -X POST $API/api/v1/meetings/$MEETING_ID/capture/vtt \\
+# 5. Botless capture — create a bot-free meeting, then stream a transcript
+curl -s -X POST $API/api/v1/meetings/botless \\
   -H "Authorization: Bearer $TOKEN" -H "X-Workspace-Id: $WORKSPACE_ID" \\
-  -H 'Content-Type: text/plain' --data-binary @captions.vtt`;
+  -H 'Content-Type: application/json' -d '{"title":"Standup","source":"desktop"}'
+curl -s -X POST $API/api/v1/meetings/$MEETING_ID/transcript \\
+  -H "Authorization: Bearer $TOKEN" -H "X-Workspace-Id: $WORKSPACE_ID" \\
+  -H 'Content-Type: application/json' \\
+  -d '{"segments":[{"id":"...","speakerName":"You","text":"Hi","tStartSec":0,"tEndSec":2,"createdAt":"2026-01-01T00:00:00Z"}]}'`;
 
 function CardLink({
   href,
@@ -54,13 +58,46 @@ function CardLink({
   );
 }
 
+const GUIDES = [
+  {
+    href: "/developers/guides/quickstart",
+    title: "Quickstart",
+    desc: "Sign up, create a meeting, and read a summary in 4 requests.",
+  },
+  {
+    href: "/developers/guides/botless-capture",
+    title: "Botless capture",
+    desc: "Stream a transcript straight to Parlor — no bot ever joins a call.",
+  },
+  {
+    href: "/developers/guides/mock-mode-and-ask",
+    title: "Mock mode & Ask",
+    desc: "Zero-API-key AI, and cross-meeting RAG search with citations.",
+  },
+  {
+    href: "/developers/guides/webhooks",
+    title: "Webhooks",
+    desc: "HMAC-signed event delivery with retries — meeting.completed and more.",
+  },
+  {
+    href: "/developers/guides/export",
+    title: "Exporting meetings",
+    desc: "Pull a meeting out as Markdown — Obsidian- and Notion-ready.",
+  },
+  {
+    href: "/developers/guides/rate-limits-and-quotas",
+    title: "Rate limits & quotas",
+    desc: "Per-principal request limits, and this hosted instance's usage cap.",
+  },
+];
+
 export default function DevelopersPage() {
   const docsUrl = `${PUBLIC_API_BASE_URL}/docs`;
   const openapiUrl = `${PUBLIC_API_BASE_URL}/openapi.json`;
   const redocUrl = `${PUBLIC_API_BASE_URL}/redoc`;
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div>
       <header className="mb-6">
         <p className="eyebrow mb-1.5">Platform</p>
         <h1 className="font-display text-2xl text-ink">Developers</h1>
@@ -74,6 +111,22 @@ export default function DevelopersPage() {
         <CardLink href={docsUrl} title="API reference" desc="Interactive Swagger UI for every endpoint." />
         <CardLink href={redocUrl} title="ReDoc" desc="A clean, readable reference view." />
         <CardLink href={openapiUrl} title="OpenAPI spec" desc="Generate a typed SDK from openapi.json." />
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-3 font-display text-lg text-ink">Guides</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {GUIDES.map((g) => (
+            <a
+              key={g.href}
+              href={g.href}
+              className="block rounded-lg border border-border-subtle bg-surface-0 p-4 shadow-soft-sm transition-colors hover:border-border-strong"
+            >
+              <p className="font-display text-base text-ink">{g.title}</p>
+              <p className="mt-1 text-sm text-ink-muted">{g.desc}</p>
+            </a>
+          ))}
+        </div>
       </section>
 
       <section className="mb-8">

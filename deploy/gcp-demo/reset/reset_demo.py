@@ -113,7 +113,7 @@ def reseed_demo_content(backend_url: str) -> None:
     for demo_meeting in canned_meetings:
         r = httpx.post(
             f"{base}/api/v1/meetings/botless",
-            json={"title": demo_meeting["title"], "platform": "desktop"},
+            json={"title": demo_meeting["title"], "source": "desktop"},
             headers=headers,
             timeout=30,
         )
