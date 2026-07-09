@@ -79,6 +79,18 @@ and no keys anywhere in `.env`.
   <img src="docs/screenshots/ask.png" alt="Ask Parlor — cross-meeting Q&amp;A with citations" width="70%">
 </p>
 
+### See it in action
+
+<p align="center">
+  <img src="docs/demo/product-walkthrough.gif" alt="Real walkthrough: login, an AI-generated meeting summary, and a cross-meeting Ask answer with citations" width="820">
+</p>
+
+A real recorded session — sign in, open a meeting's AI summary, then ask a
+cross-meeting question and get back a cited answer, timestamps included.
+[MP4 version](docs/demo/product-walkthrough.mp4) if you want to see it at
+full quality. Recorded straight off the actual product with
+`scripts/record-demo.mjs` — not a mockup.
+
 `make up` (instead of `make up-api`) additionally brings up the real
 Playwright/Chromium bot-join worker in its own container, mirroring
 production — see [Make targets](#make-targets) below. The first build of that

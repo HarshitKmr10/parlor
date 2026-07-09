@@ -107,6 +107,21 @@ export default function DevelopersPage() {
         </p>
       </header>
 
+      <section className="mb-8">
+        {/* eslint-disable-next-line @next/next/no-img-element -- animated GIF, next/image optimization doesn't preserve animation */}
+        <img
+          src="/demo/product-walkthrough.gif"
+          alt="Real walkthrough: signing in, an AI-generated meeting summary, and a cross-meeting Ask answer with citations"
+          width={960}
+          height={600}
+          className="w-full rounded-lg border border-border-subtle shadow-soft-sm"
+        />
+        <p className="mt-2 text-xs text-ink-faint">
+          A real recorded session against the live product, not a mockup —
+          login, an AI summary, and a cited cross-meeting Ask answer.
+        </p>
+      </section>
+
       <section className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <CardLink href={docsUrl} title="API reference" desc="Interactive Swagger UI for every endpoint." />
         <CardLink href={redocUrl} title="ReDoc" desc="A clean, readable reference view." />
