@@ -15,6 +15,8 @@ anything). It caps total accumulated workspace storage/DB cost over time.
 from __future__ import annotations
 
 from .config import HostedQuotaConfig, get_hosted_quota_config
+from .cost_config import HostedCostCapConfig, get_hosted_cost_cap_config
+from .cost_guard import enforce_cost_cap
 from .guard import enforce_meeting_quota
 from .repo import count_workspace_meetings
 
@@ -23,4 +25,7 @@ __all__ = [
     "get_hosted_quota_config",
     "enforce_meeting_quota",
     "count_workspace_meetings",
+    "HostedCostCapConfig",
+    "get_hosted_cost_cap_config",
+    "enforce_cost_cap",
 ]
