@@ -16,7 +16,16 @@ from .schemas import LlmUsageBreakdown, LlmUsageDailyPoint, UsageSummary
 router = APIRouter(prefix="/api/v1", tags=["usage"])
 
 
-@router.get("/usage", response_model=UsageSummary)
+@router.get(
+    "/usage",
+    response_model=UsageSummary,
+    summary="Get workspace usage summary",
+    description=(
+        "Returns meeting/minute counts and LLM token usage and estimated cost "
+        "for the current workspace, including a per-provider/model breakdown "
+        "and a daily trend. Requires the admin role."
+    ),
+)
 async def get_usage(
     ctx: AuthContext = Depends(require_role("admin")),
     db: DatabaseConnection = Depends(get_db),

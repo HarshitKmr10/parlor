@@ -35,7 +35,15 @@ def _to_model(row: dict) -> NlpSettings:
     )
 
 
-@router.get("", response_model=NlpSettings)
+@router.get(
+    "",
+    response_model=NlpSettings,
+    summary="Get NLP/redaction settings",
+    description=(
+        "Returns the workspace's PII redaction configuration (emails/phones/"
+        "cards), custom vocabulary, and summary language."
+    ),
+)
 async def get_settings(
     ctx: AuthContext = Depends(get_current_context),
     repo: NlpSettingsRepo = Depends(_repo),
@@ -43,7 +51,17 @@ async def get_settings(
     return _to_model(await repo.get(ctx.workspace.id))
 
 
-@router.put("", response_model=NlpSettings)
+@router.put(
+    "",
+    response_model=NlpSettings,
+    summary="Update NLP/redaction settings",
+    description=(
+        "Updates PII redaction toggles, custom vocabulary, and summary "
+        "language for the workspace. Redaction is applied before transcripts "
+        "reach the AI service, embeddings, and public share pages. Requires "
+        "the admin role."
+    ),
+)
 async def put_settings(
     body: NlpSettingsUpdate,
     ctx: AuthContext = Depends(require_role("admin")),

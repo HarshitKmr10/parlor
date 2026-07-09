@@ -29,7 +29,17 @@ async def _repo(db: DatabaseConnection = Depends(get_db)) -> SearchRepo:
     return SearchRepo(db)
 
 
-@router.get("/search", response_model=SearchResponse)
+@router.get(
+    "/search",
+    response_model=SearchResponse,
+    summary="Search meetings by keyword",
+    description=(
+        "Deterministic keyword search over meeting titles, transcripts, and "
+        "summaries within the workspace, returning ranked meetings with "
+        "highlighted snippets. Complements the semantic RAG `/ask` "
+        "endpoint — use search to find meetings, ask to reason over one."
+    ),
+)
 async def search_meetings(
     q: str = Query(..., min_length=_MIN_QUERY_LEN, max_length=200),
     limit: int = Query(20, ge=1, le=100),

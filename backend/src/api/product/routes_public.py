@@ -31,7 +31,18 @@ router = APIRouter(prefix="/api/v1/public", tags=["public"])
 _NOT_FOUND = ApiError(404, "not_found", "This share link is invalid or has expired")
 
 
-@router.get("/shares/{token}", response_model=PublicMeetingView)
+@router.get(
+    "/shares/{token}",
+    response_model=PublicMeetingView,
+    summary="Get a public shared meeting recap",
+    description=(
+        "Unauthenticated read-only lookup by capability token. Returns 404 "
+        "(never 401/403) for unknown, revoked, or expired tokens so a "
+        "meeting's existence can't be probed. Transcript, highlights, and "
+        "analytics sections are included only if the share's scope flags "
+        "allow them."
+    ),
+)
 async def get_public_share(
     token: str,
     db: DatabaseConnection = Depends(get_db),

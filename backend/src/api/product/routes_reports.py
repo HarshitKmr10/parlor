@@ -33,7 +33,17 @@ async def _repo(db: DatabaseConnection = Depends(get_db)) -> ReportsRepo:
     return ReportsRepo(db)
 
 
-@router.get("/digest", response_model=DigestReport)
+@router.get(
+    "/digest",
+    response_model=DigestReport,
+    summary="Get workspace activity digest",
+    description=(
+        "Returns an activity rollup for the given date range (default: "
+        "trailing 7 days) — meeting count, talk time, busiest day, "
+        "action-item open/done totals per assignee, and the meeting list. "
+        "Read-only aggregation; no LLM or external calls."
+    ),
+)
 async def get_digest(
     from_: Optional[str] = Query(None, alias="from"),
     to: Optional[str] = Query(None),

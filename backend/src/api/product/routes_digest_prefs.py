@@ -42,7 +42,15 @@ def _to_model(row: dict) -> DigestPreferences:
     )
 
 
-@router.get("", response_model=DigestPreferences)
+@router.get(
+    "",
+    response_model=DigestPreferences,
+    summary="Get digest delivery preferences",
+    description=(
+        "Returns the workspace's automatic digest schedule and delivery "
+        "channel (email or Slack), if configured."
+    ),
+)
 async def get_preferences(
     ctx: AuthContext = Depends(get_current_context),
     repo: DigestPrefsRepo = Depends(_repo),
@@ -51,7 +59,16 @@ async def get_preferences(
     return _to_model(row) if row else DigestPreferences()
 
 
-@router.put("", response_model=DigestPreferences)
+@router.put(
+    "",
+    response_model=DigestPreferences,
+    summary="Update digest delivery preferences",
+    description=(
+        "Enables/disables and configures the automatic daily/weekly digest "
+        "(frequency, send hour, channel, target). Read by the background "
+        "digest scheduler."
+    ),
+)
 async def put_preferences(
     body: DigestPreferencesUpdate,
     ctx: AuthContext = Depends(get_current_context),
@@ -69,7 +86,16 @@ async def put_preferences(
     return _to_model(row)
 
 
-@router.post("/test", status_code=200)
+@router.post(
+    "/test",
+    status_code=200,
+    summary="Send a test digest now",
+    description=(
+        "Builds a digest from current data and emits it immediately to the "
+        "configured target, bypassing the scheduler. Requires a delivery "
+        "target to already be configured (400 `no_target` otherwise)."
+    ),
+)
 async def send_test(
     ctx: AuthContext = Depends(get_current_context),
     repo: DigestPrefsRepo = Depends(_repo),

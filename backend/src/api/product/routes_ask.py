@@ -31,7 +31,16 @@ async def _repo(db: DatabaseConnection = Depends(get_db)) -> ProductMeetingsRepo
     return ProductMeetingsRepo(db)
 
 
-@router.post("/ask", response_model=AskResponse)
+@router.post(
+    "/ask",
+    response_model=AskResponse,
+    summary="Ask a question across the whole workspace",
+    description=(
+        "Runs RAG retrieval over the entire workspace transcript corpus (not "
+        "just one meeting) via the ai-service /chat endpoint and resolves "
+        "each citation back to its source meeting title."
+    ),
+)
 async def ask_workspace(
     body: AskRequest,
     workspace: Workspace = Depends(get_current_workspace),

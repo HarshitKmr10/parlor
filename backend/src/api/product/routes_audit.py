@@ -32,7 +32,15 @@ def _meta(raw):
     return raw or {}
 
 
-@router.get("", response_model=AuditEventListResponse)
+@router.get(
+    "",
+    response_model=AuditEventListResponse,
+    summary="List audit events",
+    description=(
+        "Returns the workspace's most recent sensitive actions (e.g. "
+        "retention changes, member/role changes, exports) for security review."
+    ),
+)
 async def list_audit_events(
     limit: int = Query(100, ge=1, le=500),
     ctx: AuthContext = Depends(get_current_context),

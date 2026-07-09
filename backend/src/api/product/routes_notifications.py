@@ -44,7 +44,16 @@ def _to_model(row: dict) -> Notification:
     )
 
 
-@router.get("", response_model=NotificationListResponse)
+@router.get(
+    "",
+    response_model=NotificationListResponse,
+    summary="List notifications",
+    description=(
+        "Returns the current user's notification feed within the workspace "
+        "(scoped to workspace + user, so one member never sees another's "
+        "feed), plus the unread count. Optionally filter to unread only."
+    ),
+)
 async def list_notifications(
     unread_only: bool = Query(False, alias="unreadOnly"),
     limit: int = Query(50, ge=1, le=200),
@@ -64,7 +73,12 @@ async def list_notifications(
     )
 
 
-@router.post("/{notification_id}/read", status_code=204)
+@router.post(
+    "/{notification_id}/read",
+    status_code=204,
+    summary="Mark a notification as read",
+    description="Marks a single notification read for the current user. 404 if it doesn't belong to them.",
+)
 async def mark_read(
     notification_id: str,
     ctx: AuthContext = Depends(get_current_context),
@@ -80,7 +94,12 @@ async def mark_read(
         raise ApiError(404, "not_found", "Notification not found")
 
 
-@router.post("/read-all", status_code=204)
+@router.post(
+    "/read-all",
+    status_code=204,
+    summary="Mark all notifications as read",
+    description="Marks every unread notification for the current user, in this workspace, as read.",
+)
 async def mark_all_read(
     ctx: AuthContext = Depends(get_current_context),
     repo: NotificationsRepo = Depends(_repo),
