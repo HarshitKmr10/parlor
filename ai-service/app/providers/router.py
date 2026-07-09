@@ -24,6 +24,7 @@ from ..config import REQUEST_TIME_BUDGET, ConfigError, Settings
 from .anthropic_provider import AnthropicProvider
 from .azure_openai_provider import AzureOpenAIProvider
 from .base import LLMProvider, ProviderError, TokenUsage
+from .gemini_provider import GeminiProvider
 from .mock_provider import MockProvider
 from .openai_compatible_provider import OpenAICompatibleProvider
 from .openai_provider import OpenAIProvider
@@ -71,6 +72,13 @@ class ProviderRouter:
                     cheap_model=settings.openai_cheap_model,
                 )
                 if settings.openai_api_key
+                else None,
+                "gemini": lambda: GeminiProvider(
+                    settings.gemini_api_key,
+                    premium_model=settings.gemini_premium_model,
+                    cheap_model=settings.gemini_cheap_model,
+                )
+                if settings.gemini_configured
                 else None,
                 "openai_compatible": lambda: OpenAICompatibleProvider(
                     base_url=settings.openai_compatible_base_url,
