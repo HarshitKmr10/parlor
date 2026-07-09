@@ -32,6 +32,17 @@ export default function MockModeAndAskGuide() {
         </SourceNote>
       </GuideSection>
 
+      <GuideSection title="A note on this hosted instance specifically">
+        <p className="text-sm leading-relaxed text-ink-muted">
+          This particular hosted instance runs with a live AI provider
+          configured, not mock mode — responses here won&apos;t have the{" "}
+          <code className="rounded bg-surface-2 px-1">[mock]</code> prefix. The
+          response shape is identical either way, so nothing below changes
+          based on that. If you self-host without configuring a provider key,
+          you get mock mode by default, as described above.
+        </p>
+      </GuideSection>
+
       <GuideSection title="Summarize a meeting">
         <CodeTabs
           curl={`curl -s -X POST $API/api/v1/meetings/$MEETING_ID/summarize \\
