@@ -76,8 +76,8 @@ history before relying on either:
 ## Not planned
 
 - **A persistent hosted or managed edition of Parlor.** Self-hosting is the
-  point of this project. See the README's "What's different from FuturePath
-  AI's other products?" section.
+  point of this project. See the README's "Scope: what Parlor is and isn't"
+  section.
 - **Billing/payments/pricing of any kind in this repository** — deliberately
   removed from the codebase this was extracted from and out of scope for
   reintroduction here.

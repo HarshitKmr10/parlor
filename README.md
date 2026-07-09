@@ -32,13 +32,6 @@ changes.
 > there's no formal SLA or paid support tier attached to this repository.
 > See [`SECURITY.md`](./SECURITY.md) for how to report a vulnerability and
 > [`CONTRIBUTING.md`](./CONTRIBUTING.md) for how pull requests get reviewed.
->
-> Parlor is built and open-sourced by [FuturePath AI](https://github.com/FuturePathAI),
-> which also builds a separate, closed-source product for enterprises. That
-> product is not part of this repository, shares no code with it beyond what
-> you see here, and nothing in Parlor requires it — see
-> ["What's different from FuturePath AI's other products?"](#whats-different-from-futurepath-ais-other-products)
-> below.
 
 <p align="center">
   <img src="docs/screenshots/landing.png" alt="Parlor landing page" width="820">
@@ -187,13 +180,7 @@ worse outcome than being upfront about what's here. There is no billing or
 payment concept anywhere in this repository — it was deliberately removed
 for the open-source release.
 
-## What's different from FuturePath AI's other products?
-
-> **A note on scope, not marketing:** FuturePath AI, the team behind Parlor,
-> also builds a separate, closed-source product for enterprises. The section
-> below is intentionally conservative about what it says regarding that
-> product — treat it as a placeholder for a maintainer to refine, not as
-> settled positioning copy.
+## Scope: what Parlor is and isn't
 
 - **Parlor is fully open-source.** There's no "open core" split — everything
   in this repository, including bot-join capture, RAG chat, and webhooks, is
@@ -209,9 +196,9 @@ for the open-source release.
 - **Parlor's scope stops at the meeting layer.** It captures, transcribes,
   summarizes, and lets you chat with your own meetings (per-meeting and
   across your workspace), and exposes that over webhooks and an MCP server.
-  It does not include FuturePath AI's other, separately built and
-  closed-source product line — that product is not part of this repository
-  and this README intentionally does not describe it further.
+  It does not include any other, separately built and closed-source product
+  line — nothing outside this repository is part of Parlor, and this README
+  intentionally does not describe anything beyond it.
 
 ## Built with
 
