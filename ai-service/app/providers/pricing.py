@@ -41,6 +41,15 @@ _PRICE_PER_MILLION_TOKENS: dict[str, tuple[float, float]] = {
     "gpt-4o-mini": (0.15, 0.60),
     "text-embedding-3-small": (0.02, 0.0),
     "text-embedding-3-large": (0.13, 0.0),
+    # Gemini -- https://ai.google.dev/gemini-api/docs/pricing (checked 2026-07-09).
+    # Standard tier, prompts <=200k tokens; Gemini 3.1 Pro doubles to
+    # (4.00, 18.00) above that threshold, which this flat per-model table
+    # can't represent -- same acknowledged limitation as Azure deployment
+    # aliases above, not worth a request-shape-aware table for a rough
+    # estimate.
+    "gemini-3.1-pro-preview": (2.00, 12.00),
+    "gemini-3.5-flash": (1.50, 9.00),
+    "gemini-embedding-001": (0.15, 0.0),
 }
 
 
