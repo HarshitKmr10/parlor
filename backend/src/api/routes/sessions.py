@@ -76,6 +76,13 @@ async def _get_meeting_service() -> MeetingService:
     response_model=SessionEndedResponse,
     status_code=200,
     dependencies=[Depends(_verify_sidecar_token)],
+    include_in_schema=False,
+    summary="Sidecar session-ended callback",
+    description=(
+        "Internal callback used by the meeting-worker sidecar when the bot "
+        "subprocess exits. Authenticated via the `X-Sidecar-Token` shared "
+        "secret, not product auth — not part of the public API surface."
+    ),
 )
 async def session_ended(
     body: SessionEndedRequest,
