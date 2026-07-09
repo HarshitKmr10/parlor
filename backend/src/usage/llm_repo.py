@@ -85,6 +85,23 @@ class LlmUsageRepo:
             "call_count": int(row.get("call_count") or 0),
         }
 
+    async def get_global_total(self) -> Dict[str, Any]:
+        rows = await self._db.store.query_raw(
+            """
+            SELECT
+              COALESCE(SUM(total_tokens), 0) AS total_tokens,
+              COALESCE(SUM(estimated_cost_usd), 0) AS estimated_cost_usd,
+              COUNT(*) AS call_count
+            FROM llm_usage_events
+            """
+        )
+        row = rows[0] if rows else {}
+        return {
+            "total_tokens": int(row.get("total_tokens") or 0),
+            "estimated_cost_usd": float(row.get("estimated_cost_usd") or 0),
+            "call_count": int(row.get("call_count") or 0),
+        }
+
     async def get_breakdown_by_provider_model(
         self, workspace_id: str
     ) -> List[Dict[str, Any]]:
