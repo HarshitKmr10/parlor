@@ -548,12 +548,22 @@ async def lifespan(app: FastAPI):
 _DEV_RUNTIME_MODES = {"standalone", "compose"}
 _is_production_runtime = settings.RUNTIME_MODE not in _DEV_RUNTIME_MODES
 
+# API docs (Swagger / ReDoc / OpenAPI) default OFF in production runtimes and
+# ON in dev runtimes. An explicit ENABLE_API_DOCS env overrides either way —
+# the hosted demo runs `standalone` (a dev runtime) yet sets
+# ENABLE_API_DOCS=false to keep its public surface schema-free.
+_docs_override = os.getenv("ENABLE_API_DOCS")
+if _docs_override is not None:
+    _docs_enabled = _docs_override.strip().lower() not in ("0", "false", "no", "")
+else:
+    _docs_enabled = not _is_production_runtime
+
 # Create FastAPI app
 app = FastAPI(
     title="Parlor API",
-    docs_url=None if _is_production_runtime else "/docs",
-    redoc_url=None if _is_production_runtime else "/redoc",
-    openapi_url=None if _is_production_runtime else "/openapi.json",
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
     description=(
         "The Parlor meeting-intelligence API. Capture meetings, then read "
         "transcripts, summaries, analytics, highlights, action items, and ask "
