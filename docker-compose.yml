@@ -89,6 +89,9 @@ services:
       AZURE_OPENAI_API_VERSION: ${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}
       AZURE_OPENAI_DEPLOYMENT: ${AZURE_OPENAI_DEPLOYMENT:-gpt-5.4-mini}
       AZURE_OPENAI_EMBEDDING_DEPLOYMENT: ${AZURE_OPENAI_EMBEDDING_DEPLOYMENT:-}
+      # Shared secret the backend must present on every ai-service call.
+      # Dev-only default here; override in a real deployment.
+      AI_SERVICE_INTERNAL_TOKEN: ${AI_SERVICE_INTERNAL_TOKEN:-dev-insecure-change-me}
       AI_SERVICE_PORT: "8100"
       # Same shared DB, via service-name DNS + internal port.
       DATABASE_URL: postgresql://${POSTGRES_USER:-meeting}:${POSTGRES_PASSWORD:-meeting}@postgres:5432/${POSTGRES_DB:-meeting}
@@ -128,6 +131,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-insecure-change-me}
       # Reach the ai-service over Docker DNS, internal port.
       AI_SERVICE_URL: http://ai-service:8100
+      # Must match ai-service's AI_SERVICE_INTERNAL_TOKEN above.
+      AI_SERVICE_INTERNAL_TOKEN: ${AI_SERVICE_INTERNAL_TOKEN:-dev-insecure-change-me}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3001}
       ALLOWED_HOSTS: "*"
       # Minimal bot config so the secret validator's hard requirements collapse

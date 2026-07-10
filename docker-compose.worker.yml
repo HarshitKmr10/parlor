@@ -34,6 +34,12 @@ services:
       # Shared secret the worker uses to authenticate its /internal/sessions/ended
       # callback to this API. Optional in dev; accepted-all when unset.
       SIDECAR_CALLBACK_TOKEN: ${SIDECAR_CALLBACK_TOKEN:-}
+      # Shared secret THIS API sends to the worker's sidecar /configure and
+      # /abort control endpoints. Unlike SIDECAR_CALLBACK_TOKEN this fails
+      # CLOSED when unset — the sidecar rejects every /configure and /abort
+      # call unless both sides agree on a token — so a dev fallback is
+      # provided here to keep `make up` working out of the box.
+      SIDECAR_CONFIGURE_TOKEN: ${SIDECAR_CONFIGURE_TOKEN:-dev-insecure-sidecar-configure-token}
     depends_on:
       postgres:
         condition: service_healthy
@@ -84,6 +90,10 @@ services:
       # Reach the backend API to report /internal/sessions/ended on bot exit.
       MEETING_JOINER_API_URL: ${MEETING_JOINER_API_URL:-http://backend:8000}
       SIDECAR_CALLBACK_TOKEN: ${SIDECAR_CALLBACK_TOKEN:-}
+
+      # Must match the backend's SIDECAR_CONFIGURE_TOKEN above — the sidecar
+      # fails closed (401) on /configure and /abort when this is unset.
+      SIDECAR_CONFIGURE_TOKEN: ${SIDECAR_CONFIGURE_TOKEN:-dev-insecure-sidecar-configure-token}
 
       # Bot tree lives at /app/src/... in this standalone layout (not the
       # monorepo /app/meeting-joiner/... default the sidecar assumes).
