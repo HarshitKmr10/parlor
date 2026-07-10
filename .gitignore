@@ -61,3 +61,6 @@ coverage.xml
 htmlcov/
 .tox/
 *.egg-info/
+
+# CLAUDE.md is local-only agent/deploy guidance — do not commit.
+CLAUDE.md
