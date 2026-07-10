@@ -70,9 +70,6 @@ google-auth = "^2.30"
 # Prometheus client for sidecar /metrics endpoint
 prometheus-client = "^0.20.0"
 
-# Core dependency (like AI service)
-core = { path = "../core", develop = true }
-
 # Security: Explicit version constraints for vulnerability fixes
 aiohttp = "^3.13.4"
 urllib3 = "^2.7.0"
@@ -87,22 +84,33 @@ pyasn1 = ">=0.6.3"
 pypdf = ">=6.7.3"
 pillow = ">=12.1.1"
 click = ">=8.3.3"
-# pyarrow: the fix (>=23.0.1) is blocked by the `core` path dependency's own
-# pyproject.toml pinning pyarrow to ^19.0.1 (Poetry has no per-transitive
-# override like pnpm/npm overrides) — bumping `core`'s pin is out of scope
-# for this repo (core lives in a separate, non-OSS monorepo). Deferred; see
-# Dependabot alert for tracking until core's pin moves.
 idna = ">=3.15"
 requests = ">=2.33.0"
 pygments = ">=2.20.0"
+# pyarrow/beautifulsoup4/weasyprint were only ever pulled in transitively via
+# the (now-removed) `core` path dependency's own pyproject.toml pins — nothing
+# in backend/src imports pyarrow, weasyprint, or bs4/BeautifulSoup directly.
+# Pinned explicitly here (belt-and-suspenders) in case a future direct
+# dependency reintroduces them transitively at an older, vulnerable version.
+pyarrow = ">=23.0.1"
+weasyprint = ">=69.0"
+beautifulsoup4 = ">=4.14.3"
+soupsieve = ">=2.8.4"
+
+# Redis client (opt-in RATE_LIMIT_STORE=redis rate-limit backend, for
+# multi-replica deployments — see src/ratelimit/factory.py). redis-py 5.x
+# ships redis.asyncio built in — no separate aioredis package (deprecated,
+# merged into redis-py).
+redis = "^5.0.0"
 
 [tool.poetry.group.dev.dependencies]
 # Development and testing
-## pytest: the alert's fix (>=9.0.3) is unreachable while `core`'s own
-## pytest-asyncio==^0.23.7 pin caps pytest at <9 (pytest-asyncio 0.23.x
-## requires pytest>=7,<9) — same out-of-repo blocker as pyarrow above.
-pytest = "^7.4.3"
-pytest-asyncio = "^0.23.7"
+# pytest: previously capped at ^7.4.3 by the (now-removed) `core` path
+# dependency's own pytest-asyncio==^0.23.7 pin (0.23.x requires pytest<9).
+# With `core` gone, bumped straight to the fixed line for the tmpdir
+# handling CVE; pytest-asyncio bumped alongside for pytest 9 compatibility.
+pytest = "^9.0.3"
+pytest-asyncio = "^1.4.0"
 black = "^26.3.1"
 isort = "^5.12.0"
 flake8 = "^6.1.0"
