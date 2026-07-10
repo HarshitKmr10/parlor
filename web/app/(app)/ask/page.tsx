@@ -80,7 +80,7 @@ export default async function AskPage() {
                   >
                     <MeetingsIcon className="h-4 w-4" />
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink group-hover:text-sage-700">
+                  <span className="min-w-0 flex-1 truncate font-display text-lg font-medium text-ink group-hover:text-sage-700">
                     {meeting.title}
                   </span>
                 </span>

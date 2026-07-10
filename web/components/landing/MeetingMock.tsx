@@ -51,7 +51,7 @@ export function MeetingMock() {
           <span className="font-mono text-xs text-ink-muted">parlor.live</span>
           <span className="flex items-center gap-1.5 rounded-full bg-error-bg px-2.5 py-1">
             <span className="h-1.5 w-1.5 rounded-full bg-error" />
-            <span className="font-mono text-[0.6875rem] font-medium tracking-wide text-error">REC</span>
+            <span className="font-mono text-xs font-medium tracking-wide text-error">REC</span>
           </span>
         </div>
 
@@ -68,7 +68,7 @@ export function MeetingMock() {
               >
                 <span className="font-mono text-sm font-medium text-sage-700">{speaker.initials}</span>
               </div>
-              <span className="max-w-full truncate text-[0.6875rem] text-ink-muted">
+              <span className="max-w-full truncate text-xs text-ink-muted">
                 {speaker.name.split(" ")[0]}
               </span>
             </div>
@@ -81,7 +81,7 @@ export function MeetingMock() {
         <div className="space-y-3.5 px-5 pb-3">
           <div className="flex items-center gap-2">
             <WaveBars />
-            <span className="font-mono text-[0.6875rem] uppercase tracking-wider text-ink-faint">
+            <span className="font-mono text-xs uppercase tracking-wider text-ink-faint">
               Live transcript
             </span>
           </div>
@@ -97,7 +97,7 @@ export function MeetingMock() {
 
         {/* Action-item footer */}
         <div className="mt-1 border-t border-border-subtle bg-surface-1 px-5 py-4">
-          <p className="mb-2 font-mono text-[0.6875rem] uppercase tracking-wider text-ink-faint">
+          <p className="mb-2 font-mono text-xs uppercase tracking-wider text-ink-faint">
             Captured action items
           </p>
           <ul className="space-y-1.5">

@@ -50,8 +50,8 @@ export default async function UsagePage() {
         <BackendDownState resource="usage" />
       ) : (
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Stat label="Meetings" value={String(usage.meetingCount)} />
-          <Stat label="Completed" value={String(usage.completedCount)} />
+          <Stat label="Meetings" value={String(usage.meetingCount)} hint="total" />
+          <Stat label="Completed" value={String(usage.completedCount)} hint="finished" />
           <Stat label="Minutes" value={String(Math.round(usage.totalMinutes))} hint="captured" />
         </section>
       )}

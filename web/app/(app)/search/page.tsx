@@ -71,7 +71,7 @@ export default async function SearchPage({
                   className="block rounded-lg border border-border-subtle bg-surface-0 p-4 shadow-soft-sm transition-colors hover:border-border-strong"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <h2 className="font-display text-base text-ink">
+                    <h2 className="font-display text-lg text-ink">
                       {item.title ?? "Untitled meeting"}
                     </h2>
                     <span className="shrink-0 text-xs text-ink-faint">

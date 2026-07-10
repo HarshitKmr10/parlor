@@ -34,7 +34,7 @@ export function MeetingRow({ meeting }: Props) {
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate font-sans text-sm font-medium text-ink group-hover:text-sage-700">
+        <span className="block truncate font-display text-lg font-medium text-ink group-hover:text-sage-700">
           {meeting.title}
         </span>
         <span className="mt-0.5 block truncate text-xs text-ink-muted">

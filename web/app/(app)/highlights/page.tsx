@@ -57,11 +57,11 @@ export default async function HighlightsPage() {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-gold-700">
+                    <span className="whitespace-nowrap font-mono text-xs text-gold-700">
                       {formatDuration(h.tStartSec)} – {formatDuration(h.tEndSec)}
                     </span>
                     {h.label && (
-                      <span className="truncate font-sans text-sm font-medium text-ink">
+                      <span className="truncate font-display text-lg font-medium text-ink">
                         {h.label}
                       </span>
                     )}

@@ -70,23 +70,23 @@ export function AppShell({ children }: Props) {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="sticky top-0 z-40 flex h-16 items-center gap-3 border-b border-border-subtle bg-surface-0/85 px-4 backdrop-blur-md sm:px-6">
+        <header className="sticky top-0 z-40 flex h-16 min-w-0 items-center gap-3 border-b border-border-subtle bg-surface-0/85 px-4 backdrop-blur-md sm:px-6">
           <button
             type="button"
             onClick={() => setIsDrawerOpen(true)}
             aria-label="Open navigation"
-            className="rounded-md p-1.5 text-ink-muted transition-colors hover:bg-surface-1 lg:hidden"
+            className="shrink-0 rounded-md p-1.5 text-ink-muted transition-colors hover:bg-surface-1 lg:hidden"
           >
             <MenuIcon className="h-5 w-5" />
           </button>
 
           <WorkspaceSwitcher />
 
-          <div className="mx-auto hidden w-full max-w-md md:block">
+          <div className="mx-auto hidden w-full max-w-md min-w-0 md:block">
             <SearchBox ariaLabel="Global search" placeholder="Search meetings…" />
           </div>
 
-          <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
             <NotificationBell />
             <NewMeetingButton />
             <UserMenu />

@@ -34,14 +34,15 @@ export function WorkspaceSwitcher() {
   };
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className="relative min-w-0">
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
         disabled={isSwitching}
         aria-haspopup="menu"
         aria-expanded={isOpen}
-        className="flex items-center gap-2 rounded-md border border-border-subtle bg-surface-0 px-2.5 py-1.5 transition-colors hover:border-border-default disabled:opacity-60"
+        aria-label={`Switch workspace — current: ${currentWorkspace.name}`}
+        className="flex min-w-0 items-center gap-2 rounded-md border border-border-subtle bg-surface-0 px-2.5 py-1.5 transition-colors hover:border-border-default disabled:opacity-60"
       >
         <span
           aria-hidden="true"
@@ -49,10 +50,10 @@ export function WorkspaceSwitcher() {
         >
           {currentWorkspace.name.charAt(0).toUpperCase()}
         </span>
-        <span className="max-w-[10rem] truncate text-sm font-medium text-ink">
+        <span className="hidden max-w-[10rem] truncate text-sm font-medium text-ink sm:inline">
           {currentWorkspace.name}
         </span>
-        <ChevronDownIcon className="h-4 w-4 text-ink-faint" />
+        <ChevronDownIcon className="h-4 w-4 shrink-0 text-ink-faint" />
       </button>
 
       {isOpen && (

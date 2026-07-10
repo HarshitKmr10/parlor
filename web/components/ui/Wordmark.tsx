@@ -15,7 +15,7 @@ export function Wordmark({ href = "/dashboard", className = "" }: Props) {
   return (
     <Link
       href={href}
-      className={`flex items-center gap-2 font-display text-[length:var(--text-lg)] font-medium tracking-tight text-ink ${className}`}
+      className={`flex items-center gap-2 font-display text-lg font-medium tracking-tight text-ink ${className}`}
     >
       <Image src="/logo.svg" alt="" width={28} height={28} className="shrink-0" priority />
       Parlor

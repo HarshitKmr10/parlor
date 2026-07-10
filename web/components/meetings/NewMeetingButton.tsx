@@ -10,7 +10,7 @@ export function NewMeetingButton() {
 
   return (
     <>
-      <Button size="sm" onClick={() => setIsOpen(true)}>
+      <Button size="sm" className="shrink-0" onClick={() => setIsOpen(true)}>
         <PlusIcon className="h-4 w-4" />
         <span className="hidden sm:inline">New meeting</span>
         <span className="sm:hidden">New</span>

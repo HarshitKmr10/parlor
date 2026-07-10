@@ -37,7 +37,7 @@ export function HowItWorks() {
             <p className="eyebrow mb-4">How it works</p>
           </Reveal>
           <Reveal delay={60}>
-            <h2 id="how-heading" className="text-[length:var(--text-2xl)] text-ink">
+            <h2 id="how-heading" className="text-2xl text-ink">
               Live in under two minutes
             </h2>
           </Reveal>
@@ -49,12 +49,12 @@ export function HowItWorks() {
               <div className="relative">
                 <span
                   aria-hidden="true"
-                  className="font-display text-[length:var(--text-3xl)] font-medium leading-none text-gold-300"
+                  className="font-display text-3xl font-medium leading-none text-gold-300"
                 >
                   {step.numeral}
                 </span>
                 <hr className="divider-gold mt-5 w-12" aria-hidden="true" />
-                <h3 className="mt-5 text-[length:var(--text-xl)] text-ink">{step.title}</h3>
+                <h3 className="mt-5 text-xl text-ink">{step.title}</h3>
                 <p className="mt-3 max-w-xs text-base leading-relaxed text-ink-soft">
                   {step.description}
                 </p>

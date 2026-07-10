@@ -25,7 +25,7 @@ export function ClosingCta() {
               <p className="eyebrow mb-5 text-gold-300">Start in minutes</p>
               <h2
                 id="cta-heading"
-                className="mx-auto max-w-xl text-balance text-[length:var(--text-2xl)] text-surface-cream"
+                className="mx-auto max-w-xl text-balance text-2xl text-surface-cream"
               >
                 Never take meeting notes again.
               </h2>

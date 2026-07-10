@@ -11,11 +11,25 @@ export const metadata: Metadata = {
   title: "Reports — Parlor",
 };
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+  variant = "numeric",
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  variant?: "numeric" | "text";
+}) {
   return (
     <div className="rounded-lg border border-border-subtle bg-surface-0 p-4 shadow-soft-sm">
       <p className="eyebrow mb-2">{label}</p>
-      <p className="font-display text-2xl text-ink">{value}</p>
+      {variant === "numeric" ? (
+        <p className="font-display text-2xl tabular-nums text-ink">{value}</p>
+      ) : (
+        <p className="font-display text-lg text-ink">{value}</p>
+      )}
       {hint && <p className="mt-0.5 text-xs text-ink-muted">{hint}</p>}
     </div>
   );
@@ -59,7 +73,7 @@ export default async function ReportsPage() {
         <Stat label="Meetings" value={String(d.meetingCount)} hint={`${d.completedCount} completed`} />
         <Stat label="Hours" value={formatHours(d.totalDurationSec)} hint="captured" />
         <Stat label="Avg length" value={formatDurationLong(d.avgDurationSec)} />
-        <Stat label="Busiest day" value={d.busiestDay ? formatDate(d.busiestDay) : "—"} />
+        <Stat label="Busiest day" value={d.busiestDay ? formatDate(d.busiestDay) : "—"} variant="text" />
       </section>
 
       <section className="mb-7">

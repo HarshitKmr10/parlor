@@ -20,7 +20,7 @@ export function Hero() {
           <Reveal delay={60}>
             <h1
               id="hero-heading"
-              className="text-balance text-[length:var(--text-hero)] font-medium leading-[1.02] tracking-[-0.025em] text-ink"
+              className="text-balance text-hero font-medium leading-[1.02] tracking-[-0.025em] text-ink"
             >
               Your meetings,{" "}
               <span className="text-sage-600">remembered.</span>

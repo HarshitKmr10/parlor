@@ -89,7 +89,7 @@ export function ActionItemsBoard({ initialItems }: Props) {
                 )}
               </button>
               <div className="min-w-0 flex-1">
-                <p className={`text-sm ${item.done ? "text-ink-faint line-through" : "text-ink"}`}>
+                <p className={`text-base font-medium ${item.done ? "text-ink-faint line-through" : "text-ink"}`}>
                   {item.text}
                 </p>
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-muted">

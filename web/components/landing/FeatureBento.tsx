@@ -69,7 +69,7 @@ export function FeatureBento() {
             <p className="eyebrow mb-4">Everything in one place</p>
           </Reveal>
           <Reveal delay={60}>
-            <h2 id="features-heading" className="text-[length:var(--text-2xl)] text-ink">
+            <h2 id="features-heading" className="text-2xl text-ink">
               The whole meeting, working for you
             </h2>
           </Reveal>
@@ -113,7 +113,7 @@ function BentoTile({ feature }: TileProps) {
         {feature.icon}
       </span>
 
-      <h3 className="relative mt-5 text-[length:var(--text-lg)] leading-tight text-ink">
+      <h3 className="relative mt-5 text-xl leading-tight text-ink">
         {feature.title}
       </h3>
       <p className="relative mt-2 text-base leading-relaxed text-ink-soft">

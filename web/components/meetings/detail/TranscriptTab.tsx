@@ -117,8 +117,7 @@ export function TranscriptTab({ meetingId, initialSegments, isOngoing }: Props) 
                   {formatDuration(segment.tStartSec)}
                 </time>
                 <span
-                  className={`font-display text-sm font-semibold tracking-wide uppercase ${tint}`}
-                  style={{ fontVariantCaps: "all-small-caps" }}
+                  className={`font-sans text-xs font-semibold uppercase tracking-[0.06em] ${tint}`}
                 >
                   {segment.speakerName}
                 </span>
