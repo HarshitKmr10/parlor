@@ -108,9 +108,22 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-// Derived from PROTECTED_PREFIXES so the two can never drift apart again --
-// a prefix added there without a matching matcher entry previously got zero
-// middleware enforcement, silently.
+// Next.js 16 / Turbopack requires `matcher` to be statically analyzable — a
+// computed `PROTECTED_PREFIXES.map(...)` is rejected at build time. So this is
+// a static literal that MUST be kept in sync with PROTECTED_PREFIXES above
+// (each entry is `<prefix>/:path*`).
 export const config = {
-  matcher: PROTECTED_PREFIXES.map((prefix) => `${prefix}/:path*`),
+  matcher: [
+    "/dashboard/:path*",
+    "/meetings/:path*",
+    "/ask/:path*",
+    "/integrations/:path*",
+    "/settings/:path*",
+    "/search/:path*",
+    "/highlights/:path*",
+    "/action-items/:path*",
+    "/trackers/:path*",
+    "/reports/:path*",
+    "/developers/:path*",
+  ],
 };
