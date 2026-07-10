@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import time
-from typing import Callable, Dict, NamedTuple, Tuple
+from typing import Callable, Dict, NamedTuple, Protocol, Tuple, runtime_checkable
 
 from .bucket import refill_and_consume
 
@@ -23,6 +23,21 @@ class Decision(NamedTuple):
     retry_after: float
     remaining: int
     limit: int
+
+
+@runtime_checkable
+class TokenBucketStore(Protocol):
+    """Structural contract both `InMemoryTokenBucketStore` and
+    `RedisTokenBucketStore` (ratelimit.redis_store) satisfy.
+
+    `RateLimitMiddleware`/`ratelimit.factory` depend on this Protocol, never a
+    concrete store class, so the storage backend can be swapped (memory ->
+    Redis, for multi-replica deployments) without touching call sites.
+    """
+
+    async def consume(
+        self, key: str, *, rate: float, capacity: float, cost: float = 1.0
+    ) -> Decision: ...
 
 
 class InMemoryTokenBucketStore:

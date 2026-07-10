@@ -528,6 +528,14 @@ async def lifespan(app: FastAPI):
             logger.warning("Warm pool stop error: %s", e)
 
         try:
+            from .ratelimit.factory import close_rate_limit_store
+
+            await close_rate_limit_store()
+            logger.info("Rate-limit store closed")
+        except Exception as e:  # noqa: BLE001
+            logger.warning("Rate-limit store close error: %s", e)
+
+        try:
             shutdown_otel()
         except Exception as e:
             logger.warning("OTel shutdown error: %s", e)
@@ -626,9 +634,10 @@ except Exception as _idem_exc:  # noqa: BLE001
 # share surface. Tunable via RATE_LIMIT_* env; no-ops when RATE_LIMIT_ENABLED
 # is false. Health/readiness probes and CORS preflights are exempt.
 try:
+    from .ratelimit.factory import get_rate_limit_store
     from .ratelimit.middleware import RateLimitMiddleware
 
-    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(RateLimitMiddleware, store=get_rate_limit_store())
 except Exception as _rl_exc:  # noqa: BLE001
     logger.warning("Rate-limit middleware not installed: %s", _rl_exc)
 

@@ -25,7 +25,7 @@ from starlette.responses import JSONResponse, Response
 from ..observability import get_logger
 from .keys import principal_key, tier_for_path
 from .share_scope import resolve_share_workspace_id, share_token_from_path
-from .store import InMemoryTokenBucketStore
+from .store import InMemoryTokenBucketStore, TokenBucketStore
 
 logger = get_logger(__name__)
 
@@ -48,7 +48,7 @@ def _enabled() -> bool:
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    def __init__(self, app, store: InMemoryTokenBucketStore | None = None) -> None:
+    def __init__(self, app, store: TokenBucketStore | None = None) -> None:
         super().__init__(app)
         self._store = store or InMemoryTokenBucketStore()
         self._enabled = _enabled()

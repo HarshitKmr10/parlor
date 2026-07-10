@@ -82,6 +82,14 @@ secrets:
     # injected as DATABASE_URL automatically. You may instead place a fully
     # custom DSN here directly.
     DATABASE_URL: ""
+    # ── Rate limiting (only read when rateLimitStore=redis below) ──
+    # e.g. redis://user:pass@redis-host:6379/0 (a managed Redis/ElastiCache
+    # endpoint, or an in-cluster Service you deploy separately). REQUIRED
+    # whenever rateLimitStore=redis: without it the backend falls back to its
+    # own REDIS_URL default (localhost), which does not exist in-cluster and
+    # fails every rate-limited request closed. See
+    # backend/src/ratelimit/redis_store.py.
+    REDIS_URL: ""
 
 # =============================================================================
 # Runtime behavior toggles (mirrors the app env contract)
@@ -107,6 +115,16 @@ meetingBotMode: subprocess
 
 # Log level applied to all services.
 logLevel: INFO
+
+# Rate-limit token-bucket backend: "memory" (default) | "redis".
+# "memory" keeps each backend replica's buckets independent — fine for a
+# single replica, but with backend.replicaCount > 1 (or autoscaling enabled)
+# every configured rate limit's effective ceiling is silently multiplied by
+# however many pods happen to be scheduled, including the brute-force-
+# resistant login/signup "auth" tier. Set to "redis" (and provide REDIS_URL
+# via secrets.data / existingSecret) to share bucket state across replicas.
+# See backend/src/ratelimit/factory.py.
+rateLimitStore: memory
 
 # =============================================================================
 # Backend (FastAPI product API, :8000)

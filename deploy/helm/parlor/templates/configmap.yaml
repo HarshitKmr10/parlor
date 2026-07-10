@@ -15,6 +15,12 @@ data:
   LOG_LEVEL: {{ .Values.logLevel | quote }}
   HOST: "0.0.0.0"
 
+  # ── Rate limiting ──
+  # REDIS_URL itself lives in the Secret (see values.yaml secrets.data),
+  # only read by the backend when RATE_LIMIT_STORE=redis.
+  RATE_LIMIT_STORE: {{ .Values.rateLimitStore | quote }}
+  RATE_LIMIT_REPLICA_HINT: {{ .Values.backend.replicaCount | quote }}
+
   # ── Runtime mode (backend product API) ──
   RUNTIME_MODE: {{ .Values.runtimeMode | quote }}
   MEETING_BOT_MODE: {{ .Values.meetingBotMode | quote }}

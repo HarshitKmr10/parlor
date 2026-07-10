@@ -3,7 +3,7 @@ Configuration management for the Meeting Joiner Service
 """
 
 from functools import lru_cache
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import validator
 from pydantic_settings import BaseSettings, NoDecode
@@ -54,6 +54,28 @@ class Settings(BaseSettings):
     QUEUE_BATCH_SIZE: int = 10
     QUEUE_RETRY_ATTEMPTS: int = 3
     QUEUE_RETRY_DELAY: int = 60  # seconds
+
+    # Rate-limit token-bucket backend. "memory" (InMemoryTokenBucketStore) is
+    # single-process only: each backend replica keeps an independent bucket,
+    # so every configured rate limit's effective ceiling is silently
+    # multiplied by however many replicas are running (a brute-force-relevant
+    # weakening of the login/signup "auth" tier especially). Set to "redis"
+    # for any multi-replica deployment so all replicas share bucket state via
+    # REDIS_URL below. See backend/src/ratelimit/factory.py. Env-toggle
+    # only — default stays "memory" so no existing deployment's behavior
+    # changes without an explicit choice.
+    RATE_LIMIT_STORE: Literal["memory", "redis"] = "memory"
+    # Redis connection URL, only read when RATE_LIMIT_STORE=redis. Defaults to
+    # localhost like other services in this file; docker-compose.yml/Helm
+    # override this to the in-cluster Redis Service name or a managed
+    # endpoint. Never log this value directly — it commonly embeds
+    # credentials (redis://user:pass@host:6379/0).
+    REDIS_URL: str = "redis://localhost:6379/0"
+    # Deployment-supplied hint for how many backend replicas are expected to
+    # run concurrently (e.g. Helm's backend.replicaCount / autoscaling
+    # minReplicas). Purely advisory: used only to log a startup warning when
+    # RATE_LIMIT_STORE is still "memory" with more than one replica expected.
+    RATE_LIMIT_REPLICA_HINT: int = 1
 
     # Security Configuration.
     # NoDecode: pydantic-settings would otherwise JSON-parse these List[str]
