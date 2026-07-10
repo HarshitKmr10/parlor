@@ -318,16 +318,12 @@ audio from a call with other participants, not just this one.
 > 3000 / 8000 / 8100 / 5432. Change them in `.env` if they clash on your host.
 > Inter-service traffic uses Docker DNS and is unaffected by host-port changes.
 
-### API docs and developer tools
+### Developer tools
 
 After you've signed up in the web app, visit **`/developers`**
 (`http://localhost:3001/developers` with default ports) for copy-pasteable
 `curl` quickstarts (auth, listing meetings, cross-meeting Ask, webhooks,
-botless VTT capture) and links to the backend's live API docs:
-
-- Swagger UI — `${API_URL}/docs`
-- ReDoc — `${API_URL}/redoc`
-- Raw OpenAPI schema — `${API_URL}/openapi.json`
+botless VTT capture).
 
 Workspace API keys (for MCP clients or your own scripts) are created from
 Settings inside the app (`POST /api/v1/workspaces/{id}/api-keys`).

@@ -1,12 +1,11 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("developer docs + global search", () => {
-  test("developers page shows API links and quickstart", async ({ page }) => {
+  test("developers page shows guides and quickstart", async ({ page }) => {
     await page.goto("/developers");
     await expect(page.getByRole("heading", { name: "Developers" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /API reference/i })).toBeVisible();
-    await expect(page.getByRole("link", { name: /OpenAPI spec/i })).toBeVisible();
-    await expect(page.getByText(/openapi-generator/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Guides" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Quickstart" })).toBeVisible();
   });
 
   test("global top-bar search routes to results", async ({ page }) => {

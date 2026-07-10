@@ -204,7 +204,7 @@ export default async function SettingsPage() {
 
           <SettingsSection
             title="Developers"
-            description="REST API, webhooks, OpenAPI spec, and SDK generation."
+            description="REST API, HMAC-signed webhooks, and developer guides."
           >
             <Link
               href="/developers"

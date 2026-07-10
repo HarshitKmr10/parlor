@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { PUBLIC_API_BASE_URL } from "@/lib/api/config";
 
 export const metadata: Metadata = {
   title: "Developers — Parlor",
@@ -36,28 +35,6 @@ curl -s -X POST $API/api/v1/meetings/$MEETING_ID/transcript \\
   -H 'Content-Type: application/json' \\
   -d '{"segments":[{"id":"...","speakerName":"You","text":"Hi","tStartSec":0,"tEndSec":2,"createdAt":"2026-01-01T00:00:00Z"}]}'`;
 
-function CardLink({
-  href,
-  title,
-  desc,
-}: {
-  href: string;
-  title: string;
-  desc: string;
-}) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="block rounded-lg border border-border-subtle bg-surface-0 p-4 shadow-soft-sm transition-colors hover:border-border-strong"
-    >
-      <p className="font-display text-base text-ink">{title}</p>
-      <p className="mt-1 text-sm text-ink-muted">{desc}</p>
-    </a>
-  );
-}
-
 const GUIDES = [
   {
     href: "/developers/guides/quickstart",
@@ -92,10 +69,6 @@ const GUIDES = [
 ];
 
 export default function DevelopersPage() {
-  const docsUrl = `${PUBLIC_API_BASE_URL}/docs`;
-  const openapiUrl = `${PUBLIC_API_BASE_URL}/openapi.json`;
-  const redocUrl = `${PUBLIC_API_BASE_URL}/redoc`;
-
   return (
     <div>
       <header className="mb-6">
@@ -122,12 +95,6 @@ export default function DevelopersPage() {
         </p>
       </section>
 
-      <section className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <CardLink href={docsUrl} title="API reference" desc="Interactive Swagger UI for every endpoint." />
-        <CardLink href={redocUrl} title="ReDoc" desc="A clean, readable reference view." />
-        <CardLink href={openapiUrl} title="OpenAPI spec" desc="Generate a typed SDK from openapi.json." />
-      </section>
-
       <section className="mb-8">
         <h2 className="mb-3 font-display text-lg text-ink">Guides</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -149,22 +116,6 @@ export default function DevelopersPage() {
         <pre className="overflow-x-auto rounded-lg border border-border-subtle bg-surface-1 p-4 font-mono text-xs leading-relaxed text-ink-soft">
           <code>{QUICKSTART}</code>
         </pre>
-      </section>
-
-      <section>
-        <h2 className="mb-3 font-display text-lg text-ink">Generate an SDK</h2>
-        <pre className="overflow-x-auto rounded-lg border border-border-subtle bg-surface-1 p-4 font-mono text-xs leading-relaxed text-ink-soft">
-          <code>{`npx @openapitools/openapi-generator-cli generate \\
-  -i ${openapiUrl} \\
-  -g typescript-fetch \\
-  -o ./parlor-sdk`}</code>
-        </pre>
-        <p className="mt-3 text-sm text-ink-muted">
-          Swap <code className="rounded bg-surface-2 px-1">typescript-fetch</code> for{" "}
-          <code className="rounded bg-surface-2 px-1">python</code>,{" "}
-          <code className="rounded bg-surface-2 px-1">go</code>, or any of the
-          50+ OpenAPI Generator targets.
-        </p>
       </section>
     </div>
   );

@@ -12,7 +12,7 @@ const GUIDES = [
   { href: "/developers/guides/rate-limits-and-quotas", label: "Rate limits & quotas" },
 ];
 
-export function DevSidebar({ apiBaseUrl }: { apiBaseUrl: string }) {
+export function DevSidebar() {
   const pathname = usePathname();
 
   return (
@@ -43,42 +43,6 @@ export function DevSidebar({ apiBaseUrl }: { apiBaseUrl: string }) {
             </Link>
           </li>
         ))}
-      </ul>
-
-      <p className="mt-6 font-mono text-xs uppercase tracking-wider text-ink-faint">
-        API reference
-      </p>
-      <ul className="mt-3 space-y-1.5">
-        <li>
-          <a
-            href={`${apiBaseUrl}/docs`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block rounded-md px-2 py-1 text-sm text-ink-soft transition-colors hover:text-ink"
-          >
-            Swagger UI ↗
-          </a>
-        </li>
-        <li>
-          <a
-            href={`${apiBaseUrl}/redoc`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block rounded-md px-2 py-1 text-sm text-ink-soft transition-colors hover:text-ink"
-          >
-            ReDoc ↗
-          </a>
-        </li>
-        <li>
-          <a
-            href={`${apiBaseUrl}/openapi.json`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block rounded-md px-2 py-1 text-sm text-ink-soft transition-colors hover:text-ink"
-          >
-            OpenAPI spec ↗
-          </a>
-        </li>
       </ul>
     </nav>
   );
