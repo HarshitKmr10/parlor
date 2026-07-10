@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getMe } from "@/lib/api/auth";
-import { ApiError } from "@/lib/api/error";
+import { ApiError, isWorkspaceAccessError } from "@/lib/api/error";
 import { BACKEND_UNAVAILABLE_CODE } from "@/lib/api/client";
 import { AuthProvider } from "@/lib/auth/AuthProvider";
 import { AppShell } from "@/components/app-shell/AppShell";
@@ -24,6 +24,11 @@ export default async function AppLayout({
     // guard here too for direct hits.
     if (ApiError.isApiError(error) && error.status === 401) {
       redirect("/login");
+    }
+    // Stale workspace cookie / switched account / revoked membership: send
+    // the user to sign in again rather than crashing into the error boundary.
+    if (isWorkspaceAccessError(error)) {
+      redirect("/login?reason=workspace_access");
     }
     throw error;
   }

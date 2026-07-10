@@ -234,7 +234,7 @@ export function ConnectionCard({ config, onConfigChange }: Props) {
             <span className="font-sans text-sm font-medium text-ink-soft">
               Capture enabled
             </span>
-            <label className="flex h-[46px] items-center gap-3 rounded-md border border-border-default bg-surface-0 px-3">
+            <label className="flex items-center gap-3 rounded-md border border-border-default bg-surface-0 px-3 py-2.5">
               <Toggle
                 checked={enabled}
                 onChange={setEnabled}

@@ -56,7 +56,7 @@ export function SummaryTab({ insights }: Props) {
                   <div className="flex items-start gap-2.5">
                     <span
                       aria-hidden="true"
-                      className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-[4px] border ${
+                      className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-xs border ${
                         item.done
                           ? "border-sage-600 bg-sage-600 text-surface-cream"
                           : "border-gold-300 bg-surface-0"

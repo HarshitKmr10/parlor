@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
+import { Wordmark } from "@/components/ui/Wordmark";
+import { CloseIcon, MenuIcon } from "@/components/ui/icons";
 
 const NAV_LINKS = [
   { label: "Product", href: "#features" },
@@ -13,6 +14,7 @@ const SCROLL_THRESHOLD = 12;
 
 export function SiteNav() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > SCROLL_THRESHOLD);
@@ -20,6 +22,15 @@ export function SiteNav() {
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleResize = () => {
+      if (window.innerWidth >= 768) setIsMenuOpen(false);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [isMenuOpen]);
 
   return (
     <header className="sticky top-0 z-50">
@@ -32,13 +43,7 @@ export function SiteNav() {
         }}
       >
         <div className="mx-auto flex max-w-[1180px] items-center justify-between gap-6 px-5 py-3.5 sm:px-8">
-          <a
-            href="#top"
-            className="flex items-center gap-2 font-display text-[1.35rem] font-medium tracking-tight text-ink"
-          >
-            <Image src="/logo.svg" alt="" width={28} height={28} className="shrink-0" priority />
-            Parlor
-          </a>
+          <Wordmark href="#top" />
 
           <ul className="hidden items-center gap-7 md:flex">
             {NAV_LINKS.map((link) => (
@@ -66,8 +71,39 @@ export function SiteNav() {
             >
               Start free
             </Link>
+            <button
+              type="button"
+              onClick={() => setIsMenuOpen((open) => !open)}
+              aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+              aria-expanded={isMenuOpen}
+              aria-controls="site-nav-mobile-menu"
+              className="rounded-md p-1.5 text-ink-soft transition-colors hover:bg-surface-1 hover:text-ink md:hidden"
+            >
+              {isMenuOpen ? <CloseIcon className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
+            </button>
           </div>
         </div>
+
+        {isMenuOpen && (
+          <div
+            id="site-nav-mobile-menu"
+            className="border-t border-border-subtle bg-surface-0/95 px-5 py-4 backdrop-blur-md motion-safe:animate-[site-nav-menu-in_220ms_var(--ease-out-soft)] sm:px-8 md:hidden"
+          >
+            <ul className="flex flex-col gap-1">
+              {NAV_LINKS.map((link) => (
+                <li key={link.label}>
+                  <a
+                    href={link.href}
+                    onClick={() => setIsMenuOpen(false)}
+                    className="block rounded-md px-3 py-2.5 text-sm font-medium text-ink-soft transition-colors hover:bg-surface-1 hover:text-ink"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <hr
           className="divider-gold absolute inset-x-0 bottom-0"

@@ -95,7 +95,7 @@ export function HighlightsTab({ meetingId }: Props) {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder="Key decision"
-              className="rounded-md border border-border-default bg-surface-0 px-3 py-1.5 text-sm text-ink"
+              className="rounded-md border border-border-default bg-surface-0 px-3 py-2 text-sm text-ink"
             />
           </label>
           <label className="flex w-24 flex-col gap-1 text-sm">
@@ -104,7 +104,7 @@ export function HighlightsTab({ meetingId }: Props) {
               value={start}
               onChange={(e) => setStart(e.target.value)}
               placeholder="0:30"
-              className="rounded-md border border-border-default bg-surface-0 px-3 py-1.5 font-mono text-sm text-ink"
+              className="rounded-md border border-border-default bg-surface-0 px-3 py-2 font-mono text-sm text-ink"
             />
           </label>
           <label className="flex w-24 flex-col gap-1 text-sm">
@@ -113,7 +113,7 @@ export function HighlightsTab({ meetingId }: Props) {
               value={end}
               onChange={(e) => setEnd(e.target.value)}
               placeholder="1:05"
-              className="rounded-md border border-border-default bg-surface-0 px-3 py-1.5 font-mono text-sm text-ink"
+              className="rounded-md border border-border-default bg-surface-0 px-3 py-2 font-mono text-sm text-ink"
             />
           </label>
           <Button onClick={handleAdd} disabled={saving} size="sm">
@@ -135,7 +135,7 @@ export function HighlightsTab({ meetingId }: Props) {
           {highlights.map((h) => (
             <li
               key={h.id}
-              className="group flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-0 p-3.5 shadow-soft-sm"
+              className="group flex items-start gap-3 rounded-lg border border-border-subtle bg-surface-0 p-4 shadow-soft-sm"
             >
               <span
                 aria-hidden="true"

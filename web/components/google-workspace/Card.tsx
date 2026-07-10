@@ -10,7 +10,7 @@ type CardProps = {
 /** Parlor-styled settings card used across the Google Workspace surface. */
 export function Card({ title, description, badge, children }: CardProps) {
   return (
-    <section className="rounded-lg border border-border-subtle bg-surface-0 p-5 shadow-soft-sm sm:p-6">
+    <section className="rounded-lg border border-border-subtle bg-surface-0 p-4 shadow-soft-sm sm:p-6">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-display text-base text-ink">{title}</h2>

@@ -64,6 +64,16 @@ def hash_embedding(text: str, dim: int = EMBEDDING_DIM) -> list[float]:
     return [v / norm for v in vec]
 
 
+def _truncate_at_boundary(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    truncated = text[:limit]
+    last_space = truncated.rfind(" ")
+    if last_space > 0:
+        truncated = truncated[:last_space]
+    return truncated.rstrip(" ,;:") + "..."
+
+
 class MockProvider(LLMProvider):
     name = "mock"
 
@@ -86,7 +96,7 @@ class MockProvider(LLMProvider):
         summary = (
             f"[mock] Discussion titled '{title}' across {len(segments)} "
             f"segment(s) involving {', '.join(speakers) or 'participants'}. "
-            + (" ".join(first_texts)[:280] if first_texts else "")
+            + (_truncate_at_boundary(" ".join(first_texts), 280) if first_texts else "")
         ).strip()
 
         key_points = [

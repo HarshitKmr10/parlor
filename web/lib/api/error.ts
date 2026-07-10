@@ -26,6 +26,25 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The backend's stable message for a stale/mismatched `X-Workspace-Id`
+ * (revoked membership, switched account, stale cookie) — see
+ * `backend/src/api/product/deps.py`. Next.js error boundaries only preserve
+ * `Error.message` (and `digest`) across the server/client serialization
+ * boundary in production, so this is matched by message rather than by the
+ * `ApiError.code`/`status` fields, which do not survive that boundary.
+ */
+export const WORKSPACE_ACCESS_ERROR_MESSAGE =
+  "You are not a member of this workspace";
+
+/** True for a 403 caused by a stale/mismatched workspace, not any other 403. */
+export function isWorkspaceAccessError(error: unknown): boolean {
+  if (ApiError.isApiError(error)) {
+    return error.status === 403 && error.message === WORKSPACE_ACCESS_ERROR_MESSAGE;
+  }
+  return error instanceof Error && error.message === WORKSPACE_ACCESS_ERROR_MESSAGE;
+}
+
 /** Narrow an unknown caught value into a user-facing message. */
 export function getErrorMessage(error: unknown): string {
   if (ApiError.isApiError(error)) return error.message;

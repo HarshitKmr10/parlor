@@ -43,15 +43,17 @@ export function writeSessionCookies(jar: CookieJar, input: SessionInput): void {
     ...baseCookieOptions,
     maxAge: REFRESH_MAX_AGE_SEC,
   });
-  if (input.workspaceId) {
-    jar.set(WORKSPACE_COOKIE, input.workspaceId, {
-      httpOnly: false,
-      secure: isProduction,
-      sameSite: "lax",
-      path: "/",
-      maxAge: REFRESH_MAX_AGE_SEC,
-    });
-  }
+  // Always set (or clear) the workspace cookie on a fresh login, even when no
+  // workspaceId is given — otherwise a stale cookie from a previous session
+  // (switched account, revoked membership) survives re-login and immediately
+  // reproduces the same workspace-mismatch 403.
+  jar.set(WORKSPACE_COOKIE, input.workspaceId ?? "", {
+    httpOnly: false,
+    secure: isProduction,
+    sameSite: "lax",
+    path: "/",
+    maxAge: input.workspaceId ? REFRESH_MAX_AGE_SEC : 0,
+  });
 }
 
 export function clearSessionCookies(jar: CookieJar): void {

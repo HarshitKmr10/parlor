@@ -104,7 +104,7 @@ export function NewMeetingModal({ isOpen, onClose }: Props) {
               role="tab"
               aria-selected={mode === option}
               onClick={() => setMode(option)}
-              className={`flex-1 rounded-[5px] px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`flex-1 rounded-xs px-3 py-1.5 text-sm font-medium transition-colors ${
                 mode === option
                   ? "bg-surface-0 text-ink shadow-soft-sm"
                   : "text-ink-muted hover:text-ink"

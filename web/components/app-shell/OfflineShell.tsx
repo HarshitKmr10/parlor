@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { BackendDownState } from "@/components/ui/BackendDownState";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 type Props = {
   children: React.ReactNode;
@@ -13,12 +13,7 @@ export function OfflineShell({ children }: Props) {
   return (
     <div className="flex min-h-dvh flex-col bg-surface-1">
       <header className="flex h-16 items-center border-b border-border-subtle bg-surface-0 px-4 sm:px-6">
-        <Link
-          href="/dashboard"
-          className="font-display text-[1.4rem] font-medium tracking-tight text-ink"
-        >
-          Parlor
-        </Link>
+        <Wordmark />
       </header>
       <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-12 sm:px-6">
         <BackendDownState resource="your workspace" />

@@ -21,10 +21,17 @@ function isSafeRedirectPath(value: string): boolean {
   return value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\");
 }
 
+const REASON_MESSAGES: Record<string, string> = {
+  workspace_access:
+    "You no longer have access to that workspace. Sign in again to continue.",
+};
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "/dashboard";
+  const reason = searchParams.get("reason");
+  const reasonMessage = reason ? REASON_MESSAGES[reason] : undefined;
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -87,12 +94,12 @@ export function LoginForm() {
         </Link>
       </div>
 
-      {formError && (
+      {(formError ?? reasonMessage) && (
         <p
           role="alert"
           className="rounded-md bg-error-bg px-3 py-2 text-sm text-error"
         >
-          {formError}
+          {formError ?? reasonMessage}
         </p>
       )}
 

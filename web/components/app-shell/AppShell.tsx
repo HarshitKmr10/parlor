@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { SidebarNav } from "./SidebarNav";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 import { UserMenu } from "./UserMenu";
@@ -9,41 +8,11 @@ import { NotificationBell } from "./NotificationBell";
 import { NewMeetingButton } from "@/components/meetings/NewMeetingButton";
 import { SearchBox } from "@/components/search/SearchBox";
 import { CloseIcon, MenuIcon } from "@/components/ui/icons";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 type Props = {
   children: React.ReactNode;
 };
-
-function Wordmark() {
-  return (
-    <Link
-      href="/dashboard"
-      className="flex items-center gap-2 font-display text-[1.4rem] font-medium tracking-tight text-ink"
-    >
-      <span
-        aria-hidden="true"
-        className="grid h-7 w-7 place-items-center rounded-md bg-sage-600 text-surface-cream"
-      >
-        <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4">
-          <path
-            d="M12 21c5-3 7-7 7-11V5l-7-2-7 2v5c0 4 2 8 7 11Z"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-          <path
-            d="M9 11.5 11 14l4-5"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-      Parlor
-    </Link>
-  );
-}
 
 export function AppShell({ children }: Props) {
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);

@@ -10,7 +10,7 @@ type Props = {
 
 export function StatCard({ label, value, hint, icon, accent = false }: Props) {
   return (
-    <div className="relative overflow-hidden rounded-lg border border-border-subtle bg-surface-0 p-5 shadow-soft-sm">
+    <div className="relative overflow-hidden rounded-lg border border-border-subtle bg-surface-0 p-4 shadow-soft-sm sm:p-6">
       {accent && (
         <span
           aria-hidden="true"

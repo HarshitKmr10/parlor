@@ -16,7 +16,7 @@ export function IntegrationCard({
   comingSoon = false,
 }: Props) {
   return (
-    <div className="flex flex-col rounded-lg border border-border-subtle bg-surface-0 p-5 shadow-soft-sm">
+    <div className="flex flex-col rounded-lg border border-border-subtle bg-surface-0 p-4 shadow-soft-sm sm:p-6">
       <div className="flex items-start gap-3">
         <span
           aria-hidden="true"
