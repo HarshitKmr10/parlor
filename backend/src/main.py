@@ -43,6 +43,7 @@ from .api.models.schemas import (
 )
 from .api.routes import sessions as sessions_routes
 from .api.product.errors import ApiError
+from .api.product.deps import AuthContext, get_current_context
 from .api.product.routes_auth import auth_router, workspaces_router
 from .api.product.routes_invites import router as product_invites_router
 from .api.product.routes_calendar import router as product_calendar_router
@@ -1107,7 +1108,9 @@ async def create_meeting(
 
 @app.get("/meetings", response_model=MeetingStatusResponse)
 async def get_meeting_status(
-    meeting_id: str, meeting_service: MeetingService = Depends(get_meeting_service)
+    meeting_id: str,
+    meeting_service: MeetingService = Depends(get_meeting_service),
+    ctx: AuthContext = Depends(get_current_context),
 ):
     """
     Get meeting status and basic information
@@ -1122,7 +1125,7 @@ async def get_meeting_status(
         logger.info(f"Getting status for meeting: {meeting_id}")
 
         meeting = await meeting_service.get_meeting_by_id(meeting_id)
-        if not meeting:
+        if not meeting or meeting.org_id != ctx.workspace.id:
             raise MeetingNotFoundError(f"Meeting {meeting_id} not found")
 
         # Get participant count and basic transcript info
@@ -1165,6 +1168,7 @@ async def get_meeting_transcript(
     text_only: bool = False,
     since: Optional[datetime] = None,
     meeting_service: MeetingService = Depends(get_meeting_service),
+    ctx: AuthContext = Depends(get_current_context),
 ):
     """
     Get meeting transcript with optional formatting
@@ -1182,7 +1186,7 @@ async def get_meeting_transcript(
         logger.info(f"Getting transcript for meeting: {meeting_id}")
 
         meeting = await meeting_service.get_meeting_by_id(meeting_id)
-        if not meeting:
+        if not meeting or meeting.org_id != ctx.workspace.id:
             raise MeetingNotFoundError(f"Meeting {meeting_id} not found")
 
         # Use text_only format if requested
@@ -1264,6 +1268,7 @@ async def list_meetings(
     limit: int = 50,
     offset: int = 0,
     meeting_service: MeetingService = Depends(get_meeting_service),
+    ctx: AuthContext = Depends(get_current_context),
 ):
     """Paginated, filterable historical+active meeting list for the dashboard.
 
@@ -1280,6 +1285,7 @@ async def list_meetings(
         opaque cursor pointing at the next offset (null when exhausted).
     """
     try:
+        org_id = ctx.workspace.id
         statuses = None
         if status:
             valid = {s.value for s in MeetingStatus}
@@ -1349,9 +1355,11 @@ async def list_meetings(
 async def get_active_meetings(
     org_id: Optional[str] = None,
     meeting_service: MeetingService = Depends(get_meeting_service),
+    ctx: AuthContext = Depends(get_current_context),
 ):
     """Get list of currently active meetings"""
     try:
+        org_id = ctx.workspace.id
         active_meetings = await meeting_service.get_active_meetings(org_id)
         return {
             "active_meetings": len(active_meetings),
@@ -1371,7 +1379,10 @@ async def get_active_meetings(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
-@app.post("/meetings/{meeting_id}/recording-started")
+@app.post(
+    "/meetings/{meeting_id}/recording-started",
+    dependencies=[Depends(sessions_routes._verify_sidecar_token)],
+)
 async def notify_recording_started(
     meeting_id: str,
     meeting_service: MeetingService = Depends(get_meeting_service),

@@ -303,9 +303,16 @@ class SimpleZoomBot:
     async def _update_recording_status(self, base_url):
         """Update meeting joiner status via HTTP API"""
         try:
+            import os as _os
+
+            headers = {}
+            sidecar_token = _os.getenv('SIDECAR_CALLBACK_TOKEN')
+            if sidecar_token:
+                headers['X-Sidecar-Token'] = sidecar_token
+
             async with aiohttp.ClientSession() as session:
                 url = f"{base_url}/api/meetings/{self.meeting_db_id}/recording-started"
-                async with session.post(url, json={'status': 'recording'}) as response:
+                async with session.post(url, json={'status': 'recording'}, headers=headers) as response:
                     if response.status == 200:
                         logger.info(f"✅ Successfully notified recording start for meeting {self.meeting_db_id}")
                     else:
