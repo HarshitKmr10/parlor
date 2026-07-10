@@ -7,6 +7,7 @@ the CLI can render a live preview without the pipeline knowing about Rich.
 from __future__ import annotations
 
 import json
+import os
 import socket
 import time
 from dataclasses import dataclass, field
@@ -228,5 +229,8 @@ class CapturePipeline:
         if path is None:
             return
         path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as fh:
+        if path.exists():
+            os.chmod(path, 0o600)
+        fd = os.open(str(path), os.O_CREAT | os.O_APPEND | os.O_WRONLY, 0o600)
+        with os.fdopen(fd, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(segment.to_contract()) + "\n")

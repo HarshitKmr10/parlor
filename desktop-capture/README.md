@@ -157,6 +157,12 @@ api_key = vk_live_xxx
 
 No secrets are hardcoded — credentials come only from env or the home config.
 
+**This file can hold a plaintext API key (or email/password) — treat it like a
+credential.** Run `chmod 600 ~/.parlor/config` so it's readable only by your
+user; the client warns on startup if it detects looser permissions. Prefer
+`api_key` (`PARLOR_API_KEY`) over persisting `email`/`password` in this file
+when a workspace API key is available — it's easier to scope and rotate.
+
 ---
 
 ## Usage

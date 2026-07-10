@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import configparser
 import os
+import stat
+import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Optional
@@ -48,9 +50,30 @@ class Config:
         return bool(self.api_key) or bool(self.email and self.password)
 
 
+def _warn_if_insecure_permissions(path: Path) -> None:
+    """Warn (never raise) if the config file is group/other readable or
+    writable. This file can hold ``api_key``/``email``/``password`` in
+    plaintext, so loose permissions leak credentials to other local users.
+    Warn-only: failing the run over a low-severity permissions finding would
+    break existing, otherwise-working configs.
+    """
+    mode = os.stat(path).st_mode
+    insecure_bits = stat.S_IRGRP | stat.S_IROTH | stat.S_IWGRP | stat.S_IWOTH
+    if mode & insecure_bits:
+        print(
+            f"warning: {path} is readable/writable by other local users "
+            f"(mode {oct(mode & 0o777)}). It may contain a plaintext API key "
+            f"or password. Run `chmod 600 {path}` to restrict it to your "
+            "user, or prefer an API-key-only setup (PARLOR_API_KEY / "
+            "api_key=) over persisting email/password in this file.",
+            file=sys.stderr,
+        )
+
+
 def _from_file(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
+    _warn_if_insecure_permissions(path)
     parser = configparser.ConfigParser()
     try:
         parser.read(path)
