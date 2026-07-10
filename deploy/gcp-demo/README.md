@@ -36,6 +36,36 @@ The step-by-step commands below are kept as the accurate record of what was
 actually run (not a hypothetical plan) — useful for tearing this down,
 rebuilding it in a different project, or understanding exactly what exists.
 
+## Redeploying (CI/CD + manual)
+
+Once the infrastructure above exists, redeploying the three services to the
+latest `main` is just: rebuild the images and roll out a new Cloud Run
+revision per service. Two ways:
+
+- **CI/CD (automatic):** `.github/workflows/deploy-gcp.yml` does exactly this
+  on every push to `main` that touches `backend/`, `ai-service/`, `web/`, or
+  the build configs. It's dormant until you complete the one-time Workload
+  Identity Federation setup documented at the top of that workflow and set the
+  repo variable `GCP_DEPLOY_ENABLED=true`.
+- **Manual:** build via the shared Cloud Build configs, then deploy
+  image-only (so the running services keep their env/secrets):
+
+  ```bash
+  AR=us-central1-docker.pkg.dev/named-tube-444103-p0/parlor-demo
+  BACKEND_URL=https://parlor-demo-backend-316016512837.us-central1.run.app
+  gcloud builds submit ./ai-service --config deploy/gcp-demo/cloudbuild.ai-service.yaml --substitutions=_IMAGE=$AR/ai-service:latest
+  gcloud builds submit ./backend    --config deploy/gcp-demo/cloudbuild.backend.yaml    --substitutions=_IMAGE=$AR/backend:latest
+  gcloud builds submit ./web        --config deploy/gcp-demo/cloudbuild.web.yaml        --substitutions=_IMAGE=$AR/web:latest,_API_URL=$BACKEND_URL
+  for s in ai-service backend web; do gcloud run deploy parlor-demo-$s --region us-central1 --image $AR/$s:latest; done
+  ```
+
+**Critical:** deploy image-only — `gcloud run deploy --image` with no
+`--set-env-vars`/`--set-secrets`. A new revision inherits the existing runtime
+config (the live-Gemini env + `GEMINI_API_KEY` secret + `HOSTED_COST_CAP_*`
+caps + Cloud SQL socket `DATABASE_URL`). Passing env/secret flags would reset
+anything you don't re-specify — the classic way to silently knock the demo
+back into a broken or mock state.
+
 ## What this is — and isn't
 
 This is a **separate, always-available, no-signup, ephemeral browsing demo**,
@@ -47,9 +77,16 @@ not a hosted product:
 - Resets automatically and frequently — modeled directly on
   [Uptime Kuma's public demo](https://demo.uptime.kuma.pet/), which wipes and
   reseeds every ~10 minutes.
-- Runs Parlor in `AI_MODE=mock` only. No LLM provider keys are configured for
-  the demo, ever — mock mode is a first-class feature of this project (see
-  the root README), not a downgrade for the demo.
+- Runs **live AI via Google Gemini**, not mock mode. The ai-service is
+  configured with `AI_MODE=live`, `AI_PROVIDER_MODE=pinned`,
+  `AI_PINNED_PROVIDER=gemini`, and `AI_DEFAULT_MODEL_TIER=cheap`; the
+  `GEMINI_API_KEY` lives in Secret Manager (`parlor-demo-gemini-api-key`),
+  never in this repo or in an env var literal. Spend is bounded by the
+  hosted cost cap on the backend (`HOSTED_COST_CAP_ENABLED=true`,
+  `HOSTED_COST_CAP_MAX_USD_PER_WORKSPACE=2`, `HOSTED_COST_CAP_MAX_USD_GLOBAL=20`)
+  plus a per-workspace meeting quota (`HOSTED_QUOTA_MAX_TOTAL_MEETINGS=30`),
+  on top of the GCP billing budget below. (Mock mode is still the default for
+  local dev and self-hosting — it's just not what this hosted demo runs.)
 - **Bot-join capture is disabled entirely in the demo.** A public,
   no-signup surface that can dispatch a real Playwright/Chromium bot into an
   arbitrary Zoom/Meet/Teams URL is a live abuse vector (outbound network
@@ -230,8 +267,18 @@ gcloud run deploy parlor-demo-backend \
   --image="$REGION-docker.pkg.dev/$PROJECT_ID/parlor-demo/backend:latest" \
   --region="$REGION" --allow-unauthenticated \
   --add-cloudsql-instances="$CONNECTION_NAME" \
-  --set-env-vars="AI_MODE=mock,RUNTIME_MODE=standalone,MEETING_JOINER_DB_DRIVER=pg" \
+  --set-env-vars="AI_MODE=mock,RUNTIME_MODE=standalone,MEETING_JOINER_DB_DRIVER=pg,MEETING_JOINER_STORAGE_REQUIRED=false,MSTEAMS_TRANSCRIPT_SOURCE=teams_captions,HOSTED_QUOTA_ENABLED=true,HOSTED_QUOTA_MAX_TOTAL_MEETINGS=30,HOSTED_COST_CAP_ENABLED=true,HOSTED_COST_CAP_MAX_USD_PER_WORKSPACE=2,HOSTED_COST_CAP_MAX_USD_GLOBAL=20" \
   --set-secrets="DATABASE_URL=parlor-demo-database-url:latest"
+# The backend itself runs AI_MODE=mock and delegates all real LLM calls to the
+# ai-service (AI_SERVICE_URL, wired below) — which is the service that runs
+# live Gemini. The HOSTED_COST_CAP_* / HOSTED_QUOTA_* vars bound hosted spend.
+# The demo is BOTLESS (transcripts are ingested directly, no bot capture), so
+# it needs no cloud STT key and no recording blob storage — startup secret
+# validation requires waiving both, or the container won't boot:
+#   MEETING_JOINER_STORAGE_REQUIRED=false  -> no Azure Blob connection string
+#   MSTEAMS_TRANSCRIPT_SOURCE=teams_captions -> captions path, no OPENAI/ASR key
+# (Do NOT set LLM_PROVIDER=local_whisper here — the startup validator doesn't
+# recognize that value and raises 'Unknown STT provider'.)
 # The Cloud Run default compute service account needs explicit access to
 # the secret, or the deploy above fails with a "Permission denied on
 # secret" error:
@@ -242,12 +289,19 @@ gcloud secrets add-iam-policy-binding parlor-demo-database-url \
 gcloud run services update parlor-demo-backend --region="$REGION" \
   --update-env-vars="AI_SERVICE_URL=<ai-service URL from the deploy below>"
 
+# The demo runs LIVE Gemini. Store the key in Secret Manager (never inline it
+# in a command or commit it), then grant the Cloud Run compute SA read access:
+printf '%s' "<YOUR_GEMINI_API_KEY>" | gcloud secrets create parlor-demo-gemini-api-key --data-file=-
+gcloud secrets add-iam-policy-binding parlor-demo-gemini-api-key \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+
 gcloud run deploy parlor-demo-ai-service \
   --image="$REGION-docker.pkg.dev/$PROJECT_ID/parlor-demo/ai-service:latest" \
   --region="$REGION" --allow-unauthenticated \
   --add-cloudsql-instances="$CONNECTION_NAME" \
-  --set-env-vars="AI_MODE=mock" \
-  --set-secrets="DATABASE_URL=parlor-demo-database-url:latest"
+  --set-env-vars="AI_MODE=live,AI_PROVIDER_MODE=pinned,AI_PINNED_PROVIDER=gemini,AI_DEFAULT_MODEL_TIER=cheap" \
+  --set-secrets="DATABASE_URL=parlor-demo-database-url:latest,GEMINI_API_KEY=parlor-demo-gemini-api-key:latest"
 
 # web needs NEXT_PUBLIC_API_URL baked in at BUILD time (it's inlined into
 # the client bundle), so build/push web only after the backend URL is known:

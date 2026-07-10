@@ -1,0 +1,18 @@
+# Builds the demo web image. NEXT_PUBLIC_API_URL is inlined into the client
+# bundle at BUILD time, so it must be passed as a build arg (not a runtime env
+# var). Submit with the web dir as context:
+#   gcloud builds submit ./web \
+#     --config deploy/gcp-demo/cloudbuild.web.yaml \
+#     --substitutions=_IMAGE=<...>/parlor-demo/web:latest,_API_URL=https://<backend-url>
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - "build"
+      - "--build-arg"
+      - "NEXT_PUBLIC_API_URL=${_API_URL}"
+      - "-t"
+      - "${_IMAGE}"
+      - "."
+images: ["${_IMAGE}"]
+options:
+  logging: CLOUD_LOGGING_ONLY

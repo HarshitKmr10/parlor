@@ -1,0 +1,11 @@
+# Builds the demo backend image (API-only Dockerfile.dev — no bot runtime in
+# the demo, by design). Submit with the backend dir as the build context:
+#   gcloud builds submit ./backend \
+#     --config deploy/gcp-demo/cloudbuild.backend.yaml \
+#     --substitutions=_IMAGE=<region>-docker.pkg.dev/<project>/parlor-demo/backend:latest
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build", "-f", "Dockerfile.dev", "-t", "${_IMAGE}", "."]
+images: ["${_IMAGE}"]
+options:
+  logging: CLOUD_LOGGING_ONLY
