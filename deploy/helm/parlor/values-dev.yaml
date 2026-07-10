@@ -42,6 +42,7 @@ secrets:
   existingSecret: ""
   data:
     JWT_SECRET: "dev-insecure-change-me"
+    AI_SERVICE_INTERNAL_TOKEN: "dev-insecure-change-me"
 
 backend:
   replicaCount: 1

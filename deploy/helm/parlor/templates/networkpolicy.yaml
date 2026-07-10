@@ -1,0 +1,89 @@
+{{- if .Values.networkPolicy.enabled }}
+{{/*
+Default-deny-by-omission NetworkPolicies for the chart's internal data-plane
+hops. Kubernetes NetworkPolicy ingress rules are additive/allow-list: a pod
+with no policy selecting it stays fully open, and a pod selected by any
+policy accepts only what that policy's rules permit (all-namespace, no
+namespaceSelector => same namespace only, matching how this chart deploys).
+Egress is intentionally left unrestricted here — restricting egress too is a
+separate, larger change (DNS/external API allowances) out of scope for this
+fix.
+*/}}
+{{- if .Values.postgres.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "parlor.fullname" . }}-postgres
+  labels:
+    {{- include "parlor.componentLabels" (dict "ctx" . "component" "postgres") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "parlor.selectorLabels" (dict "ctx" . "component" "postgres") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "parlor.selectorLabels" (dict "ctx" . "component" "backend") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "parlor.selectorLabels" (dict "ctx" . "component" "ai-service") | nindent 14 }}
+        - podSelector:
+            matchLabels:
+              {{- include "parlor.selectorLabels" (dict "ctx" . "component" "db-init") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.postgres.service.port }}
+{{- end }}
+
+{{- if .Values.aiService.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "parlor.fullname" . }}-ai-service
+  labels:
+    {{- include "parlor.componentLabels" (dict "ctx" . "component" "ai-service") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "parlor.selectorLabels" (dict "ctx" . "component" "ai-service") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "parlor.selectorLabels" (dict "ctx" . "component" "backend") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.aiService.service.port }}
+{{- end }}
+
+{{- if .Values.botWorker.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "parlor.fullname" . }}-bot-worker
+  labels:
+    {{- include "parlor.componentLabels" (dict "ctx" . "component" "bot-worker") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "parlor.selectorLabels" (dict "ctx" . "component" "bot-worker") | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "parlor.selectorLabels" (dict "ctx" . "component" "backend") | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.botWorker.service.port }}
+{{- end }}
+{{- end }}

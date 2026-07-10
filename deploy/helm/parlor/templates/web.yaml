@@ -28,6 +28,8 @@ spec:
         - name: web
           image: {{ include "parlor.image" (dict "ctx" . "image" .Values.web.image) }}
           imagePullPolicy: {{ include "parlor.pullPolicy" (dict "ctx" . "image" .Values.web.image) }}
+          securityContext:
+            {{- include "parlor.containerSecurityContext" dict | nindent 12 }}
           ports:
             - name: http
               containerPort: {{ .Values.web.service.port }}
@@ -54,6 +56,16 @@ spec:
             {{- toYaml .Values.web.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.web.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: next-cache
+              mountPath: /app/.next/cache
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        - name: next-cache
+          emptyDir: {}
       {{- with .Values.web.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

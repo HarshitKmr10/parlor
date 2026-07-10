@@ -54,6 +54,9 @@ secrets:
     # ── Core ──
     JWT_SECRET: ""                      # REQUIRED in prod; product auth signing key
     CALENDAR_TOKEN_KEY: ""              # Fernet key (url-safe base64, 32 bytes) for calendar OAuth tokens at rest
+    SIDECAR_CALLBACK_TOKEN: ""          # REQUIRED for warm-pool/compose; sidecar -> API /internal/sessions/ended auth
+    SIDECAR_CONFIGURE_TOKEN: ""         # REQUIRED for warm-pool/compose; API -> sidecar /configure + /abort auth. Sidecar fails closed (401) when unset.
+    AI_SERVICE_INTERNAL_TOKEN: ""       # REQUIRED in prod; backend -> ai-service X-Internal-Service-Token auth. ai-service fails closed (500) when unset.
     # ── AI providers (ai-service) ──
     ANTHROPIC_API_KEY: ""
     OPENAI_API_KEY: ""
@@ -340,7 +343,12 @@ postgres:
     pullPolicy: IfNotPresent
   auth:
     username: meeting
-    password: meeting          # dev default; OVERRIDE for any shared cluster
+    # No default. Required whenever postgres.enabled=true -- the chart
+    # deliberately fails to render (see templates/postgres.yaml) rather than
+    # standing up a database with a blank or well-known credential. Supply a
+    # real value via a private -f values file or --set, never commit one here.
+    # For a throwaway local/dev install, see values-dev.yaml.
+    password: ""
     database: meeting
   service:
     port: 5432
@@ -402,6 +410,18 @@ rbac:
   # Auto-enabled effectively only matters when runtimeMode=k8s, but creating
   # the (namespaced, least-privilege) Role is harmless otherwise.
   create: true
+
+# =============================================================================
+# NetworkPolicy
+# =============================================================================
+# Restricts which in-cluster pods may reach postgres, ai-service, and
+# bot-worker to the components that legitimately talk to them (see
+# templates/networkpolicy.yaml). Requires a CNI that enforces NetworkPolicy
+# (Calico, Cilium, etc.) -- on a CNI without enforcement this is a no-op, not
+# a hard block. Off by default so it doesn't surprise minimal/dev installs;
+# turn on for any shared or production cluster.
+networkPolicy:
+  enabled: false
 
 # =============================================================================
 # Ingress

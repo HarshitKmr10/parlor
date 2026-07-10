@@ -1,4 +1,7 @@
 {{- if .Values.postgres.enabled }}
+{{- if not .Values.postgres.auth.password }}
+{{- fail "postgres.auth.password must be set (via -f a private values file or --set) when postgres.enabled=true. Refusing to render with a blank/well-known default credential." }}
+{{- end }}
 {{- $component := "postgres" }}
 {{- $name := printf "%s-postgres" (include "parlor.fullname" .) }}
 {{/*
@@ -47,20 +50,41 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{/*
+      No pod-level parlor.podSecurityContext here (deliberately): it forces
+      runAsUser 1001, and the stock postgres/pgvector image's entrypoint
+      expects to run either as root (then drops to its own "postgres" user)
+      or as that exact built-in uid -- it has no nss-wrapper/arbitrary-uid
+      support the way e.g. Bitnami images do. Forcing an unrelated uid here
+      risks initdb/chown failures on first boot that we can't verify without
+      a live cluster. Container-level hardening below (capability drop,
+      no-priv-escalation) is applied without touching the runtime user.
+      */}}
       containers:
         - name: postgres
           image: {{ include "parlor.image" (dict "ctx" . "image" .Values.postgres.image) }}
           imagePullPolicy: {{ include "parlor.pullPolicy" (dict "ctx" . "image" .Values.postgres.image) }}
+          securityContext:
+            {{- include "parlor.containerSecurityContext" (dict "readOnlyRootFilesystem" false) | nindent 12 }}
           ports:
             - name: postgres
               containerPort: 5432
           env:
             - name: POSTGRES_USER
-              value: {{ .Values.postgres.auth.username | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "parlor.secretName" . }}
+                  key: POSTGRES_USER
             - name: POSTGRES_PASSWORD
-              value: {{ .Values.postgres.auth.password | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "parlor.secretName" . }}
+                  key: POSTGRES_PASSWORD
             - name: POSTGRES_DB
-              value: {{ .Values.postgres.auth.database | quote }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "parlor.secretName" . }}
+                  key: POSTGRES_DB
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
           readinessProbe:

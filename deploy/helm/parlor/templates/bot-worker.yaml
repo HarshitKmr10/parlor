@@ -34,6 +34,21 @@ spec:
         - name: bot-worker
           image: {{ include "parlor.image" (dict "ctx" . "image" .Values.botWorker.image) }}
           imagePullPolicy: {{ include "parlor.pullPolicy" (dict "ctx" . "image" .Values.botWorker.image) }}
+          {{/*
+          Partial hardening only: drop all Linux capabilities and forbid
+          privilege escalation, but do NOT set readOnlyRootFilesystem here.
+          This container runs a real Chromium via Playwright inside Xvfb;
+          Chromium's sandbox/profile machinery and its temp/cache writes
+          under paths we haven't fully enumerated make a read-only rootfs a
+          real risk of silently breaking bot joins, and we can't verify that
+          without a live cluster run. Trade-off: accepted, revisit once this
+          has been exercised against a real meeting join in a k8s runtime.
+          */}}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           ports:
             - name: http
               containerPort: {{ .Values.botWorker.service.port }}

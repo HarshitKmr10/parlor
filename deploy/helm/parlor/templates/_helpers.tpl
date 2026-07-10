@@ -173,3 +173,19 @@ fsGroup: 1001
 seccompProfile:
   type: RuntimeDefault
 {{- end -}}
+
+{{/*
+Standard container-level security context: drop all Linux capabilities,
+forbid privilege escalation, and (by default) mount the root filesystem
+read-only. Pass readOnlyRootFilesystem=false for containers that write
+outside their declared volume mounts (e.g. postgres's unix socket dir).
+Usage: include "parlor.containerSecurityContext" (dict "readOnlyRootFilesystem" false)
+       include "parlor.containerSecurityContext" dict   (defaults to true)
+*/}}
+{{- define "parlor.containerSecurityContext" -}}
+allowPrivilegeEscalation: false
+readOnlyRootFilesystem: {{ if hasKey . "readOnlyRootFilesystem" }}{{ .readOnlyRootFilesystem }}{{ else }}true{{ end }}
+capabilities:
+  drop:
+    - ALL
+{{- end -}}

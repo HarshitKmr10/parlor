@@ -35,6 +35,8 @@ spec:
         - name: backend
           image: {{ include "parlor.image" (dict "ctx" . "image" .Values.backend.image) }}
           imagePullPolicy: {{ include "parlor.pullPolicy" (dict "ctx" . "image" .Values.backend.image) }}
+          securityContext:
+            {{- include "parlor.containerSecurityContext" dict | nindent 12 }}
           ports:
             - name: http
               containerPort: {{ .Values.backend.service.port }}
@@ -52,6 +54,12 @@ spec:
             {{- toYaml .Values.backend.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
       {{- with .Values.backend.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

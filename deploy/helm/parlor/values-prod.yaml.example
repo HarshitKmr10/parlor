@@ -15,7 +15,8 @@
 #     --from-literal=JWT_SECRET="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')" \
 #     --from-literal=DATABASE_URL="postgresql://user:pass@db-host:5432/parlor" \
 #     --from-literal=ANTHROPIC_API_KEY="sk-ant-..." \
-#     --from-literal=CALENDAR_TOKEN_KEY="$(python -c 'from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())')"
+#     --from-literal=CALENDAR_TOKEN_KEY="$(python -c 'from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())')" \
+#     --from-literal=AI_SERVICE_INTERNAL_TOKEN="$(python -c 'import secrets;print(secrets.token_urlsafe(48))')"
 #
 #   # then set:  secrets.existingSecret: parlor-secrets
 # =============================================================================
@@ -31,6 +32,12 @@ global:
 postgres:
   enabled: false
 externalDatabaseUrl: ""          # OR supply via the existingSecret DATABASE_URL key
+
+# ── Restrict in-cluster east-west traffic to postgres/ai-service/bot-worker
+#    to the components that actually call them. Requires a NetworkPolicy-
+#    enforcing CNI (Calico, Cilium, etc.) to actually take effect. ──
+networkPolicy:
+  enabled: true
 
 # ── Secrets: reference an out-of-band Secret (preferred). ──
 secrets:

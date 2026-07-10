@@ -31,6 +31,8 @@ spec:
         - name: ai-service
           image: {{ include "parlor.image" (dict "ctx" . "image" .Values.aiService.image) }}
           imagePullPolicy: {{ include "parlor.pullPolicy" (dict "ctx" . "image" .Values.aiService.image) }}
+          securityContext:
+            {{- include "parlor.containerSecurityContext" dict | nindent 12 }}
           ports:
             - name: http
               containerPort: {{ .Values.aiService.service.port }}
@@ -46,6 +48,12 @@ spec:
             {{- toYaml .Values.aiService.readinessProbe | nindent 12 }}
           resources:
             {{- toYaml .Values.aiService.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
       {{- with .Values.aiService.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
