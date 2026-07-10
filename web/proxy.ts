@@ -108,17 +108,9 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
+// Derived from PROTECTED_PREFIXES so the two can never drift apart again --
+// a prefix added there without a matching matcher entry previously got zero
+// middleware enforcement, silently.
 export const config = {
-  matcher: [
-    "/dashboard/:path*",
-    "/meetings/:path*",
-    "/ask/:path*",
-    "/integrations/:path*",
-    "/settings/:path*",
-    "/search/:path*",
-    "/highlights/:path*",
-    "/action-items/:path*",
-    "/trackers/:path*",
-    "/reports/:path*",
-  ],
+  matcher: PROTECTED_PREFIXES.map((prefix) => `${prefix}/:path*`),
 };
