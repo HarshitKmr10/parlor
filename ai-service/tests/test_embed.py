@@ -14,7 +14,9 @@ from fastapi.testclient import TestClient
 from app.main import app
 from app.rag.store import EmbeddingStore
 
-client = TestClient(app)
+from .conftest import TEST_INTERNAL_TOKEN
+
+client = TestClient(app, headers={"X-Internal-Service-Token": TEST_INTERNAL_TOKEN})
 
 _URL = "/embed"
 

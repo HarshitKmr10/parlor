@@ -163,6 +163,11 @@ class Settings:
     openai_compatible_base_url: str | None = OPENAI_COMPATIBLE_BASE_URL
     openai_compatible_api_key: str | None = OPENAI_COMPATIBLE_API_KEY
     openai_compatible_model: str = OPENAI_COMPATIBLE_MODEL
+    # Shared secret the backend must present (via the X-Internal-Service-Token
+    # header) on every call into this internal-only service. Read from
+    # AI_SERVICE_INTERNAL_TOKEN. None/empty means the service is misconfigured
+    # and fails closed (see main.py's require_internal_token dependency).
+    internal_service_token: str | None = None
 
     @property
     def azure_configured(self) -> bool:
@@ -230,6 +235,7 @@ def load_settings() -> Settings:
         mode = "mock"
 
     port = int(os.environ.get("AI_SERVICE_PORT", "8100"))
+    internal_service_token = os.environ.get("AI_SERVICE_INTERNAL_TOKEN") or None
 
     provider_mode_raw = (os.environ.get("AI_PROVIDER_MODE") or "fallback").strip().lower()
     if provider_mode_raw not in _PROVIDER_MODES:
@@ -281,6 +287,7 @@ def load_settings() -> Settings:
         openai_compatible_base_url=OPENAI_COMPATIBLE_BASE_URL,
         openai_compatible_api_key=OPENAI_COMPATIBLE_API_KEY,
         openai_compatible_model=OPENAI_COMPATIBLE_MODEL,
+        internal_service_token=internal_service_token,
     )
 
 

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..config import settings
 from ..dependencies import get_router, get_store
 from ..providers import ProviderError, ProviderRouter
-from ..rag import EmbeddingStore, answer_question, summarize_meeting
+from ..rag import EmbeddingStore, TooManyChunksError, answer_question, summarize_meeting
 from ..assist import compute_assist
 from ..schemas import (
     AssistRequest,
@@ -50,9 +50,11 @@ async def summarize(
             meta=payload.meta,
             segments=payload.segments,
         )
+    except TooManyChunksError as exc:
+        raise _error(422, "transcript_too_large", str(exc)) from exc
     except ProviderError as exc:
-        logger.error("summarize failed: %s", exc)
-        raise _error(502, "provider_error", exc.message) from exc
+        logger.error("summarize failed: %s", exc.message)
+        raise _error(502, "provider_error", "Upstream provider error") from exc
 
 
 @router.post("/embed", response_model=EmbedResponse, response_model_by_alias=True)
@@ -76,8 +78,8 @@ async def embed(
             [s.text for s in payload.segments]
         )
     except ProviderError as exc:
-        logger.error("embed failed: %s", exc)
-        raise _error(502, "provider_error", exc.message) from exc
+        logger.error("embed failed: %s", exc.message)
+        raise _error(502, "provider_error", "Upstream provider error") from exc
 
     try:
         count = await store.upsert_segments(
@@ -118,8 +120,8 @@ async def chat(
             is_mock=settings.is_mock,
         )
     except ProviderError as exc:
-        logger.error("chat failed: %s", exc)
-        raise _error(502, "provider_error", exc.message) from exc
+        logger.error("chat failed: %s", exc.message)
+        raise _error(502, "provider_error", "Upstream provider error") from exc
     except RuntimeError as exc:
         raise _error(503, "store_unavailable", str(exc)) from exc
 

@@ -34,7 +34,11 @@ class TranscriptSegment(CamelModel):
     id: str
     speaker_id: str | None = None
     speaker_name: str
-    text: str
+    # 100k chars comfortably covers a single legitimately-oversized segment
+    # (summarize.py's map-reduce chunker already splits any segment larger
+    # than MAX_CHARS_PER_CHUNK=48_000 into sub-segments) while still bounding
+    # a single request's payload size.
+    text: str = Field(max_length=100_000)
     t_start_sec: float
     t_end_sec: float | None = None
     created_at: str | None = None
@@ -120,13 +124,13 @@ class MeetingMeta(CamelModel):
 class SummarizeRequest(CamelModel):
     meeting_id: str
     meta: MeetingMeta
-    segments: list[TranscriptSegment]
+    segments: list[TranscriptSegment] = Field(max_length=2000)
 
 
 class EmbedRequest(CamelModel):
     workspace_id: str
     meeting_id: str
-    segments: list[TranscriptSegment]
+    segments: list[TranscriptSegment] = Field(max_length=2000)
 
 
 class EmbedResponse(CamelModel):

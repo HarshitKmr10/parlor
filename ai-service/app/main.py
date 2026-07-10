@@ -7,10 +7,11 @@ the wider system runs in dev. Exposes GET /health plus POST /summarize,
 
 from __future__ import annotations
 
+import hmac
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -41,7 +42,39 @@ app = FastAPI(
     version="1.0.0",
     description="Summaries, embeddings, and chat-with-meeting (RAG).",
     lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
+
+
+# --- Internal-service auth --------------------------------------------------
+
+
+async def require_internal_token(
+    x_internal_service_token: str | None = Header(default=None),
+) -> None:
+    """Guard every /summarize, /embed, /chat, /assist call with a shared
+    secret the backend must present. Fails closed: a missing
+    ``internal_service_token`` in this service's own config is a deployment
+    misconfiguration (500), not "no auth required" (401 only covers the
+    caller presenting a wrong/missing header when the secret IS configured).
+    """
+    if not settings.internal_service_token:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "code": "internal_auth_misconfigured",
+                "message": "AI_SERVICE_INTERNAL_TOKEN is not configured.",
+            },
+        )
+    if not x_internal_service_token or not hmac.compare_digest(
+        x_internal_service_token, settings.internal_service_token
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "unauthorized", "message": "Invalid or missing internal service token."},
+        )
 
 
 # --- Structured error envelopes --------------------------------------------
@@ -102,4 +135,4 @@ async def health() -> HealthResponse:
     )
 
 
-app.include_router(insights_router)
+app.include_router(insights_router, dependencies=[Depends(require_internal_token)])

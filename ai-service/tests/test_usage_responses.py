@@ -22,7 +22,9 @@ from app.rag.store import EmbeddingStore, RetrievedSegment
 from app.rag.summarize import summarize_meeting
 from app.schemas import MeetingMeta, TranscriptSegment
 
-client = TestClient(app)
+from .conftest import TEST_INTERNAL_TOKEN
+
+client = TestClient(app, headers={"X-Internal-Service-Token": TEST_INTERNAL_TOKEN})
 
 
 def _segment(seg_id: str, text: str) -> TranscriptSegment:
