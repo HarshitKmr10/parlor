@@ -24,6 +24,10 @@
 #   make ps      show service status (separated stack)
 #   make psql    open a psql shell on the shared Postgres
 #   make build   build all images (separated stack)
+#   make test-backend  build backend/.venv (if missing) and run backend pytest
+#                  with the env vars + --ignore flags CONTRIBUTING.md spells
+#                  out manually. Needs a real Postgres at DATABASE_URL (e.g.
+#                  from `make up` / `make up-api`).
 # =============================================================================
 
 COMPOSE := docker compose
@@ -34,7 +38,7 @@ COMPOSE_SEP := docker compose -f docker-compose.yml -f docker-compose.worker.yml
 # API-only stack uses the base compose alone (backend = standalone in-process).
 COMPOSE_API := docker compose
 
-.PHONY: up up-bots up-api down reset logs logs-worker worker-health workers free-workers smoke smoke-botless ps psql build env
+.PHONY: up up-bots up-api down reset logs logs-worker worker-health workers free-workers smoke smoke-botless ps psql build env test-backend
 
 # Create .env from the example on first run, then build + start the SEPARATED
 # stack detached (web + backend API + meeting-worker bot + ai-service + postgres).
@@ -116,3 +120,23 @@ smoke-botless:
 # Create .env from .env.example if it does not exist yet.
 env:
 	@test -f .env || (cp .env.example .env && echo "Created .env from .env.example")
+
+# Build backend/.venv (if missing) and run the backend test suite with the
+# exact env vars and --ignore flags CI uses. Needs a real Postgres reachable
+# at DATABASE_URL (override the default below to point at your own).
+test-backend:
+	@test -x backend/.venv/bin/pytest || ( \
+	  cd backend && python3.12 -m venv .venv && \
+	  .venv/bin/pip install --upgrade pip && \
+	  .venv/bin/pip install -r requirements-dev.txt && \
+	  .venv/bin/pip install "pytest>=7.4,<10" "pytest-asyncio>=0.23,<1" \
+	)
+	cd backend && \
+	  DATABASE_URL=$${DATABASE_URL:-postgresql://meeting:meeting@localhost:5432/meeting} \
+	  MEETING_JOINER_DB_DRIVER=pg \
+	  AI_MODE=mock \
+	  RUNTIME_MODE=standalone \
+	  JWT_SECRET=$${JWT_SECRET:-dev-insecure-change-me} \
+	  PYTHONPATH=. .venv/bin/pytest -q \
+	    --ignore=tests/services/test_compose_worker_dispatcher.py \
+	    --ignore=tests/services/test_rejoin_orchestrator_integration.py

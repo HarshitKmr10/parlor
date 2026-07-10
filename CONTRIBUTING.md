@@ -64,7 +64,10 @@ error, is a real regression.
 
 ## Submitting a pull request
 
-1. Fork the repo and create a branch for your change.
+1. Fork the repo and create a branch for your change, named
+   `<type>/<short-description>` using the same type prefixes as the commit
+   convention below (e.g. `fix/bot-join-timeout`, `feat/twin-summary-view`,
+   `docs/contributing-branch-naming`).
 2. Write tests for new behavior; keep existing tests green.
 3. Keep commits focused — one logical change per PR is easier to review than
    a bundle of unrelated fixes.
