@@ -533,9 +533,19 @@ async def lifespan(app: FastAPI):
             logger.warning("OTel shutdown error: %s", e)
 
 
+# API docs (Swagger/ReDoc/OpenAPI JSON) are only exposed in non-production
+# deployments. "standalone" and "compose" are dev/local-cluster runtime modes
+# (see shared/config.py's RUNTIME_MODE); anything else assumes a real k8s
+# deployment and disables the docs surface entirely.
+_DEV_RUNTIME_MODES = {"standalone", "compose"}
+_is_production_runtime = settings.RUNTIME_MODE not in _DEV_RUNTIME_MODES
+
 # Create FastAPI app
 app = FastAPI(
     title="Parlor API",
+    docs_url=None if _is_production_runtime else "/docs",
+    redoc_url=None if _is_production_runtime else "/redoc",
+    openapi_url=None if _is_production_runtime else "/openapi.json",
     description=(
         "The Parlor meeting-intelligence API. Capture meetings, then read "
         "transcripts, summaries, analytics, highlights, action items, and ask "

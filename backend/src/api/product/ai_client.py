@@ -42,11 +42,12 @@ async def _post(
 ) -> dict[str, Any]:
     url = f"{settings.AI_SERVICE_URL.rstrip('/')}{path}"
     body = json.dumps(payload, default=_json_default).encode("utf-8")
+    headers = {"Content-Type": "application/json"}
+    if settings.AI_SERVICE_INTERNAL_TOKEN:
+        headers["X-Internal-Service-Token"] = settings.AI_SERVICE_INTERNAL_TOKEN
     try:
         async with httpx.AsyncClient(timeout=timeout or _TIMEOUT) as client:
-            resp = await client.post(
-                url, content=body, headers={"Content-Type": "application/json"}
-            )
+            resp = await client.post(url, content=body, headers=headers)
     except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout) as exc:
         raise ApiError(
             503,

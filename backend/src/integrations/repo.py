@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, List, Optional
 
+from .secret_fields import encrypt_config_secrets
+
 
 class IntegrationsRepo:
     def __init__(self, db) -> None:
@@ -54,7 +56,7 @@ class IntegrationsRepo:
             """,
             workspace_id,
             kind,
-            json.dumps(config or {}),
+            json.dumps(encrypt_config_secrets(config or {})),
             enabled,
         )
         return self._normalize(rows[0])

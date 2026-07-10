@@ -15,13 +15,14 @@ every 5 seconds so ``/health`` never has to do anything expensive itself.
 
 from __future__ import annotations
 
+import hmac
 import os
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from typing import AsyncIterator, Optional
 
-from fastapi import FastAPI, HTTPException, Response, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Response, status
 
 from shared.secret_validator import (
     MissingSecretError,
@@ -332,7 +333,33 @@ app = FastAPI(
     title="meeting-sidecar",
     version=SERVICE_VERSION,
     lifespan=lifespan,
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
+
+
+# ---------------------------------------------------------------------------
+# Control-plane authentication
+# ---------------------------------------------------------------------------
+async def _verify_configure_token(
+    x_sidecar_configure_token: Optional[str] = Header(default=None),
+) -> None:
+    """Guard every control-surface route (``/configure``, ``/abort``).
+
+    Reads ``SIDECAR_CONFIGURE_TOKEN`` live from the environment on every call
+    rather than a module-level constant, so a token rotated without a pod
+    restart still takes effect immediately. Fails closed (401) both when the
+    caller's header is missing/wrong AND when the server-side token itself is
+    unset — an unset token must never be read as "anyone may command this
+    pod", since the sidecar's control endpoints can spawn/kill the bot
+    subprocess.
+    """
+    expected = os.environ.get("SIDECAR_CONFIGURE_TOKEN")
+    if not expected or not hmac.compare_digest(
+        x_sidecar_configure_token or "", expected
+    ):
+        raise HTTPException(status_code=401, detail="invalid_sidecar_configure_token")
 
 
 # ---------------------------------------------------------------------------
@@ -349,10 +376,40 @@ async def root() -> RootResponse:
     )
 
 
+def _validate_google_auth_state_path(path: Optional[str]) -> None:
+    """Reject a ``google_auth_state_path`` outside the trusted auth-state dir.
+
+    ``GOOGLE_AUTH_STATE_DIR`` is the only directory of Playwright storageState
+    files (live session cookies) the operator has provisioned into this pod.
+    Without this check, a caller who can reach ``/configure`` could point the
+    bot at an arbitrary file on the pod's filesystem. Resolves both sides with
+    ``os.path.realpath`` (defeats ``..`` traversal and symlinks) and uses
+    ``os.path.commonpath`` for real containment instead of a naive string
+    prefix check (which a sibling directory like ``/secrets/auth-evil`` would
+    pass against a prefix of ``/secrets/auth``).
+    """
+    if path is None:
+        return
+    trusted_dir = os.environ.get("GOOGLE_AUTH_STATE_DIR")
+    if not trusted_dir:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="google_auth_state_path rejected: GOOGLE_AUTH_STATE_DIR is not configured",
+        )
+    resolved_dir = os.path.realpath(trusted_dir)
+    resolved_path = os.path.realpath(path)
+    if os.path.commonpath([resolved_dir, resolved_path]) != resolved_dir:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="google_auth_state_path must resolve inside GOOGLE_AUTH_STATE_DIR",
+        )
+
+
 @app.post(
     "/configure",
     response_model=ConfigureResponse,
     status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(_verify_configure_token)],
 )
 async def configure(request: ConfigureRequest) -> ConfigureResponse:
     """Spawn the bot subprocess for a meeting.
@@ -367,6 +424,8 @@ async def configure(request: ConfigureRequest) -> ConfigureResponse:
     warm-pool pod) — the second request blocks until the first has already
     flipped state to CONFIGURING, then correctly sees the pod as busy.
     """
+    _validate_google_auth_state_path(request.google_auth_state_path)
+
     async with bot_supervisor.configure_lock:
         snapshot = await state_manager.snapshot()
         # Accept a new meeting when the worker is WARM (fresh) OR ENDED
@@ -481,7 +540,11 @@ async def health() -> HealthResponse:
     )
 
 
-@app.post("/abort", response_model=AbortResponse)
+@app.post(
+    "/abort",
+    response_model=AbortResponse,
+    dependencies=[Depends(_verify_configure_token)],
+)
 async def abort(request: AbortRequest) -> AbortResponse:
     """Gracefully terminate the running bot.
 

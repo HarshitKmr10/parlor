@@ -271,3 +271,49 @@ async def test_deliver_one_final_attempt_marks_failed():
     assert ok is False
     svc._repo.mark_failed.assert_awaited_once()
     svc._repo.mark_retry.assert_not_awaited()
+
+
+# ── WebhookDispatcher pre-delivery SSRF re-check ────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_revalidate_url_allows_safe_https_url():
+    from src.webhooks.dispatcher import WebhookDispatcher
+
+    dispatcher = WebhookDispatcher()
+    repo = AsyncMock()
+
+    ok = await dispatcher._revalidate_url(_delivery(), repo)
+
+    assert ok is True
+    repo.mark_failed.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_revalidate_url_rejects_rebound_private_ip():
+    """Simulates DNS-rebinding: the URL passed registration-time validation
+    but now (re-)resolves to a private/loopback IP literal by delivery time."""
+    from src.webhooks.dispatcher import WebhookDispatcher
+
+    dispatcher = WebhookDispatcher()
+    repo = AsyncMock()
+
+    ok = await dispatcher._revalidate_url(
+        _delivery(url="https://127.0.0.1/x"), repo
+    )
+
+    assert ok is False
+    repo.mark_failed.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_dispatcher_revalidate_url_rejects_missing_url():
+    from src.webhooks.dispatcher import WebhookDispatcher
+
+    dispatcher = WebhookDispatcher()
+    repo = AsyncMock()
+
+    ok = await dispatcher._revalidate_url(_delivery(url=None), repo)
+
+    assert ok is False
+    repo.mark_failed.assert_awaited_once()

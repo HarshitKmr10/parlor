@@ -14,6 +14,7 @@ import httpx
 
 from ..observability import get_logger
 from .repo import WebhooksRepo
+from .safety import InvalidWebhookUrl, validate_webhook_url
 from .service import WebhookService
 
 logger = get_logger(__name__)
@@ -71,9 +72,40 @@ class WebhookDispatcher:
 
             async def _go(delivery: dict) -> None:
                 async with sem:
+                    if not await self._revalidate_url(delivery, repo):
+                        return
                     await service.deliver_one(delivery, client=client)
 
             await asyncio.gather(*(_go(d) for d in due))
+
+    async def _revalidate_url(self, delivery: dict, repo: WebhooksRepo) -> bool:
+        """Re-run the SSRF guard immediately before delivery.
+
+        Registration-time validation (``routes_webhooks.py``) only checked the
+        URL when the endpoint was created/updated. A hostname that resolved to
+        a public IP then can be repointed (DNS rebinding) to a private/internal
+        IP by the time this delivery actually fires, so re-resolve and re-check
+        right before the outbound call rather than trusting the stored URL.
+        """
+        url = delivery.get("url")
+        try:
+            if not url:
+                raise InvalidWebhookUrl("Webhook delivery is missing a URL")
+            validate_webhook_url(url)
+            return True
+        except InvalidWebhookUrl as exc:
+            logger.warning(
+                "webhooks.delivery_url_rejected",
+                delivery_id=str(delivery.get("id")),
+                error=str(exc),
+            )
+            await repo.mark_failed(
+                delivery["id"],
+                attempts=int(delivery.get("attempts", 0)) + 1,
+                response_status=None,
+                error=f"webhook URL failed pre-delivery SSRF check: {exc}",
+            )
+            return False
 
 
 _dispatcher: Optional[WebhookDispatcher] = None

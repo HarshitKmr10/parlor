@@ -91,8 +91,9 @@ async def _post_configure(pod: ClaimedPod, payload: SidecarConfigurePayload) -> 
     surrender the pod back to the pool or escalate.
     """
     url = f"http://{pod.pod_ip}:{SIDECAR_PORT}/configure"
+    headers = {"X-Sidecar-Configure-Token": os.environ.get("SIDECAR_CONFIGURE_TOKEN", "")}
     async with httpx.AsyncClient(timeout=SIDECAR_CONFIGURE_TIMEOUT_S) as client:
-        response = await client.post(url, json=payload.to_json())
+        response = await client.post(url, json=payload.to_json(), headers=headers)
         response.raise_for_status()
 
 

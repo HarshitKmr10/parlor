@@ -163,6 +163,15 @@ _JWT_SECRET_REQUIREMENT = SecretRequirement(
     validator=_valid_jwt_secret,
 )
 
+_SIDECAR_CALLBACK_TOKEN_REQUIREMENT = SecretRequirement(
+    name="SIDECAR_CALLBACK_TOKEN",
+    description=(
+        "Shared secret the meeting-worker sidecar must present on "
+        "POST /internal/sessions/ended; unset makes that callback accept "
+        "any caller with no auth"
+    ),
+)
+
 
 # Per-platform requirements, opt-in via the ``enabled_platforms`` config.
 _PLATFORM_REQUIREMENTS: dict[str, tuple[SecretRequirement, ...]] = {
@@ -739,6 +748,7 @@ def _collect_required(config: ValidationConfig) -> tuple[SecretRequirement, ...]
     requirements: list[SecretRequirement] = list(_CORE_REQUIRED)
     if not _is_dev_environment():
         requirements.append(_JWT_SECRET_REQUIREMENT)
+        requirements.append(_SIDECAR_CALLBACK_TOKEN_REQUIREMENT)
     for platform in config.enabled_platforms:
         platform_reqs = _PLATFORM_REQUIREMENTS.get(platform)
         if platform_reqs is None:
@@ -756,6 +766,14 @@ def _collect_required(config: ValidationConfig) -> tuple[SecretRequirement, ...]
     return _dedupe_requirements(requirements)
 
 
+def _allowed_hosts_is_wildcard() -> bool:
+    raw = os.environ.get("ALLOWED_HOSTS")
+    if raw is None:
+        return True
+    hosts = [host.strip() for host in raw.split(",") if host.strip()]
+    return not hosts or "*" in hosts
+
+
 def validate_secrets(config: ValidationConfig | None = None) -> None:
     """Validate all required secrets are present and well-formed.
 
@@ -771,6 +789,14 @@ def validate_secrets(config: ValidationConfig | None = None) -> None:
         for req in requirements
         if not _is_valid(_selected_env_value(req), req)
     ]
+
+    if not _is_dev_environment() and _allowed_hosts_is_wildcard():
+        missing.append(
+            "ALLOWED_HOSTS (must be set to the deployment's real hostname(s) — "
+            "the wildcard default disables Host-header validation entirely "
+            "in a non-local deployment)"
+        )
+
     if missing:
         raise MissingSecretError(missing)
 

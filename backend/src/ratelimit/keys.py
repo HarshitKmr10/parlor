@@ -12,12 +12,14 @@ from typing import Optional
 
 PUBLIC_PREFIX = "/api/v1/public"
 
-# Brute-force-sensitive auth endpoints: login (credential guessing) and the
-# password-reset request/confirm pair (token guessing). Kept as an explicit
-# set rather than a prefix match so unrelated /auth/* routes (signup, me,
+# Brute-force- and enumeration-sensitive auth endpoints: login (credential
+# guessing), the password-reset request/confirm pair (token guessing), and
+# signup (email-enumeration via its 409 "email_taken" response). Kept as an
+# explicit set rather than a prefix match so unrelated /auth/* routes (me,
 # logout) keep the default tier.
 _STRICT_AUTH_PATHS = {
     "/api/v1/auth/login",
+    "/api/v1/auth/signup",
     "/api/v1/auth/forgot-password",
     "/api/v1/auth/reset-password",
 }

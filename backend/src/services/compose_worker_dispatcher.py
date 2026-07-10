@@ -137,8 +137,9 @@ async def _post_configure(worker_url: str, payload: SidecarConfigurePayload) -> 
     sidecar returns 202 ACCEPTED on success (see ``src/sidecar/main.py``).
     """
     url = f"{worker_url}/configure"
+    headers = {"X-Sidecar-Configure-Token": os.environ.get("SIDECAR_CONFIGURE_TOKEN", "")}
     async with httpx.AsyncClient(timeout=CONFIGURE_TIMEOUT_S) as client:
-        response = await client.post(url, json=payload.to_json())
+        response = await client.post(url, json=payload.to_json(), headers=headers)
         response.raise_for_status()
 
 

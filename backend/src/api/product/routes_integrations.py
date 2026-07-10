@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends
 
 from ...integrations import KNOWN_KINDS, PROVIDERS, IntegrationsRepo
 from ...integrations.crm_providers import validate_salesforce_instance_url
+from ...integrations.secret_fields import redact_config_secrets
 from ...webhooks.safety import InvalidWebhookUrl
 from ..database.connection import DatabaseConnection
 from .deps import AuthContext, get_db
@@ -41,7 +42,10 @@ async def _repo(db: DatabaseConnection = Depends(get_db)) -> IntegrationsRepo:
         "Returns one entry per known integration kind (slack, email, "
         "notion, hubspot, salesforce), merged with any stored config. Kinds "
         "with no stored row come back disabled with empty config. Admin-"
-        "gated because stored config carries live credentials."
+        "gated because stored config carries live credentials — CRM/Notion "
+        "credential fields (token/apiKey/accessToken/refreshToken) are "
+        "never returned in cleartext; they come back as `true` presence "
+        "markers, same treatment as the Google Workspace service-account key."
     ),
 )
 async def list_integrations(
@@ -51,7 +55,9 @@ async def list_integrations(
     """Return one entry per known integration kind, merged with stored config.
 
     Kinds with no stored row are returned disabled with empty config so the
-    dashboard always sees the full set of available integrations.
+    dashboard always sees the full set of available integrations. Credential
+    sub-fields are redacted to a boolean presence marker (see
+    ``secret_fields.redact_config_secrets``) — never returned in cleartext.
 
     Admin-gated: stored config carries live credentials (Slack webhook URLs,
     CRM tokens), so read access is restricted the same as write access.
@@ -64,7 +70,7 @@ async def list_integrations(
             Integration(
                 kind=kind,  # type: ignore[arg-type]
                 enabled=bool(row["enabled"]) if row else False,
-                config=row["config"] if row else {},
+                config=redact_config_secrets(row["config"]) if row else {},
                 implemented=_implemented(kind),
             )
         )
@@ -110,6 +116,6 @@ async def upsert_integration(
     return Integration(
         kind=row["kind"],
         enabled=bool(row["enabled"]),
-        config=row["config"],
+        config=redact_config_secrets(row["config"]),
         implemented=_implemented(row["kind"]),
     )

@@ -14,6 +14,7 @@ rotation is out of scope for Phase 3.
 
 from __future__ import annotations
 
+import hmac
 import os
 from datetime import datetime
 from typing import Optional
@@ -59,10 +60,12 @@ async def _verify_sidecar_token(
     expected = os.environ.get("SIDECAR_CALLBACK_TOKEN")
     if not expected:
         # In dev / compose mode without the token set, accept all calls so
-        # local development isn't blocked. Production must set this — the
-        # secret_validator can enforce it.
+        # local development isn't blocked. Real (non-dev) deployments must
+        # set this — shared/secret_validator.py enforces it at boot so a
+        # production process without the token fails to start rather than
+        # silently accepting unauthenticated callbacks here.
         return
-    if x_sidecar_token != expected:
+    if not hmac.compare_digest(x_sidecar_token or "", expected):
         raise HTTPException(status_code=401, detail="invalid_sidecar_token")
 
 

@@ -20,6 +20,7 @@ from .base import IntegrationProvider
 from .email_provider import EmailProvider
 from .models import DeliveryResult, MeetingRecap
 from .repo import IntegrationsRepo
+from .secret_fields import decrypt_config_secrets
 from .slack_provider import SlackProvider
 from .crm_providers import HubspotProvider, NotionProvider, SalesforceProvider
 
@@ -57,7 +58,7 @@ async def deliver_recap(
                 DeliveryResult(kind=kind, delivered=False, detail="unknown provider")
             )
             continue
-        config = row.get("config") or {}
+        config = decrypt_config_secrets(row.get("config") or {})
         if not provider.is_configured(config):
             results.append(
                 DeliveryResult(kind=kind, delivered=False, detail="not configured")

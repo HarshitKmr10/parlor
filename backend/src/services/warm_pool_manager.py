@@ -1032,6 +1032,11 @@ class WarmPoolManager:
                     resp = await http.post(
                         _sidecar_url(pod_name, pod_ip, "/abort"),
                         json={"reason": reason, "grace_seconds": grace_seconds},
+                        headers={
+                            "X-Sidecar-Configure-Token": os.environ.get(
+                                "SIDECAR_CONFIGURE_TOKEN", ""
+                            )
+                        },
                     )
                     acked = resp.status_code in (200, 202)
             except Exception as e:  # noqa: BLE001

@@ -72,7 +72,9 @@ def _clear_secret_env(monkeypatch: pytest.MonkeyPatch):
         "MEETING_JOINER_STT_PROVIDERS",
         "MEETING_JOINER_STORAGE_REQUIRED",
         "JWT_SECRET",
+        "SIDECAR_CALLBACK_TOKEN",
         "RUNTIME_MODE",
+        "ALLOWED_HOSTS",
     ):
         monkeypatch.delenv(var, raising=False)
     yield
@@ -1027,5 +1029,83 @@ def test_jwt_secret_real_value_passes_in_non_dev(
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
     monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", _VALID_AZURE_STORAGE)
     monkeypatch.setenv("JWT_SECRET", "a-real-random-secret-value")
+    monkeypatch.setenv("ALLOWED_HOSTS", "api.example.com")
+    monkeypatch.setenv("SIDECAR_CALLBACK_TOKEN", "a-real-sidecar-token")
+
+    validate_secrets()  # no exception
+
+
+@pytest.mark.unit
+def test_sidecar_callback_token_unset_raises_in_non_dev(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_MODE", "k8s")
+    monkeypatch.setenv("DATABASE_URL", _VALID_PG_URL)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", _VALID_AZURE_STORAGE)
+    monkeypatch.setenv("JWT_SECRET", "a-real-random-secret-value")
+    monkeypatch.setenv("ALLOWED_HOSTS", "api.example.com")
+
+    with pytest.raises(MissingSecretError) as excinfo:
+        validate_secrets()
+
+    assert any("SIDECAR_CALLBACK_TOKEN" in entry for entry in excinfo.value.missing)
+
+
+@pytest.mark.unit
+def test_sidecar_callback_token_unset_allowed_in_dev(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_MODE", "standalone")
+    monkeypatch.setenv("DATABASE_URL", _VALID_PG_URL)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", _VALID_AZURE_STORAGE)
+
+    validate_secrets()  # no exception
+
+
+@pytest.mark.unit
+def test_allowed_hosts_wildcard_raises_in_non_dev(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_MODE", "k8s")
+    monkeypatch.setenv("DATABASE_URL", _VALID_PG_URL)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", _VALID_AZURE_STORAGE)
+    monkeypatch.setenv("JWT_SECRET", "a-real-random-secret-value")
+    monkeypatch.setenv("ALLOWED_HOSTS", "*")
+
+    with pytest.raises(MissingSecretError) as excinfo:
+        validate_secrets()
+
+    assert any("ALLOWED_HOSTS" in entry for entry in excinfo.value.missing)
+
+
+@pytest.mark.unit
+def test_allowed_hosts_unset_raises_in_non_dev(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_MODE", "k8s")
+    monkeypatch.setenv("DATABASE_URL", _VALID_PG_URL)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", _VALID_AZURE_STORAGE)
+    monkeypatch.setenv("JWT_SECRET", "a-real-random-secret-value")
+    monkeypatch.delenv("ALLOWED_HOSTS", raising=False)
+
+    with pytest.raises(MissingSecretError) as excinfo:
+        validate_secrets()
+
+    assert any("ALLOWED_HOSTS" in entry for entry in excinfo.value.missing)
+
+
+@pytest.mark.unit
+def test_allowed_hosts_wildcard_allowed_in_dev(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RUNTIME_MODE", "standalone")
+    monkeypatch.setenv("DATABASE_URL", _VALID_PG_URL)
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-1234567890")
+    monkeypatch.setenv("AZURE_STORAGE_CONNECTION_STRING", _VALID_AZURE_STORAGE)
+    monkeypatch.setenv("ALLOWED_HOSTS", "*")
 
     validate_secrets()  # no exception

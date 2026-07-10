@@ -81,6 +81,11 @@ class Settings(BaseSettings):
     # ai-service base URL for /summarize and /chat proxying.
     AI_SERVICE_URL: str = "http://localhost:8100"
 
+    # Shared secret sent as X-Internal-Service-Token on every ai-service call.
+    # MUST match ai-service's AI_SERVICE_INTERNAL_TOKEN. None => ai-service
+    # rejects every request (fails closed on the ai-service side).
+    AI_SERVICE_INTERNAL_TOKEN: Optional[str] = None
+
     # ─── Standalone local bot dispatch (Round 2) ──────────────────────────
     # In RUNTIME_MODE=standalone there is no K8s warm pool, so a bot is run as
     # a local subprocess (mirroring the sidecar's bot_supervisor). Escape
@@ -152,6 +157,12 @@ class Settings(BaseSettings):
     GOOGLE_MEET_USE_AUTH: bool = False
     GOOGLE_AUTH_STATE_DIR: Optional[str] = None
     GOOGLE_AUTH_STATE_PATH: Optional[str] = None
+    # Shared bearer secret guarding the sidecar's /configure and /abort control
+    # endpoints. The API sends it as X-Sidecar-Configure-Token on every
+    # dispatch call; the sidecar fails closed (401) when this is unset on
+    # either side, since an unset token must never be treated as "open to
+    # anyone who can reach the pod".
+    SIDECAR_CONFIGURE_TOKEN: Optional[str] = None
     # How many minutes before expiry a Workspace Events subscription is renewed.
     MEET_EVENTS_RENEW_LEAD_MINUTES: int = 60
     # Renewal loop tick interval (seconds).
