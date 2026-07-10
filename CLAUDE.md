@@ -48,3 +48,76 @@ removed by a different session.
     tracker itself must never be copied into this repo (it documents past
     vulnerabilities; irrelevant and inappropriate for a public repo once fixed).
 - **Re-run the full test suite after any merge**, even a clean auto-merge.
+
+## Deploying the hosted demo (direct to GCP, not via CI/CD)
+
+There is an always-on hosted demo on Google Cloud Run — three services
+(`parlor-demo-web` / `parlor-demo-backend` / `parlor-demo-ai-service`) plus
+Cloud SQL, in `us-central1`, images in the Artifact Registry repo
+`parlor-demo`. The concrete operator specifics (GCP project id/number, the
+Cloud Run URLs, Secret Manager entries, the reset job) live in
+`deploy/gcp-demo/README.md`, deliberately **not** here (public repo).
+
+- **CI/CD exists but is normally dormant.** `.github/workflows/deploy-gcp.yml`
+  builds + deploys on push to `main`, but only when the repo variable
+  `GCP_DEPLOY_ENABLED=true`. It is usually left `false` (GitHub Actions
+  minutes are a finite monthly budget), so **deploy directly with `gcloud`**
+  rather than relying on the workflow. Re-enable the workflow by flipping that
+  variable when Actions minutes are available.
+- **Direct deploy = Cloud Build, then Cloud Run.** Cloud Build runs GCP-side
+  (billed under the GCP budget, *not* Actions minutes), using the committed
+  `deploy/gcp-demo/cloudbuild.{backend,ai-service,web}.yaml` configs:
+  ```bash
+  AR=us-central1-docker.pkg.dev/<PROJECT_ID>/parlor-demo
+  BACKEND_URL=$(gcloud run services describe parlor-demo-backend --region=us-central1 --format='value(status.url)')
+  gcloud builds submit ./backend    --config deploy/gcp-demo/cloudbuild.backend.yaml    --substitutions=_IMAGE=$AR/backend:latest
+  gcloud builds submit ./ai-service --config deploy/gcp-demo/cloudbuild.ai-service.yaml --substitutions=_IMAGE=$AR/ai-service:latest
+  gcloud builds submit ./web        --config deploy/gcp-demo/cloudbuild.web.yaml        --substitutions=_IMAGE=$AR/web:latest,_API_URL=$BACKEND_URL
+  for s in backend ai-service web; do gcloud run deploy parlor-demo-$s --region us-central1 --image $AR/$s:latest; done
+  ```
+- **Deploy image-only — never pass `--set-env-vars`/`--set-secrets` on a
+  redeploy.** A new Cloud Run revision inherits the previous revision's runtime
+  config (the live-Gemini `GEMINI_API_KEY` secret, the `HOSTED_COST_CAP_*`
+  spend caps, the Cloud SQL socket `DATABASE_URL`, `ENABLE_API_DOCS=false`).
+  Passing env/secret flags silently resets anything you don't re-specify — the
+  classic way to knock the demo into a broken or mock state.
+- The Cloud Build configs set `options.logging: CLOUD_LOGGING_ONLY` on purpose:
+  the CI deployer service account can't write to the default GCS logs bucket,
+  so a bare `gcloud builds submit --tag` fails for it.
+
+## Deploy gotchas / fundamentals worth knowing before you touch a build
+
+- **`backend/requirements-dev.txt` is a hash-pinned lockfile.** pip runs in
+  hash-required mode, so adding a dependency means adding its `--hash` lines
+  **and** every new transitive dep's hashes (for a compiled dep, the specific
+  manylinux/abi3 wheel hash for `linux/amd64` plus the sdist). The code has
+  drifted from this lockfile before — packages `import`ed but never declared
+  (e.g. `email-validator`, `pwdlib`/`argon2-cffi`) make the backend image
+  build fine but crash at boot with `ModuleNotFoundError`. Keep imports and
+  the lockfile in sync, and pin new deps with hashes.
+- **The demo backend image is `backend/Dockerfile.dev`** (API-only, no bot
+  runtime / Chromium). `backend/Dockerfile.botruntime` is the heavy image that
+  actually launches bots — do not use it for the Cloud Run demo.
+- **`shared/secret_validator.py` runs at startup and fails closed.** The
+  botless demo must set `MEETING_JOINER_STORAGE_REQUIRED=false` and
+  `MSTEAMS_TRANSCRIPT_SOURCE=teams_captions` (the captions path needs no cloud
+  STT key) or the backend won't boot. Do **not** set
+  `LLM_PROVIDER=local_whisper` — the validator rejects that value outright.
+- **API docs are gated by `ENABLE_API_DOCS`.** Default is dev-on / prod-off
+  (keyed off `RUNTIME_MODE`), but the demo runs `standalone` (a dev runtime),
+  so it sets `ENABLE_API_DOCS=false` explicitly to keep `/docs`, `/redoc`,
+  `/openapi.json` returning 404. The ai-service hardcodes its docs off. There
+  should be no user-facing Swagger/ReDoc/OpenAPI links (they were removed from
+  `web/app/developers` and the README).
+- **Next.js 16 / Turbopack requires a static middleware `matcher`.** In
+  `web/proxy.ts`, `export const config.matcher` must be a literal array — a
+  computed `PROTECTED_PREFIXES.map(...)` is rejected at build time and breaks
+  the `web` build. The static matcher must be kept in sync with
+  `PROTECTED_PREFIXES` by hand.
+- **`PROTECTED_PREFIXES` (in `web/proxy.ts`) is the auth boundary.** Any path
+  prefix listed there redirects anonymous visitors to `/login`. `/developers`
+  is public docs (it lives outside the `(app)` group) and must stay OUT of
+  that list.
+- **`NEXT_PUBLIC_API_URL` is baked into the web bundle at build time** (a Docker
+  build arg, not a runtime env). Changing which backend the web talks to means
+  rebuilding the `web` image, not just updating a Cloud Run env var.
