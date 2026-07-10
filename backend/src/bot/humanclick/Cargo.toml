@@ -1,0 +1,22 @@
+[package]
+name = "humanclick"
+version = "0.1.0"
+edition = "2021"
+description = "Standalone CLI that drives real X11/XTEST pointer and keyboard input with algorithmically-synthesized human-like motion, so the meeting bot's browser sees genuine isTrusted input events instead of Playwright/CDP synthetic ones."
+publish = false
+
+[[bin]]
+name = "humanclick"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+x11rb = { version = "0.13", features = ["all-extensions"] }
+rand = "0.8"
+anyhow = "1"
+
+[profile.release]
+opt-level = 2
+lto = false

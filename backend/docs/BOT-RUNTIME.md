@@ -215,6 +215,34 @@ local-whisper transcript fills in with no cloud keys.
 
 ---
 
+## Humanized join clicks (`GOOGLEMEET_HUMANIZED_CLICKS`)
+
+By default the Google Meet join flow (`src/bot/bot_scripts/googlemeet/join.js`)
+clicks and fills fields via plain Playwright synthetic input. Set
+`GOOGLEMEET_HUMANIZED_CLICKS=true` to instead drive the join's name-entry and
+button clicks through **real XTEST pointer/keyboard input** — the `humanclick`
+Rust CLI (`src/bot/humanclick/`) — so Chromium (and whatever bot-detection
+Google Meet runs) sees genuine `isTrusted: true` input events with an
+algorithmically human-like mouse trajectory, instead of Playwright/CDP's
+synthetic dispatch.
+
+- `humanclick` is a standalone binary invoked as a subprocess per action
+  (`move`, `click`, `type`, `pointer`, `move-abs`) — it talks the X11 protocol
+  directly (via `x11rb`, no `libX11`/`xdotool` dependency) against `$DISPLAY`
+  (`:99` in this image).
+- `src/bot/bot_scripts/googlemeet/humanized.js` owns calibration (mapping
+  page CSS px to X-server device px), live endpoint verification via
+  `document.elementFromPoint` right before each click, and bounded
+  recalibrate-and-retry on a miss — never a blind click.
+- If the binary or the X display isn't reachable, `join.js` logs and falls
+  back to plain Playwright click/fill rather than failing the join.
+- The `Dockerfile.botruntime` build compiles `humanclick` in a separate Rust
+  builder stage and copies only the release binary into the final image —
+  the final image doesn't carry a Rust toolchain.
+- Build/test it directly: `cd backend/src/bot/humanclick && cargo build --release && cargo test`.
+
+---
+
 ## Troubleshooting
 
 - `meeting_worker_unreachable` / meeting stuck never joining → the

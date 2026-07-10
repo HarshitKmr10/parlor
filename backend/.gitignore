@@ -26,3 +26,6 @@ auth.json
 secrets/auth/
 **/google-auth-state/
 src/bot/bot_scripts/googlemeet/auth.json
+
+# Rust build artifacts (humanclick binary — Cargo.lock IS committed, it's a bin crate).
+src/bot/humanclick/target/

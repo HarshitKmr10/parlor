@@ -25,6 +25,17 @@
 # LocalBotRunner resolves the bot tree in this layout.
 # =============================================================================
 
+# ── Stage: build the humanclick Rust binary ─────────────────────────────────
+# Real XTEST pointer/keyboard input for the Google Meet join flow (see
+# src/bot/humanclick and src/bot/bot_scripts/googlemeet/humanized.js) — a
+# separate build stage so the final image doesn't carry the Rust toolchain,
+# only the compiled binary.
+FROM rust:1-slim-bookworm AS humanclick-builder
+WORKDIR /build
+COPY src/bot/humanclick/Cargo.toml src/bot/humanclick/Cargo.lock ./
+COPY src/bot/humanclick/src ./src
+RUN cargo build --release
+
 # Debian-based python image (glibc) so Playwright's Chromium + system deps and
 # the @xenova/transformers (onnxruntime) prebuilt binaries work out of the box.
 FROM python:3.12-slim
@@ -154,6 +165,11 @@ RUN mkdir -p /opt/hf-cache \
 # Mounted as a volume in compose for live reload, but copied so the image is
 # runnable standalone.
 COPY . /app
+
+# humanclick binary, from the Rust builder stage above. Lands at the exact
+# path src/bot/bot_scripts/googlemeet/humanized.js resolves by default
+# (../../humanclick/target/release/humanclick relative to that file).
+COPY --from=humanclick-builder /build/target/release/humanclick /app/src/bot/humanclick/target/release/humanclick
 
 # ── Entrypoint: start Xvfb + pulseaudio, then exec the API ───────────────────
 # Reuses the start-up logic of src/bot/start-bot-runtime.sh (Xvfb :99 + pulse +

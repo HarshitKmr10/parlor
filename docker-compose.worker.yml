@@ -73,6 +73,11 @@ services:
       RUNTIME_MODE: compose
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
 
+      # Same secret-validator gate as the backend service (shared/config.py) —
+      # without this the sidecar's /configure refuses to start any bot with
+      # sidecar.configure.secret_validation_failed.
+      JWT_SECRET: ${JWT_SECRET:-dev-insecure-change-me}
+
       # Sidecar HTTP listen port (matches the command + healthcheck below).
       SIDECAR_PORT: "9000"
 
@@ -102,6 +107,12 @@ services:
       MEETING_JOINER_ENABLED_PLATFORMS: googlemeet
       GOOGLEMEET_TRANSCRIPT_SOURCE: gmeet_captions
       MEETING_JOINER_STORAGE_REQUIRED: "false"
+
+      # Real XTEST pointer/keyboard input for the join click/name-entry flow
+      # (see src/bot/humanclick + src/bot/bot_scripts/googlemeet/humanized.js)
+      # instead of Playwright/CDP synthetic input. Falls back to plain
+      # Playwright clicks if the binary/X display isn't reachable.
+      GOOGLEMEET_HUMANIZED_CLICKS: ${GOOGLEMEET_HUMANIZED_CLICKS:-true}
     # Internal-only: the backend reaches the sidecar at meeting-worker:9000 over
     # the compose network — no host port is published (avoids host :9000 clashes,
     # e.g. an ssh tunnel). To debug from the host, run:

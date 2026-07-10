@@ -4,6 +4,7 @@
  */
 
 const selectors = require('./selectors');
+const { createHumanizedHelpers } = require('./humanized');
 
 /**
  * Wait for any of the given selectors to become visible
@@ -227,22 +228,62 @@ async function clickJoinButton(page) {
 
 /**
  * Build the input helpers (clickHandle / fillField) used by both the
- * authenticated and anonymous join paths — plain Playwright synthetic
- * click/fill. Kept as a builder (rather than calling page.fill/handle.click
- * directly at each call site) so both join branches share one implementation.
+ * authenticated and anonymous join paths. Kept as a builder (rather than
+ * calling page.fill/handle.click directly at each call site) so both join
+ * branches share one implementation.
+ *
+ * When GOOGLEMEET_HUMANIZED_CLICKS=true, this drives real XTEST pointer/
+ * keyboard input (see ./humanized.js) so Google Meet's bot-detection sees
+ * genuine isTrusted input instead of Playwright/CDP's synthetic dispatch.
+ * Falls back to plain Playwright click/fill if the humanclick binary or the
+ * X display isn't available, so a missing native dependency degrades the
+ * join reliability signal rather than crashing it.
  * @param {Page} page
- * @returns {{ clickHandle: Function, fillField: Function }}
+ * @returns {Promise<{ clickHandle: Function, fillField: Function }>}
  */
-function buildInputHelpers(page) {
-  const clickHandle = async (handle, _label) => {
-    await handle.click({ timeout: 5000 });
-  };
-  const fillField = async (_handle, selector, text, _label) => {
-    await page.fill(selector, '').catch(() => {});
-    await page.fill(selector, text);
+async function buildInputHelpers(page) {
+  const plain = {
+    clickHandle: async (handle, _label) => {
+      await handle.click({ timeout: 5000 });
+    },
+    fillField: async (_handle, selector, text, _label) => {
+      await page.fill(selector, '').catch(() => {});
+      await page.fill(selector, text);
+    },
   };
 
-  return { clickHandle, fillField };
+  if (process.env.GOOGLEMEET_HUMANIZED_CLICKS !== 'true') {
+    return plain;
+  }
+
+  const humanized = await createHumanizedHelpers(page, {
+    log: (msg) => console.log(`[GoogleMeet Join] ${msg}`),
+  }).catch((err) => {
+    console.log(`[GoogleMeet Join] Humanized input unavailable, using Playwright clicks: ${err.message}`);
+    return null;
+  });
+
+  if (!humanized) return plain;
+
+  console.log('[GoogleMeet Join] Humanized input active (real XTEST pointer/keyboard)');
+  return {
+    clickHandle: async (handle, label) => {
+      try {
+        await humanized.clickHandle(handle, label);
+      } catch (err) {
+        console.log(`[GoogleMeet Join] Humanized click failed (${err.message}); falling back to Playwright click`);
+        await plain.clickHandle(handle, label);
+      }
+    },
+    fillField: async (handle, selector, text, label) => {
+      try {
+        await humanized.fillField(handle, selector, text, label);
+      } catch (err) {
+        console.log(`[GoogleMeet Join] Humanized fill failed (${err.message}); falling back to Playwright fill`);
+        await plain.fillField(handle, selector, text, label);
+      }
+    },
+  };
 }
 
 /**
@@ -361,7 +402,7 @@ async function joinGoogleMeetMeeting(page, meetingUrl, botName, options = {}) {
 
   // Build the input helpers ONCE so both the authenticated and anonymous
   // paths share the same click/fill implementation.
-  const { clickHandle, fillField } = buildInputHelpers(page);
+  const { clickHandle, fillField } = await buildInputHelpers(page);
 
   try {
     // Navigate to meeting URL. `domcontentloaded` is enough — Meet keeps
