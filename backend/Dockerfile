@@ -83,7 +83,7 @@ ENV RUNNING_IN_DOCKER=true
 ENV PYTHONPATH=/app/meeting-joiner:$PYTHONPATH
 ENV NODE_PATH=/app/meeting-joiner/node_modules
 ENV DISPLAY=:99
-ENV HOME=/root
+ENV HOME=/home/appuser
 ENV XDG_RUNTIME_DIR=/tmp/runtime-root
 ENV PULSE_SERVER=unix:/tmp/runtime-root/pulse/native
 ENV PULSE_SINK=virtual_speaker
@@ -94,6 +94,22 @@ ENV MEETING_JOINER_BOOTSTRAP_ON_START=false
 
 COPY scripts/standalone-start.sh /app/start.sh
 RUN chmod +x /app/start.sh
+
+# ── Non-root runtime user ────────────────────────────────────────────────────
+# Everything above needs root (apk installs, poetry/pnpm installs into system
+# paths). The process that actually runs Xvfb/pulseaudio + the bot does not.
+# `audio`/`video` group membership mirrors headful-Chromium container images
+# that run Xvfb/pulseaudio as a non-root user (this stack uses a virtual
+# display + a virtual/null audio sink, not real hardware, but the group
+# membership avoids having to special-case device ACLs if that ever changes).
+RUN addgroup -g 10001 appuser \
+ && adduser -D -u 10001 -G appuser -h /home/appuser appuser \
+ && addgroup appuser audio \
+ && addgroup appuser video \
+ && mkdir -p /tmp/runtime-root \
+ && chown -R appuser:appuser /app /tmp/zoom_transcripts /tmp/runtime-root
+
+USER appuser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
   CMD pgrep -f "Xvfb" > /dev/null && pgrep -f "pulseaudio" > /dev/null || exit 1

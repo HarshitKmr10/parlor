@@ -36,6 +36,15 @@ COPY src/bot/humanclick/Cargo.toml src/bot/humanclick/Cargo.lock ./
 COPY src/bot/humanclick/src ./src
 RUN cargo build --release
 
+# ── Stage: Node 18 runtime, sourced from the official image ─────────────────
+# Previously installed via `curl https://deb.nodesource.com/setup_18.x | bash -`
+# — a script piped straight into a root shell with no integrity check. Instead,
+# take the Node binaries/runtime from the official `node:18` image (itself
+# built + published by the Node.js project) and COPY them into the final image
+# below. This keeps the exact same Node 18.x line the bot has always run on,
+# with no curl-|-bash step anywhere in this Dockerfile.
+FROM node:18-bookworm-slim AS node_source
+
 # Debian-based python image (glibc) so Playwright's Chromium + system deps and
 # the @xenova/transformers (onnxruntime) prebuilt binaries work out of the box.
 FROM python:3.12-slim
@@ -53,20 +62,31 @@ WORKDIR /app
 #   - xvfb + xauth + xdpyinfo  → virtual display :99 for headful Chromium
 #   - pulseaudio + utils       → virtual audio sink for capture
 #   - ffmpeg                   → audio decode for local whisper STT
-#   - curl/gnupg/ca-certs      → nodesource + healthcheck
+#   - curl/ca-certs            → healthcheck / misc downloads
 # Playwright's own browser OS deps are installed later via
 # `playwright install --with-deps chromium`, so we keep this list lean.
+# Node itself comes from the node_source stage COPY below, not apt/nodesource.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       gcc g++ libpq-dev postgresql-client \
-      curl gnupg ca-certificates \
+      curl ca-certificates \
       xvfb xauth x11-utils \
       pulseaudio pulseaudio-utils \
       ffmpeg \
- && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
- && apt-get install -y --no-install-recommends nodejs \
- && rm -rf /var/lib/apt/lists/* \
- && node --version && ffmpeg -version | head -1
+ && rm -rf /var/lib/apt/lists/*
+
+# Node 18 runtime + npm/npx, copied verbatim from the official node:18 image
+# (see the node_source stage above) instead of nodesource's curl-|-bash
+# installer. /usr/local is where the node:* images install everything
+# (bin/lib/include for node, npm, npx, corepack), so copying that whole
+# prefix reproduces the exact same on-PATH layout the rest of this Dockerfile
+# (and pnpm below) already assumes.
+COPY --from=node_source /usr/local/bin/node /usr/local/bin/node
+COPY --from=node_source /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=node_source /usr/local/include/node /usr/local/include/node
+RUN ln -sf /usr/local/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+ && ln -sf /usr/local/lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx \
+ && node --version && npm --version && ffmpeg -version | head -1
 
 # pnpm (matches the project's package manager / pnpm-lock.yaml).
 RUN npm install -g pnpm@9
@@ -189,8 +209,26 @@ RUN chmod +x /usr/local/bin/worker-sidecar-entrypoint.sh
 ENV PYTHONPATH=/app \
     DISPLAY=:99 \
     RUNNING_IN_DOCKER=true \
-    HOME=/root \
+    HOME=/home/appuser \
     XDG_RUNTIME_DIR=/tmp/runtime-root
+
+# ── Non-root runtime user ────────────────────────────────────────────────────
+# Everything above (apt/npm/pip installs, chmod-ing /opt/ms-playwright and
+# /opt/hf-cache to a+rX) needs root; the container that actually runs Xvfb,
+# pulseaudio, uvicorn, and the Playwright bot does not. `audio`/`video` group
+# membership mirrors headful-Chromium container images (e.g. selenium/docker)
+# that run Xvfb/pulseaudio as a non-root user — this is a virtual/null audio
+# sink and virtual display, not real hardware, but keeping the group
+# membership means we don't have to special-case device ACLs if that ever
+# changes. /app is chowned recursively because both the FastAPI app and the
+# Node bot may write under it (e.g. LocalBotRunner subprocess temp state);
+# /opt/ms-playwright and /opt/hf-cache are already world-readable above.
+RUN useradd --create-home --uid 10001 --user-group appuser \
+ && usermod -aG audio,video appuser \
+ && mkdir -p /tmp/runtime-root /tmp/pulse-runtime \
+ && chown -R appuser:appuser /app /tmp/runtime-root /tmp/pulse-runtime
+
+USER appuser
 
 EXPOSE 8000
 

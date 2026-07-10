@@ -30,7 +30,10 @@ if [ "${MEETING_JOINER_BOOTSTRAP_ON_START}" = "true" ]; then
 fi
 
 # ── pulseaudio + xvfb runtime ───────────────────────────────────────────
-export HOME=/root
+# Respect a HOME already set by the image (e.g. the non-root appuser's
+# /home/appuser) instead of forcing /root — the container no longer runs as
+# root, and appuser can't write there.
+export HOME="${HOME:-/root}"
 export XDG_RUNTIME_DIR=/tmp/runtime-root
 export PULSE_SERVER=unix:$XDG_RUNTIME_DIR/pulse/native
 export PULSE_SINK=virtual_speaker

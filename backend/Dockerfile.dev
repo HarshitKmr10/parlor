@@ -24,6 +24,11 @@ RUN pip install -r requirements-dev.txt
 # copy it too so the image is runnable on its own.
 COPY . /app
 
+# Non-root runtime user (mirrors ai-service/Dockerfile's uid convention).
+RUN useradd --create-home --uid 10001 appuser \
+ && chown -R appuser:appuser /app
+USER appuser
+
 ENV PYTHONPATH=/app
 
 EXPOSE 8000

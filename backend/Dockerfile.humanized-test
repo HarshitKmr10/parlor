@@ -24,7 +24,14 @@ COPY src ./src
 COPY tools ./tools
 
 ENV RUNNING_IN_DOCKER=true \
-    HOME=/root \
+    HOME=/home/pwuser \
     DISPLAY=:99
+
+# Non-root runtime user. The base mcr.microsoft.com/playwright image already
+# ships a dedicated `pwuser` (uid 1001) for exactly this purpose — reuse it
+# instead of adding a second one, and hand it ownership of /app so it can
+# read the copied bot code (and write test artifacts under /app if needed).
+RUN chown -R pwuser:pwuser /app
+USER pwuser
 
 ENTRYPOINT ["bash", "tools/entry.sh"]
