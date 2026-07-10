@@ -2,11 +2,12 @@
 
 **Status: live.** This plan has been executed end to end against a real GCP
 project and verified working, including through the actual Cloud Scheduler
-trigger path (not just a manual job run):
+trigger path (not just a manual job run). Real project id/number and Cloud
+Run URLs are intentionally not published here — see "Redeploying" below for
+where to find them if you operate this deployment.
 
-- Web: https://parlor-demo-web-316016512837.us-central1.run.app
-- Backend API: https://parlor-demo-backend-316016512837.us-central1.run.app
-- ai-service: https://parlor-demo-ai-service-316016512837.us-central1.run.app
+- Web / Backend API / ai-service: three Cloud Run services named
+  `parlor-demo-web` / `parlor-demo-backend` / `parlor-demo-ai-service`.
 - Region: `us-central1`. Cloud SQL instance: `parlor-demo-db`.
 - Reset job (`parlor-demo-reset`) runs every 10 minutes via Cloud Scheduler
   (`parlor-demo-reset-schedule`), truncating all product tables and
@@ -48,11 +49,13 @@ revision per service. Two ways:
   Identity Federation setup documented at the top of that workflow and set the
   repo variable `GCP_DEPLOY_ENABLED=true`.
 - **Manual:** build via the shared Cloud Build configs, then deploy
-  image-only (so the running services keep their env/secrets):
+  image-only (so the running services keep their env/secrets). Fill in the
+  real project id/backend URL from your own deployment (`gcloud run services
+  list` / `gcloud config get-value project`) — never commit them here:
 
   ```bash
-  AR=us-central1-docker.pkg.dev/named-tube-444103-p0/parlor-demo
-  BACKEND_URL=https://parlor-demo-backend-316016512837.us-central1.run.app
+  AR=us-central1-docker.pkg.dev/<PROJECT_ID>/parlor-demo
+  BACKEND_URL=$(gcloud run services describe parlor-demo-backend --region=us-central1 --format='value(status.url)')
   gcloud builds submit ./ai-service --config deploy/gcp-demo/cloudbuild.ai-service.yaml --substitutions=_IMAGE=$AR/ai-service:latest
   gcloud builds submit ./backend    --config deploy/gcp-demo/cloudbuild.backend.yaml    --substitutions=_IMAGE=$AR/backend:latest
   gcloud builds submit ./web        --config deploy/gcp-demo/cloudbuild.web.yaml        --substitutions=_IMAGE=$AR/web:latest,_API_URL=$BACKEND_URL
