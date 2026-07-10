@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, List, Literal, Optional
+from typing import Annotated, Any, List, Literal, Optional
 
 from pydantic import (
+    AfterValidator,
     BaseModel,
     ConfigDict,
     EmailStr,
@@ -21,6 +22,22 @@ from pydantic import (
     model_validator,
 )
 from pydantic.alias_generators import to_camel
+
+
+def _normalize_email(value: str) -> str:
+    """Canonicalize an email for use as an account identifier.
+
+    EmailStr validates but does not lowercase, so ``Jane@x.com`` and
+    ``jane@x.com`` would be stored as distinct strings. Lookups already compare
+    case-insensitively (``LOWER(email)``); normalizing here keeps the *stored*
+    value canonical too and matches the SSO path (which lowercases), closing a
+    concurrent case-variant duplicate-signup race.
+    """
+    return value.strip().lower()
+
+
+# EmailStr for identity fields (signup/login/invite): validated, then lowercased.
+NormalizedEmail = Annotated[EmailStr, AfterValidator(_normalize_email)]
 
 
 class CamelModel(BaseModel):
@@ -44,14 +61,14 @@ class CamelModel(BaseModel):
 
 # ── Auth requests ──────────────────────────────────────────────────────────
 class SignupRequest(CamelModel):
-    email: EmailStr
+    email: NormalizedEmail
     password: str = Field(..., min_length=8, max_length=200, description="Plaintext password; hashed before storage.")
     name: str = Field(..., min_length=1, max_length=200, description="Display name for the new user.")
     workspace_name: str = Field(..., min_length=1, max_length=200, description="Name of the workspace created for this user, who becomes its owner.")
 
 
 class LoginRequest(CamelModel):
-    email: EmailStr
+    email: NormalizedEmail
     password: str = Field(..., min_length=1, max_length=200, description="Plaintext password, verified against the stored hash.")
 
 
@@ -60,7 +77,7 @@ class RefreshRequest(CamelModel):
 
 
 class ForgotPasswordRequest(CamelModel):
-    email: EmailStr
+    email: NormalizedEmail
 
 
 class ResetPasswordRequest(CamelModel):
@@ -133,7 +150,7 @@ InviteRole = Literal["admin", "member"]
 
 
 class WorkspaceInviteCreateRequest(CamelModel):
-    email: EmailStr
+    email: NormalizedEmail
     role: InviteRole = Field("member", description="Role the invitee will hold once they accept.")
 
 

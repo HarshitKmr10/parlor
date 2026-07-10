@@ -673,9 +673,23 @@ async def _validation_error_handler(_request, exc: RequestValidationError):
             status_code=422,
             code="validation_error",
             message="Request validation failed.",
-            details=exc.errors(),
+            details=_safe_validation_details(exc),
         ).envelope(),
     )
+
+
+def _safe_validation_details(exc: RequestValidationError) -> list[dict]:
+    """Project each validation error down to type/loc/msg only.
+
+    Pydantic v2's ``exc.errors()`` includes the offending ``input`` value (and
+    sometimes ``ctx``) verbatim. On a failed signup/login that means the
+    submitted plaintext password is echoed straight back in the 422 body (and
+    into any client/proxy logs). Return only the non-sensitive fields.
+    """
+    return [
+        {"type": err.get("type"), "loc": list(err.get("loc", ())), "msg": err.get("msg")}
+        for err in exc.errors()
+    ]
 
 
 # Safety net: any exception that isn't an ApiError (e.g. a DB error from a

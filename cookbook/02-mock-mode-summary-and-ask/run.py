@@ -15,8 +15,26 @@ Usage:
 import argparse
 import json
 import uuid
+from urllib.parse import urlparse
 
 import httpx
+
+_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _require_secure(url: str) -> str:
+    """Refuse a plaintext-http base URL for a non-loopback host: this script
+    signs up and then sends the returned bearer token on every request, so
+    http:// to a remote host would leak it."""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" and host not in _LOOPBACK_HOSTS:
+        raise SystemExit(
+            f"--base-url must use https:// (got {parsed.scheme}://{host}). "
+            "It carries a bearer token; use https, or a loopback host locally."
+        )
+    return url
+
 
 TRANSCRIPT = [
     (
@@ -46,7 +64,7 @@ def main() -> None:
         help="Question to ask the RAG endpoint over the seeded transcript.",
     )
     args = parser.parse_args()
-    base = args.base_url.rstrip("/")
+    base = _require_secure(args.base_url).rstrip("/")
 
     email = f"cookbook-{uuid.uuid4().hex[:8]}@example.com"
     print(f"1. Signing up {email} ...")
