@@ -14,8 +14,20 @@ from fastapi.testclient import TestClient
 
 from src.main import app, get_meeting_service
 from src.api.models.schemas import MeetingRecord, MeetingStatus
+from src.api.product.deps import AuthContext, get_current_context
+from src.api.product.schemas import Workspace
 
 UTC = timezone.utc
+
+TEST_WORKSPACE_ID = "org-1"
+
+
+def _override_context():
+    return AuthContext(
+        user=None,
+        workspace=Workspace(id=TEST_WORKSPACE_ID, name="W", slug="w", role="owner"),
+        via_api_key=False,
+    )
 
 
 def _record(
@@ -59,10 +71,12 @@ def client_with_stub():
         return stub
 
     app.dependency_overrides[get_meeting_service] = override
+    app.dependency_overrides[get_current_context] = _override_context
     try:
         yield TestClient(app), stub
     finally:
         app.dependency_overrides.pop(get_meeting_service, None)
+        app.dependency_overrides.pop(get_current_context, None)
 
 
 def test_list_returns_paginated_items_with_duration(client_with_stub):
@@ -132,19 +146,22 @@ def test_list_rejects_out_of_range_pagination(client_with_stub, limit, offset):
     assert res.status_code == 400
 
 
-def test_list_passes_org_and_window_filters_to_service(client_with_stub):
+def test_list_ignores_org_id_query_param_and_uses_caller_workspace(client_with_stub):
+    """The org_id query param must never be trusted as an identity claim —
+    the route always scopes to the authenticated caller's own workspace,
+    regardless of what org_id a client passes."""
     client, stub = client_with_stub
     stub.list_meetings.return_value = []
     stub.count_meetings.return_value = 0
 
     res = client.get(
         "/meetings/list"
-        "?org_id=org-7"
+        "?org_id=someone-elses-workspace"
         "&since=2026-04-29T00:00:00Z"
         "&until=2026-04-30T23:59:59Z"
     )
     assert res.status_code == 200
     kwargs = stub.list_meetings.call_args.kwargs
-    assert kwargs["org_id"] == "org-7"
+    assert kwargs["org_id"] == TEST_WORKSPACE_ID
     assert kwargs["since"] is not None
     assert kwargs["until"] is not None

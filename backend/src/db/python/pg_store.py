@@ -165,6 +165,16 @@ async def get_meeting(meeting_id: str) -> Optional[MeetingRow]:
     )
 
 
+async def get_meetings_by_ids(meeting_ids: Iterable[str]) -> list[MeetingRow]:
+    ids = list(meeting_ids)
+    if not ids:
+        return []
+    return await _fetch_many(
+        f"SELECT {SELECT_ALL} FROM {MEETING_JOINER_TABLE} WHERE id = ANY($1::uuid[])",
+        ids,
+    )
+
+
 async def find_unique_with_relations(meeting_id: str) -> Optional[MeetingRow]:
     base = await get_meeting(meeting_id)
     if base is None:

@@ -23,6 +23,8 @@ router = APIRouter(prefix="/api/v1", tags=["search"])
 _MIN_QUERY_LEN = 2
 _MAX_SNIPPETS = 5
 _CANDIDATE_LIMIT = 100
+_CANDIDATE_BUFFER = 50
+_MAX_CANDIDATE_LIMIT = 1000
 
 
 async def _repo(db: DatabaseConnection = Depends(get_db)) -> SearchRepo:
@@ -51,8 +53,19 @@ async def search_meetings(
     if len(query) < _MIN_QUERY_LEN:
         raise ApiError(400, "query_too_short", "Search query must be at least 2 chars")
 
+    # The candidate pool must cover the requested page or later pages silently
+    # lose real matches ranked beyond the pre-filter cutoff. Scale with
+    # offset+limit (plus a buffer for post-filter score<=0 drops), capped at
+    # _MAX_CANDIDATE_LIMIT to keep the query bounded. This is still a bounded
+    # approximation of full-corpus ranking, not true DB-side full-text
+    # ranking — workspaces with more keyword matches than the cap may still
+    # miss long-tail results, which is an accepted tradeoff.
+    candidate_limit = min(
+        max(_CANDIDATE_LIMIT, offset + limit + _CANDIDATE_BUFFER),
+        _MAX_CANDIDATE_LIMIT,
+    )
     candidates = await repo.search_candidates(
-        ctx.workspace.id, query, limit=_CANDIDATE_LIMIT
+        ctx.workspace.id, query, limit=candidate_limit
     )
 
     results: list[SearchResultItem] = []

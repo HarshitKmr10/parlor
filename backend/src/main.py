@@ -17,6 +17,7 @@ load_dotenv()
 
 import uvicorn
 from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
@@ -628,6 +629,45 @@ async def _api_error_handler(_request, exc: ApiError):
     from fastapi.responses import JSONResponse
 
     return JSONResponse(status_code=exc.status_code, content=exc.envelope())
+
+
+# Pydantic/FastAPI request validation failures otherwise fall through to
+# FastAPI's default {"detail": [...]} shape instead of the product-layer
+# error envelope every other /api/v1 response uses.
+@app.exception_handler(RequestValidationError)
+async def _validation_error_handler(_request, exc: RequestValidationError):
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        status_code=422,
+        content=ApiError(
+            status_code=422,
+            code="validation_error",
+            message="Request validation failed.",
+            details=exc.errors(),
+        ).envelope(),
+    )
+
+
+# Safety net: any exception that isn't an ApiError (e.g. a DB error from a
+# missing column/table) would otherwise fall through to Starlette's default
+# handler, which returns a bare-text 500 instead of the JSON error envelope
+# every other /api/v1 response uses. Log the real exception server-side but
+# never leak its details to the client.
+@app.exception_handler(Exception)
+async def _unhandled_exception_handler(_request, exc: Exception):
+    from fastapi.responses import JSONResponse
+
+    logger.exception("unhandled_exception", exc_info=exc)
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": {
+                "code": "internal_error",
+                "message": "An unexpected error occurred. Please try again.",
+            }
+        },
+    )
 
 
 # Internal API routes — sidecar callbacks for session-ended events.

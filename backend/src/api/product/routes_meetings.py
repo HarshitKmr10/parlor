@@ -165,12 +165,16 @@ async def list_meetings(
     )
     total = await repo.count(workspace_id=workspace.id, statuses=statuses)
 
+    records = await service.get_meetings_by_ids(ids)
+    records_by_id = {record.id: record for record in records}
+    scoped_by_id = await repo.get_scoped_many(ids, workspace.id)
+
     items: list[Meeting] = []
     for mid in ids:
-        record = await service.get_meeting_by_id(mid)
+        record = records_by_id.get(mid)
         if record is None:
             continue
-        scoped = await repo.get_scoped(mid, workspace.id)
+        scoped = scoped_by_id.get(mid)
         title = scoped.get("title") if scoped else None
         m = to_meeting(record, title=title)
         m.workspace_id = workspace.id
@@ -207,12 +211,16 @@ async def list_deleted_meetings(
     )
     total = await repo.count(workspace_id=workspace.id, statuses=None, deleted=True)
 
+    records = await service.get_meetings_by_ids(ids)
+    records_by_id = {record.id: record for record in records}
+    scoped_by_id = await repo.get_scoped_any_many(ids, workspace.id)
+
     items: list[Meeting] = []
     for mid in ids:
-        record = await service.get_meeting_by_id(mid)
+        record = records_by_id.get(mid)
         if record is None:
             continue
-        scoped = await repo.get_scoped_any(mid, workspace.id)
+        scoped = scoped_by_id.get(mid)
         title = scoped.get("title") if scoped else None
         m = to_meeting(record, title=title)
         m.workspace_id = workspace.id

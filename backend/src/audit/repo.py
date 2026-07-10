@@ -38,10 +38,20 @@ class AuditRepo:
         )
         return rows[0]
 
-    async def list(self, workspace_id: str, limit: int = 100) -> List[Dict[str, Any]]:
+    async def list(
+        self, workspace_id: str, limit: int = 100, offset: int = 0
+    ) -> List[Dict[str, Any]]:
         return await self._db.store.query_raw(
             f"SELECT {_COLS} FROM audit_events WHERE workspace_id = $1::uuid "
-            f"ORDER BY created_at DESC LIMIT $2",
+            f"ORDER BY created_at DESC LIMIT $2 OFFSET $3",
             workspace_id,
             limit,
+            offset,
         )
+
+    async def count(self, workspace_id: str) -> int:
+        rows = await self._db.store.query_raw(
+            "SELECT COUNT(*) AS n FROM audit_events WHERE workspace_id = $1::uuid",
+            workspace_id,
+        )
+        return int(rows[0]["n"]) if rows else 0

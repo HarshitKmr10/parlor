@@ -78,14 +78,22 @@ class CommentsRepo:
         return self._normalize(rows[0])
 
     async def list_for_meeting(
-        self, meeting_id: str, workspace_id: str
+        self,
+        meeting_id: str,
+        workspace_id: str,
+        *,
+        limit: int = 100,
+        offset: int = 0,
     ) -> List[Dict[str, Any]]:
         rows = await self._db.store.query_raw(
             f"SELECT {_COLS} FROM meeting_comments "
             f"WHERE meeting_id = $1::uuid AND workspace_id = $2::uuid "
-            f"ORDER BY created_at ASC",
+            f"ORDER BY created_at ASC "
+            f"LIMIT $3 OFFSET $4",
             meeting_id,
             workspace_id,
+            limit,
+            offset,
         )
         return [self._normalize(r) for r in (rows or [])]
 

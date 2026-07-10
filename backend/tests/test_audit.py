@@ -48,4 +48,5 @@ async def test_repo_list_passes_limit():
     db.store.query_raw = AsyncMock(return_value=[])
     await AuditRepo(db).list("ws", limit=25)
     args = db.store.query_raw.await_args.args
-    assert args[-1] == 25
+    assert args[-2] == 25
+    assert args[-1] == 0

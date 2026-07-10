@@ -130,6 +130,16 @@ async def get_meeting(meeting_id: str) -> Optional[MeetingRow]:
     return _model_to_dataclass(model)
 
 
+async def get_meetings_by_ids(meeting_ids: list[str]) -> list[MeetingRow]:
+    if not meeting_ids:
+        return []
+    client = await _client()
+    models = await client.meeting_joiner.find_many(
+        where={"id": {"in": meeting_ids}}
+    )
+    return [r for r in (_model_to_dataclass(m) for m in models) if r is not None]
+
+
 async def find_unique_with_relations(meeting_id: str) -> Optional[MeetingRow]:
     client = await _client()
     model = await client.meeting_joiner.find_unique(

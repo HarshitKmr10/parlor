@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, Header, Path
 from ...integrations.email_provider import send_plain_email
 from ...observability import get_logger
 from .deps import AuthRepository, get_current_user, get_repo
-from .errors import ApiError
+from .errors import ApiError, is_unique_violation
 from .routes_auth import _issue_tokens, _require_workspace_member
 from .schemas import (
     InviteAcceptRequest,
@@ -241,16 +241,28 @@ async def accept_invite(
                 "signup_required",
                 "A name and password are required to accept this invite",
             )
-        user_row = await repo.create_user(
-            email=email, name=body.name, password_hash=hash_password(body.password)
-        )
+        try:
+            user_row = await repo.create_user(
+                email=email, name=body.name, password_hash=hash_password(body.password)
+            )
+        except Exception as exc:  # noqa: BLE001 - re-raised unless it's the unique case
+            if not is_unique_violation(exc):
+                raise
+            user_row = await repo.get_user_by_email(email)
+            if user_row is None:
+                raise
         user = User.model_validate(user_row)
 
     await repo.add_member(workspace_id=workspace_id, user_id=user.id, role=role)
     await repo.mark_invite_accepted(str(invite["id"]))
 
     membership = await repo.get_membership(workspace_id=workspace_id, user_id=user.id)
-    assert membership is not None
+    if membership is None:
+        raise ApiError(
+            500,
+            "internal_error",
+            "Membership was not created after accepting the invite",
+        )
     workspace = Workspace.model_validate(membership)
 
     access, refresh = await _issue_tokens(repo, user)

@@ -68,7 +68,7 @@ async def test_list_for_meeting_is_workspace_scoped():
     await repo.list_for_meeting("m1", "w1")
     sql, *params = db.store.query_raw.await_args.args
     assert "workspace_id = $2::uuid" in sql
-    assert params == ["m1", "w1"]
+    assert params == ["m1", "w1", 100, 0]
 
 
 @pytest.mark.asyncio

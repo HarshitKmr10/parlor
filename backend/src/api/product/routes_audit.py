@@ -43,10 +43,12 @@ def _meta(raw):
 )
 async def list_audit_events(
     limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     ctx: AuthContext = Depends(get_current_context),
     repo: AuditRepo = Depends(_repo),
 ) -> AuditEventListResponse:
-    rows = await repo.list(ctx.workspace.id, limit=limit)
+    rows = await repo.list(ctx.workspace.id, limit=limit, offset=offset)
+    total = await repo.count(ctx.workspace.id)
     items = [
         AuditEvent(
             id=str(r["id"]),
@@ -59,4 +61,4 @@ async def list_audit_events(
         )
         for r in rows
     ]
-    return AuditEventListResponse(items=items, total=len(items))
+    return AuditEventListResponse(items=items, total=total, limit=limit, offset=offset)

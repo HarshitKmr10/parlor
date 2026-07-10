@@ -88,6 +88,37 @@ class ProductMeetingsRepo:
         )
         return rows[0] if rows else None
 
+    async def get_scoped_many(
+        self, meeting_ids: list[str], workspace_id: str
+    ) -> dict[str, dict]:
+        """Batch form of `get_scoped` -- returns a dict keyed by meeting id."""
+        if not meeting_ids:
+            return {}
+        table = _meeting_table(self._db)
+        rows = await self._db.store.query_raw(
+            f"SELECT id, title, insights FROM {table} "
+            f"WHERE id = ANY($1::uuid[]) AND workspace_id = $2::uuid "
+            f"AND deleted_at IS NULL",
+            meeting_ids,
+            workspace_id,
+        )
+        return {str(row["id"]): row for row in rows}
+
+    async def get_scoped_any_many(
+        self, meeting_ids: list[str], workspace_id: str
+    ) -> dict[str, dict]:
+        """Batch form of `get_scoped_any` -- returns a dict keyed by meeting id."""
+        if not meeting_ids:
+            return {}
+        table = _meeting_table(self._db)
+        rows = await self._db.store.query_raw(
+            f"SELECT id, title, insights, deleted_at FROM {table} "
+            f"WHERE id = ANY($1::uuid[]) AND workspace_id = $2::uuid",
+            meeting_ids,
+            workspace_id,
+        )
+        return {str(row["id"]): row for row in rows}
+
     async def list_ids(
         self,
         *,

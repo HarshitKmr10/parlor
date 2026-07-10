@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Dict, List
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from ...comments import CommentsRepo
 from ..database.connection import DatabaseConnection
@@ -153,12 +153,14 @@ async def create_comment(
 )
 async def list_comments(
     meeting_id: str,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     ctx: AuthContext = Depends(get_current_context),
     repo: CommentsRepo = Depends(_repo),
     meetings: ProductMeetingsRepo = Depends(_meetings_repo),
 ) -> CommentListResponse:
     await _assert_meeting(meeting_id, ctx.workspace.id, meetings)
-    rows = await repo.list_for_meeting(meeting_id, ctx.workspace.id)
+    rows = await repo.list_for_meeting(meeting_id, ctx.workspace.id, limit=limit, offset=offset)
     names = await repo.names_for(_name_ids(rows))
     items = [_to_comment(r, names) for r in rows]
     return CommentListResponse(items=items, total=len(items))

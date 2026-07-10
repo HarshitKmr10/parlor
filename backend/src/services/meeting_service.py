@@ -66,6 +66,14 @@ class MeetingService:
             logger.error(f"Meeting service: Failed to get meeting {meeting_id}: {e}")
             raise DatabaseError(f"Failed to retrieve meeting: {e}")
 
+    async def get_meetings_by_ids(self, meeting_ids: List[str]) -> List[MeetingRecord]:
+        """Batch-fetch meetings by id, avoiding an N-query loop for list views."""
+        try:
+            return await self.db.get_meetings_by_ids(meeting_ids)
+        except Exception as e:
+            logger.error(f"Meeting service: Failed to get meetings by ids: {e}")
+            raise DatabaseError(f"Failed to retrieve meetings: {e}")
+
     async def update_meeting_status(
         self, meeting_id: str, status: MeetingStatus, **additional_data
     ) -> MeetingRecord:

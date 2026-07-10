@@ -327,6 +327,17 @@ class DatabaseConnection:
             logger.error("Failed to get meeting %s: %s", meeting_id, e)
             raise DatabaseError(f"Meeting retrieval failed: {e}")
 
+    async def get_meetings_by_ids(self, meeting_ids: list[str]) -> List[MeetingRecord]:
+        await self._ensure_connected()
+        if not meeting_ids:
+            return []
+        try:
+            rows = await self.store.get_meetings_by_ids(meeting_ids)
+            return [self._row_to_record(r) for r in rows]
+        except Exception as e:
+            logger.error("Failed to get meetings by ids: %s", e)
+            raise DatabaseError(f"Meetings retrieval failed: {e}")
+
     async def update_meeting_status(
         self, meeting_id: str, status: MeetingStatus, **additional_data: Any
     ) -> MeetingRecord:

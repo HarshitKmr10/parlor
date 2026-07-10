@@ -846,6 +846,8 @@ class AuditEvent(CamelModel):
 class AuditEventListResponse(CamelModel):
     items: List[AuditEvent] = Field(default_factory=list)
     total: int = 0
+    limit: int = 0
+    offset: int = 0
 
 
 class RetentionSettings(CamelModel):
