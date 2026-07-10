@@ -12,7 +12,12 @@ const contentSecurityPolicy = [
   "frame-ancestors 'none'",
   "object-src 'none'",
   "base-uri 'self'",
+  // Constrain where <form> submissions can go; without this, form-action
+  // falls back to default-src but is worth stating explicitly.
+  "form-action 'self'",
   "script-src 'self'",
+  // 'unsafe-inline' is required for Next.js's injected inline styles; tightening
+  // this to a nonce would need a custom document/server render pass.
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: https:",
   `connect-src 'self' ${backendOrigin}`,
@@ -45,6 +50,10 @@ const nextConfig: NextConfig = {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
           },
+          // Isolate the browsing context so cross-origin windows/documents
+          // can't reference this app's window or embed its resources.
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+          { key: "Cross-Origin-Resource-Policy", value: "same-origin" },
         ],
       },
     ];

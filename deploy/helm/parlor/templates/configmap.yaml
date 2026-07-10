@@ -4,6 +4,19 @@ warm-pool bot pods (the dispatcher mounts the ConfigMap named
 MEETING_JOINER_CONFIGMAP onto each bot pod). The name therefore MUST match the
 value we wire into the backend env. See _helpers.tpl / configMapName.
 */}}
+{{/*
+Effective peak backend replica count: the HPA ceiling when autoscaling is on,
+otherwise the fixed replicaCount. Used both to warn the backend at runtime and
+to fail closed below when an in-memory rate-limit store would be silently
+sharded across pods.
+*/}}
+{{- $peakReplicas := int .Values.backend.replicaCount -}}
+{{- if .Values.backend.autoscaling.enabled -}}
+{{- $peakReplicas = int .Values.backend.autoscaling.maxReplicas -}}
+{{- end -}}
+{{- if and (gt $peakReplicas 1) (ne .Values.rateLimitStore "redis") -}}
+{{- fail (printf "rateLimitStore=%q but the backend can run up to %d replicas (backend.replicaCount / backend.autoscaling). In-memory rate-limit buckets are per-pod, so every limit — including the brute-force-resistant login/signup 'auth' tier — is silently multiplied by the pod count. Set rateLimitStore=redis (and provide REDIS_URL via secrets), or pin backend to a single replica." .Values.rateLimitStore $peakReplicas) -}}
+{{- end -}}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -17,9 +30,12 @@ data:
 
   # ── Rate limiting ──
   # REDIS_URL itself lives in the Secret (see values.yaml secrets.data),
-  # only read by the backend when RATE_LIMIT_STORE=redis.
+  # only read by the backend when RATE_LIMIT_STORE=redis. The replica hint
+  # tracks the *peak* pod count (HPA max when autoscaling is on) so the
+  # backend's boot-time multi-replica warning reflects real scale-out, not
+  # just the initial replicaCount.
   RATE_LIMIT_STORE: {{ .Values.rateLimitStore | quote }}
-  RATE_LIMIT_REPLICA_HINT: {{ .Values.backend.replicaCount | quote }}
+  RATE_LIMIT_REPLICA_HINT: {{ $peakReplicas | quote }}
 
   # ── Runtime mode (backend product API) ──
   RUNTIME_MODE: {{ .Values.runtimeMode | quote }}
