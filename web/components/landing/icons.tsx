@@ -94,3 +94,35 @@ export function ArrowIcon(props: IconProps) {
     </svg>
   );
 }
+
+export function BracketsIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M9 4.5 4.5 12 9 19.5M15 4.5l4.5 7.5-4.5 7.5" />
+    </svg>
+  );
+}
+
+export function WebhookIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <path d="M6.5 17a3.5 3.5 0 1 1 3-5.3" />
+      <path d="M10.5 8.5 14 15" />
+      <circle cx="15.5" cy="16.5" r="3" />
+      <circle cx="16" cy="7" r="2.2" />
+      <path d="M14.2 8.7 11.3 12" />
+    </svg>
+  );
+}
+
+export function AgentIcon(props: IconProps) {
+  return (
+    <svg {...base(props)}>
+      <rect x="4.5" y="8" width="15" height="11" rx="3" />
+      <path d="M12 8V4.5M9 3.5h6" />
+      <circle cx="9" cy="13" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="13" r="1.1" fill="currentColor" stroke="none" />
+      <path d="M9.5 16.5h5" />
+    </svg>
+  );
+}

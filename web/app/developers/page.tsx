@@ -66,6 +66,11 @@ const GUIDES = [
     title: "Rate limits & quotas",
     desc: "Per-principal request limits, and this hosted instance's usage cap.",
   },
+  {
+    href: "/developers/guides/mcp-server",
+    title: "MCP server",
+    desc: "Query a workspace's meetings from Claude Desktop, Claude Code, or any MCP client.",
+  },
 ];
 
 export default function DevelopersPage() {
@@ -76,7 +81,9 @@ export default function DevelopersPage() {
         <h1 className="font-display text-2xl text-ink">Developers</h1>
         <p className="mt-1.5 max-w-xl text-sm text-ink-muted">
           Build on Parlor with a REST API, HMAC-signed webhooks, and an MCP
-          server. Authenticate with a workspace API key from Settings.
+          server that lets Claude, Cursor, or any MCP-compatible agent read
+          meetings directly. Authenticate with a workspace API key from
+          Settings.
         </p>
       </header>
 
