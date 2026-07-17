@@ -248,6 +248,7 @@ description = "Timeout context manager for asyncio programs"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
+markers = "python_full_version < \"3.11.3\""
 files = [
     {file = "async_timeout-5.0.1-py3-none-any.whl", hash = "sha256:39e3809566ff85354557ec2398b55e096c8364bacac9405a7a1fa429e77fe76c"},
     {file = "async_timeout-5.0.1.tar.gz", hash = "sha256:d9321a7a3d5a6a5e187e824d2fa0793ce379a202935782d555d6e9d2735677d3"},
@@ -2443,19 +2444,18 @@ re2 = ["google-re2 (>=1.1)"]
 
 [[package]]
 name = "pgqueuer"
-version = "0.26.3"
+version = "1.1.1"
 description = "Pgqueuer is a Python library leveraging PostgreSQL for efficient job queuing."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "pgqueuer-0.26.3-py3-none-any.whl", hash = "sha256:7bed2bc65a28b3723cbbd9ce362721522ca3091e25b730057cf52fd8c9483253"},
-    {file = "pgqueuer-0.26.3.tar.gz", hash = "sha256:3552dd9522b7e046699d56e6c824de60369ea8814fa5cda49ff297d618549971"},
+    {file = "pgqueuer-1.1.1-py3-none-any.whl", hash = "sha256:a3cb6c3d5a606a551c99fda944d8ec817c27c3c208b961d0d3542e5083ff518d"},
+    {file = "pgqueuer-1.1.1.tar.gz", hash = "sha256:bf4d1c905b00363efd4119206a331384ca0d1d446889c5abd17135a9173d3d37"},
 ]
 
 [package.dependencies]
 anyio = ">=4.0"
-async-timeout = ">=5.0.1"
 croniter = ">=5.0.1"
 pydantic = ">=2.0.0"
 pydantic-settings = ">=2.6.1"
@@ -2465,10 +2465,11 @@ uvloop = {version = ">=0.22.0", markers = "sys_platform != \"win32\""}
 
 [package.extras]
 asyncpg = ["asyncpg (>=0.30.0)"]
-dev = ["async-timeout (>=4.0.3)", "asyncpg", "asyncpg-stubs", "fastapi", "flask", "httpx", "icecream (>=2.1.3)", "import-linter (>=2.0)", "mypy", "mypy-extensions", "opentelemetry-api (>=1.20.0)", "opentelemetry-sdk (>=1.20.0)", "opentelemetry-semantic-conventions (>=0.41b0)", "psycopg (>=3.2.0)", "pytest", "pytest-asyncio", "pytest-cov", "pytest-mock (>=3.14.0)", "pytest-timeout (>=2.3.1)", "ruff", "testcontainers (>=4.12.0)", "time-machine (>=2.16.0)", "tqdm", "types-croniter", "types-tabulate", "uvicorn"]
+dev = ["asyncpg", "asyncpg-stubs", "fastapi", "flask", "httpx", "icecream (>=2.1.3)", "import-linter (>=2.0)", "mcp (>=1.0)", "mypy", "mypy-extensions", "opentelemetry-api (>=1.20.0)", "opentelemetry-sdk (>=1.20.0)", "opentelemetry-semantic-conventions (>=0.41b0)", "psycopg (>=3.2.0)", "pytest", "pytest-asyncio", "pytest-cov", "pytest-mock (>=3.14.0)", "pytest-timeout (>=2.3.1)", "ruff", "testcontainers (>=4.12.0)", "time-machine (>=2.16.0)", "tqdm", "types-croniter", "types-tabulate", "uvicorn"]
 docs = ["mkdocs (>=1.6)", "mkdocs-material (>=9.5)", "mkdocs-redirects", "pymdown-extensions"]
 fastapi = ["fastapi (>=0.100.0)"]
 logfire = ["logfire (>=3.0.0)"]
+mcp = ["asyncpg (>=0.30.0)", "mcp (>=1.0)"]
 opentelemetry = ["opentelemetry-api (>=1.20.0)", "opentelemetry-sdk (>=1.20.0)", "opentelemetry-semantic-conventions (>=0.41b0)"]
 psycopg = ["psycopg (>=3.2.0)"]
 sentry = ["sentry-sdk (>=2.0.0)"]
@@ -4511,4 +4512,4 @@ test = ["pytest"]
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "12af0f41ca248769ca2f1f7afabbcb0ace9f9b2989ed7a724af26b891af4a318"
+content-hash = "974bb297c302a58126ae885a4bbfa9e212e4a02181a82f33dd2d4946efa605db"
