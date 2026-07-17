@@ -1,6 +1,6 @@
 # Linux test image to validate the Google Meet join flow end-to-end.
 # Playwright 1.56 base (Chromium 141, matching our Chrome/141 UA) + Xvfb.
-FROM mcr.microsoft.com/playwright:v1.56.0-noble
+FROM mcr.microsoft.com/playwright:v1.61.1-noble
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
       xvfb x11-utils fluxbox \
