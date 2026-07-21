@@ -620,6 +620,16 @@ export interface RedactionPreviewResponse {
   perRule: Record<string, number>;
 }
 
+/* ---- Prompt library ---- */
+
+export interface SavedPrompt {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /* ---- Coaching ---- */
 
 export interface CoachingSpeaker {

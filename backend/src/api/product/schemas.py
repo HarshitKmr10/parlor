@@ -885,6 +885,24 @@ class RedactionRuleUpdate(CamelModel):
         return v
 
 
+class SavedPrompt(CamelModel):
+    id: str
+    title: str
+    body: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SavedPromptCreate(CamelModel):
+    title: str = Field(..., min_length=1, max_length=200, description="Display name for the prompt.")
+    body: str = Field(..., min_length=1, max_length=10_000, description="The reusable prompt text.")
+
+
+class SavedPromptUpdate(CamelModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    body: Optional[str] = Field(None, min_length=1, max_length=10_000)
+
+
 class RedactionPreviewRequest(CamelModel):
     text: str = Field(..., max_length=50_000, description="Sample text to redact.")
 
