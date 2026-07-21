@@ -952,6 +952,19 @@ class NlpSettingsUpdate(CamelModel):
     summary_language: str = Field("en", max_length=10, description="ISO language code the AI summary should be generated in.")
 
 
+class ShareSettings(CamelModel):
+    default_expiry_hours: int = Field(0, description="Default share-link lifetime in hours; 0 means the link never expires.")
+    require_passcode: bool = Field(False, description="When on, new share links require a passcode to view.")
+    default_passcode: str = Field("", description="Passcode seeded onto new share links when a passcode is required.")
+
+    @field_validator("default_expiry_hours")
+    @classmethod
+    def _expiry_in_range(cls, v: int) -> int:
+        if v < 0 or v > 8760:
+            raise ValueError("defaultExpiryHours must be between 0 and 8760 (one year).")
+        return v
+
+
 class AuditEvent(CamelModel):
     id: str
     actor_id: Optional[str] = None

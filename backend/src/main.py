@@ -64,6 +64,7 @@ from .api.product.routes_digest_prefs import router as product_digest_prefs_rout
 from .api.product.routes_speakers import router as product_speakers_router
 from .api.product.routes_trackers import router as product_trackers_router
 from .api.product.routes_nlp import router as product_nlp_router
+from .api.product.routes_share import router as product_share_router
 from .api.product.routes_prompts import router as product_prompts_router
 from .api.product.routes_saved_views import router as product_saved_views_router
 from .api.product.routes_redaction import router as product_redaction_router
@@ -605,6 +606,7 @@ app = FastAPI(
         {"name": "prompts", "description": "Reusable saved Ask prompts."},
         {"name": "saved-views", "description": "Reusable saved searches."},
         {"name": "nlp", "description": "Per-workspace PII redaction and custom vocabulary settings."},
+        {"name": "share-settings", "description": "Defaults for shared meeting links (expiry, passcode)."},
         {"name": "audit", "description": "Workspace audit log of sensitive actions."},
         {"name": "sso", "description": "Generic OIDC single sign-on: status, authorize URL, and code exchange."},
         {"name": "compliance", "description": "Data retention settings, GDPR export, and soft-delete restore."},
@@ -742,6 +744,7 @@ app.include_router(product_digest_prefs_router)
 app.include_router(product_speakers_router)
 app.include_router(product_trackers_router)
 app.include_router(product_nlp_router)
+app.include_router(product_share_router)
 app.include_router(product_redaction_router)
 app.include_router(product_prompts_router)
 app.include_router(product_saved_views_router)

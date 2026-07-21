@@ -565,6 +565,14 @@ export interface NlpSettings {
   summaryLanguage: string;
 }
 
+/* ---- Sharing defaults (share-link expiry + passcode) ---- */
+
+export interface ShareSettings {
+  defaultExpiryHours: number;
+  requirePasscode: boolean;
+  defaultPasscode: string;
+}
+
 /* ---- Outbound integrations ---- */
 
 export type IntegrationKind = "slack" | "email" | "notion" | "hubspot" | "salesforce";
