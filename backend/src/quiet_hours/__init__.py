@@ -5,6 +5,6 @@
 suppressed. The window may wrap midnight. One row per (workspace, user).
 """
 
-from .repo import DEFAULTS, QuietHoursRepo, is_quiet
+from .repo import DEFAULTS, QuietHoursRepo, is_quiet, is_quiet_now
 
-__all__ = ["QuietHoursRepo", "DEFAULTS", "is_quiet"]
+__all__ = ["QuietHoursRepo", "DEFAULTS", "is_quiet", "is_quiet_now"]

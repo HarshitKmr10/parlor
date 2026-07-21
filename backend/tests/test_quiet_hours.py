@@ -155,3 +155,103 @@ def test_is_quiet_same_hour_window_is_never_quiet():
     from src.quiet_hours import is_quiet
 
     assert is_quiet(10, {"enabled": True, "start_hour": 9, "end_hour": 9}) is False
+
+
+# ── is_quiet_now (decision helper used at the send point) ────────────────────
+
+
+def test_is_quiet_now_uses_utc_hour():
+    from src.quiet_hours import is_quiet_now
+
+    prefs = {"enabled": True, "start_hour": 20, "end_hour": 8}
+    assert is_quiet_now(prefs, now=datetime(2026, 1, 1, 23, tzinfo=timezone.utc)) is True
+    assert is_quiet_now(prefs, now=datetime(2026, 1, 1, 12, tzinfo=timezone.utc)) is False
+
+
+def test_is_quiet_now_disabled_is_never_quiet():
+    from src.quiet_hours import is_quiet_now
+
+    prefs = {"enabled": False, "start_hour": 0, "end_hour": 23}
+    assert is_quiet_now(prefs, now=datetime(2026, 1, 1, 5, tzinfo=timezone.utc)) is False
+
+
+# ── notify() quiet-hours enforcement at the per-user send point ──────────────
+
+
+@pytest.mark.asyncio
+async def test_notify_skips_quiet_users_when_respected():
+    from unittest.mock import MagicMock, patch
+
+    from src.notifications import notify
+
+    db = MagicMock()
+    db.store = MagicMock()
+    db.store.query_raw = AsyncMock(return_value=[{"id": "n1"}])
+
+    async def fake_quiet(_db, _ws, uid):
+        return uid == "sleepy"
+
+    with patch(
+        "src.notifications.service._is_user_quiet",
+        new=AsyncMock(side_effect=fake_quiet),
+    ):
+        written = await notify(
+            db,
+            workspace_id="ws",
+            user_ids=["sleepy", "awake"],
+            type="mention",
+            title="hi",
+            respect_quiet_hours=True,
+        )
+    # Only the awake user gets a row; the quiet one is suppressed.
+    assert written == 1
+    assert db.store.query_raw.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_notify_ignores_quiet_hours_by_default():
+    from unittest.mock import MagicMock, patch
+
+    from src.notifications import notify
+
+    db = MagicMock()
+    db.store = MagicMock()
+    db.store.query_raw = AsyncMock(return_value=[{"id": "n1"}])
+
+    with patch("src.notifications.service._is_user_quiet") as guard:
+        written = await notify(
+            db,
+            workspace_id="ws",
+            user_ids=["a", "b"],
+            type="mention",
+            title="hi",
+        )
+    assert written == 2
+    guard.assert_not_called()  # no quiet-hours lookup when not opted in
+
+
+@pytest.mark.asyncio
+async def test_is_user_quiet_fails_open_on_error():
+    from unittest.mock import MagicMock, patch
+
+    from src.notifications.service import _is_user_quiet
+
+    with patch(
+        "src.quiet_hours.QuietHoursRepo.get",
+        new=AsyncMock(side_effect=RuntimeError("prefs unavailable")),
+    ):
+        # Any lookup failure must resolve to "send" (fail-open), never suppress.
+        assert await _is_user_quiet(MagicMock(), "ws", "u1") is False
+
+
+@pytest.mark.asyncio
+async def test_is_user_quiet_delegates_to_prefs():
+    from unittest.mock import MagicMock, patch
+
+    from src.notifications.service import _is_user_quiet
+
+    with patch(
+        "src.quiet_hours.QuietHoursRepo.get",
+        new=AsyncMock(return_value={"enabled": True, "start_hour": 0, "end_hour": 23}),
+    ), patch("src.quiet_hours.is_quiet_now", return_value=True):
+        assert await _is_user_quiet(MagicMock(), "ws", "u1") is True

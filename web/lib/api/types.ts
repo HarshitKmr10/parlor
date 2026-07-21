@@ -411,6 +411,8 @@ export interface ShareLink {
   includeAnalytics: boolean;
   revoked: boolean;
   expiresAt?: string;
+  /** Whether viewers must supply a passcode to open the link. */
+  hasPasscode: boolean;
   viewCount: number;
   lastViewedAt?: string;
   createdAt?: string;
@@ -421,6 +423,11 @@ export interface CreateShareInput {
   includeHighlights?: boolean;
   includeAnalytics?: boolean;
   expiresInDays?: number;
+  /**
+   * If set, viewers must supply this passcode. Omit to inherit the workspace's
+   * require-passcode default; pass an empty string for an unprotected link.
+   */
+  passcode?: string;
 }
 
 export interface PublicHighlight {

@@ -60,6 +60,7 @@ async def run_trackers(
                     body=f'Mentions of "{name}" were found in a meeting.',
                     link=f"/meetings/{meeting_id}",
                     meeting_id=meeting_id,
+                    respect_quiet_hours=True,
                 )
         return new_count
     except Exception as exc:  # noqa: BLE001 — best-effort

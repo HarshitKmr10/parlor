@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getPublicShare } from "@/lib/api/shares";
+import { ApiError } from "@/lib/api/error";
 import type { PublicMeetingView } from "@/lib/api/types";
 import { SummaryTab } from "@/components/meetings/detail/SummaryTab";
 import { AnalyticsTab } from "@/components/meetings/detail/AnalyticsTab";
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
 };
 
 type Params = Promise<{ token: string }>;
+type Search = Promise<{ passcode?: string | string[] }>;
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
@@ -31,13 +33,74 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default async function PublicSharePage({ params }: { params: Params }) {
+function PasscodePrompt({
+  token,
+  invalid,
+}: {
+  token: string;
+  invalid: boolean;
+}) {
+  return (
+    <Shell>
+      <div className="mx-auto max-w-sm rounded-lg border border-border-default bg-surface-1/60 px-6 py-12 text-center">
+        <h1 className="font-display text-xl text-ink">Enter passcode</h1>
+        <p className="mt-2 text-sm text-ink-muted">
+          This shared recap is protected. Enter its passcode to continue.
+        </p>
+        <form
+          method="get"
+          action={`/share/${token}`}
+          className="mt-6 flex flex-col gap-3"
+        >
+          <input
+            type="password"
+            name="passcode"
+            autoFocus
+            required
+            placeholder="Passcode"
+            aria-label="Passcode"
+            className="rounded-md border border-border-default bg-surface-0 px-3 py-2 text-sm text-ink outline-none focus:border-sage-600"
+          />
+          {invalid ? (
+            <p className="text-sm text-red-600" role="alert">
+              That passcode is incorrect. Try again.
+            </p>
+          ) : null}
+          <button
+            type="submit"
+            className="rounded-md bg-sage-600 px-3 py-2 text-sm font-medium text-surface-cream hover:bg-sage-700"
+          >
+            Unlock
+          </button>
+        </form>
+      </div>
+    </Shell>
+  );
+}
+
+export default async function PublicSharePage({
+  params,
+  searchParams,
+}: {
+  params: Params;
+  searchParams: Search;
+}) {
   const { token } = await params;
+  const { passcode: rawPasscode } = await searchParams;
+  const passcode = Array.isArray(rawPasscode) ? rawPasscode[0] : rawPasscode;
 
   let view: PublicMeetingView;
   try {
-    view = await getPublicShare(token);
-  } catch {
+    view = await getPublicShare(token, passcode);
+  } catch (error) {
+    if (ApiError.isApiError(error)) {
+      if (error.code === "passcode_required") {
+        return <PasscodePrompt token={token} invalid={false} />;
+      }
+      if (error.code === "invalid_passcode") {
+        return <PasscodePrompt token={token} invalid={true} />;
+      }
+    }
     return (
       <Shell>
         <div className="rounded-lg border border-dashed border-border-default bg-surface-1/60 px-6 py-16 text-center">

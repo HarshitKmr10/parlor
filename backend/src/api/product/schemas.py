@@ -564,6 +564,7 @@ class ShareCreateRequest(CamelModel):
     include_highlights: bool = Field(True, description="Whether the public view includes highlight clips.")
     include_analytics: bool = Field(False, description="Whether the public view includes conversation analytics.")
     expires_in_days: Optional[int] = Field(None, ge=1, le=365, description="If set, the link stops working this many days from now; omit for no expiry.")
+    passcode: Optional[str] = Field(None, description="If set, viewers must supply this passcode to open the link. Omit to inherit the workspace's require-passcode default (if any); pass an empty string for an explicitly unprotected link.")
 
 
 class ShareLink(CamelModel):
@@ -578,6 +579,7 @@ class ShareLink(CamelModel):
     include_analytics: bool = False
     revoked: bool = False
     expires_at: Optional[datetime] = None
+    has_passcode: bool = Field(False, description="Whether viewers must supply a passcode to open the link.")
     view_count: int = 0
     last_viewed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None

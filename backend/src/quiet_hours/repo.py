@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 
 _COLS = "workspace_id, user_id, enabled, start_hour, end_hour, updated_at"
 
@@ -30,6 +31,16 @@ def is_quiet(hour: int, prefs: Dict[str, Any]) -> bool:
         return start <= hour < end
     # Wraps midnight.
     return hour >= start or hour < end
+
+
+def is_quiet_now(prefs: Dict[str, Any], now: Optional[datetime] = None) -> bool:
+    """Convenience decision helper: is ``now`` inside the user's quiet window?
+
+    Simplification: we have no per-user timezone, so the current **UTC** hour is
+    used. Once a tz is tracked per user, convert before calling ``is_quiet``.
+    """
+    now = now or datetime.now(timezone.utc)
+    return is_quiet(now.hour, prefs)
 
 
 class QuietHoursRepo:

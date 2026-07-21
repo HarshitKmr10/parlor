@@ -140,6 +140,7 @@ async def create_comment(
             link=f"/meetings/{meeting_id}#comments",
             meeting_id=meeting_id,
             actor_id=author_id,
+            respect_quiet_hours=True,
         )
 
     return _to_comment(row, names)
