@@ -33,3 +33,20 @@ def is_share_active(
         return True
     now = now or datetime.now(timezone.utc)
     return _as_aware(expires_at) > _as_aware(now)
+
+
+def check_passcode(
+    required: Optional[str], provided: Optional[str]
+) -> Optional[str]:
+    """Decide whether a share's passcode gate lets a viewer through.
+
+    Returns ``None`` when access is allowed (no passcode set, or the provided
+    one matches), ``"passcode_required"`` when one is needed but absent, and
+    ``"invalid_passcode"`` when the provided one is wrong. Pure — no I/O."""
+    if not required:
+        return None
+    if not provided:
+        return "passcode_required"
+    if provided != required:
+        return "invalid_passcode"
+    return None

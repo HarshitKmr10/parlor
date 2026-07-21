@@ -829,6 +829,21 @@ async def summarize_meeting(
     except Exception as exc:  # noqa: BLE001
         logger.warning("redaction skipped for %s: %s", meeting_id, exc)
 
+    # Custom user-defined redaction rules apply independently of the fixed
+    # email/phone/card policy toggle above — any enabled rule scrubs its
+    # pattern from every segment before the transcript reaches the AI service.
+    try:
+        from ...redaction import RedactionRulesRepo, redact, rules_from_rows
+
+        rule_rows = await RedactionRulesRepo(db).list_enabled(workspace.id)
+        if rule_rows:
+            rules = rules_from_rows(rule_rows)
+            for seg in segments:
+                if isinstance(seg, dict) and seg.get("text"):
+                    seg["text"] = redact(str(seg["text"]), rules).text
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("custom redaction rules skipped for %s: %s", meeting_id, exc)
+
     meta = {
         "title": scoped.get("title") or "",
         "participants": [
@@ -892,6 +907,24 @@ async def summarize_meeting(
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("tracker scan failed for %s: %s", meeting_id, exc)
+
+    # Auto-apply meeting tags whose pattern matches the title (best-effort).
+    # Additive: matched tags are added alongside any manual tags, never
+    # clobbering them. Fail-open — a failure here never blocks summarization.
+    try:
+        from ...auto_tag import AutoTagRulesRepo, matching_tag_ids, rules_from_rows
+        from ...tags.repo import TagsRepo
+
+        auto_tag_rows = await AutoTagRulesRepo(db).list_enabled(workspace.id)
+        if auto_tag_rows:
+            tag_ids = matching_tag_ids(
+                str(scoped.get("title") or ""), rules_from_rows(auto_tag_rows)
+            )
+            if tag_ids:
+                await TagsRepo(db).add_for_meeting(meeting_id, workspace.id, tag_ids)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("auto-tag rules skipped for %s: %s", meeting_id, exc)
+
     return insights
 
 

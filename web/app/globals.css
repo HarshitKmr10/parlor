@@ -1,67 +1,68 @@
 @import "tailwindcss";
 
 /* ============================================================
-   PARLOR design system — sage-on-white, brass, YC-grade.
-   Tailwind v4: @theme tokens generate utilities (bg-sage-600,
-   text-ink, rounded-lg, …). OKLCH is source of truth; hex is
-   the sRGB fallback baked into the values below.
+   PARLOR design system — slate-indigo on cool white, teal accent.
+   Local-first, private, developer-grade. Token NAMES are kept
+   (sage-* = the indigo brand scale, gold-* = the teal accent) so
+   every existing utility keeps working; only the values changed.
+   Tailwind v4: @theme tokens generate utilities.
    ============================================================ */
 @theme {
-  /* Surfaces — the page is never pure #FFF; layers warm as they recede */
-  --color-surface-0: #fcfbf7;
-  --color-surface-1: #f7f5ee;
-  --color-surface-2: #f1ede2;
-  --color-surface-3: #e9e3d4;
-  --color-surface-cream: #f4f0e4;
+  /* Surfaces — cool near-white; layers cool very slightly as they recede */
+  --color-surface-0: #fbfcfe;
+  --color-surface-1: #f3f5f9;
+  --color-surface-2: #e9edf3;
+  --color-surface-3: #dde3ec;
+  --color-surface-cream: #eef1f7;
 
-  /* Sage / olive — primary brand scale (hue ~128) */
-  --color-sage-50: #eef1e6;
-  --color-sage-100: #dfe5d0;
-  --color-sage-200: #c7d1b0;
-  --color-sage-300: #aab98c;
-  --color-sage-400: #8a9c6a;
-  --color-sage-500: #6e8050;
-  --color-sage-600: #5c6b4a; /* PRIMARY BRAND */
-  --color-sage-700: #47543a;
-  --color-sage-800: #353f2d;
-  --color-sage-900: #262d22;
+  /* Brand scale — slate-indigo (hue ~262); calm, trustworthy, private */
+  --color-sage-50: #eef0fb;
+  --color-sage-100: #dde1f5;
+  --color-sage-200: #bfc6ec;
+  --color-sage-300: #98a3de;
+  --color-sage-400: #6f7ecd;
+  --color-sage-500: #5162ba;
+  --color-sage-600: #3f4ea3; /* PRIMARY BRAND */
+  --color-sage-700: #333f83;
+  --color-sage-800: #283163;
+  --color-sage-900: #1d2347;
 
-  /* Olive ink — text family (never pure black) */
-  --color-ink: #2a2e22;
-  --color-ink-soft: #4a4f40;
-  --color-ink-muted: #6e7263;
-  --color-ink-faint: #9a9c8e;
+  /* Ink — cool slate (never pure black) */
+  --color-ink: #1c1f2a;
+  --color-ink-soft: #383f52;
+  --color-ink-muted: #616a7e;
+  --color-ink-faint: #98a0b2;
 
-  /* Gold / brass — accent (hue ~78); warm, never neon */
-  --color-gold-50: #faf3e2;
-  --color-gold-100: #f3e6c6;
-  --color-gold-200: #e8d29c;
-  --color-gold-300: #d9b86f;
-  --color-gold-400: #c9a04f;
-  --color-gold-500: #b8893b; /* ACCENT */
-  --color-gold-600: #9c7130;
-  --color-gold-700: #7c5926; /* use for gold TEXT (AA) */
-  --color-gold-800: #5e431e;
+  /* Accent scale — teal / cyan (hue ~195); digital, precise */
+  --color-gold-50: #e2f6f8;
+  --color-gold-100: #bfeaee;
+  --color-gold-200: #8fd9e0;
+  --color-gold-300: #57c2cc;
+  --color-gold-400: #2fa8b4;
+  --color-gold-500: #1a8c98; /* ACCENT */
+  --color-gold-600: #12727d;
+  --color-gold-700: #0e5b64; /* accent TEXT (AA) */
+  --color-gold-800: #0a444b;
 
-  /* Semantic — tuned into the sage/brass world */
-  --color-success: #5e7d3e;
-  --color-success-bg: #eaf0dc;
-  --color-warning: #b8893b;
+  /* Semantic */
+  --color-success: #2f8f6b;
+  --color-success-bg: #e0f2ec;
+  --color-warning: #b5852f;
   --color-warning-bg: #faf1dc;
-  --color-error: #b14a38;
-  --color-error-bg: #f8e6e0;
-  --color-info: #4a6b73;
-  --color-info-bg: #e4ecec;
+  --color-error: #c0453a;
+  --color-error-bg: #f8e6e3;
+  --color-info: #3f63b0;
+  --color-info-bg: #e6ebf7;
 
-  /* Borders */
-  --color-border-subtle: #e6e1d4;
-  --color-border-default: #d8d2c2;
-  --color-border-strong: #bdb6a2;
+  /* Borders — cool gray */
+  --color-border-subtle: #e5e9f0;
+  --color-border-default: #d4dae4;
+  --color-border-strong: #b6bfce;
 
-  /* Fonts (wired via next/font in layout.tsx) */
-  --font-display: var(--font-fraunces), "Times New Roman", serif;
+  /* Fonts (wired via next/font in layout.tsx) — geometric sans + mono */
+  --font-display: var(--font-space-grotesk), system-ui, sans-serif;
   --font-sans: var(--font-inter), system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
 
   /* Radii — soft, NOT pill (the YC tell) */
   --radius-xs: 4px;
@@ -94,17 +95,17 @@
   --color-accent: var(--color-gold-500);
   --border-gold: #d9b86f66; /* brass hairline @ 40% */
 
-  /* Warm-tinted (olive-hue), multi-layer, low-spread shadows */
-  --shadow-xs: 0 1px 2px oklch(35% 0.02 120 / 0.05);
-  --shadow-sm: 0 1px 2px oklch(35% 0.02 120 / 0.05), 0 2px 4px oklch(35% 0.02 120 / 0.04);
-  --shadow-md: 0 2px 4px oklch(35% 0.02 120 / 0.05), 0 6px 12px oklch(35% 0.02 120 / 0.06),
-    0 12px 24px oklch(35% 0.02 120 / 0.05);
-  --shadow-lg: 0 4px 8px oklch(35% 0.02 120 / 0.05), 0 12px 24px oklch(35% 0.02 120 / 0.07),
-    0 24px 48px oklch(35% 0.02 120 / 0.07);
-  --shadow-xl: 0 8px 16px oklch(35% 0.02 120 / 0.06), 0 24px 48px oklch(35% 0.02 120 / 0.09),
-    0 48px 96px oklch(30% 0.02 120 / 0.08);
-  --glow-gold: 0 0 0 1px var(--color-gold-300), 0 0 24px oklch(66% 0.11 78 / 0.25);
-  --ring: 0 0 0 3px oklch(66% 0.11 78 / 0.35);
+  /* Cool-tinted (slate-hue), multi-layer, low-spread shadows */
+  --shadow-xs: 0 1px 2px oklch(35% 0.02 262 / 0.06);
+  --shadow-sm: 0 1px 2px oklch(35% 0.02 262 / 0.06), 0 2px 4px oklch(35% 0.02 262 / 0.05);
+  --shadow-md: 0 2px 4px oklch(35% 0.02 262 / 0.06), 0 6px 12px oklch(35% 0.02 262 / 0.07),
+    0 12px 24px oklch(35% 0.02 262 / 0.06);
+  --shadow-lg: 0 4px 8px oklch(35% 0.02 262 / 0.06), 0 12px 24px oklch(35% 0.02 262 / 0.08),
+    0 24px 48px oklch(35% 0.02 262 / 0.08);
+  --shadow-xl: 0 8px 16px oklch(35% 0.02 262 / 0.07), 0 24px 48px oklch(35% 0.02 262 / 0.1),
+    0 48px 96px oklch(30% 0.02 262 / 0.09);
+  --glow-gold: 0 0 0 1px var(--color-gold-300), 0 0 24px oklch(66% 0.11 195 / 0.28);
+  --ring: 0 0 0 3px oklch(60% 0.1 195 / 0.4);
 
   --wash-hero: radial-gradient(
     120% 100% at 50% -20%,
@@ -114,7 +115,7 @@
   );
   --wash-gold: radial-gradient(
     60% 60% at 70% 30%,
-    oklch(66% 0.11 78 / 0.1) 0%,
+    oklch(66% 0.11 195 / 0.12) 0%,
     transparent 70%
   );
   --divider-gold: linear-gradient(

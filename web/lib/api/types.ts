@@ -411,6 +411,8 @@ export interface ShareLink {
   includeAnalytics: boolean;
   revoked: boolean;
   expiresAt?: string;
+  /** Whether viewers must supply a passcode to open the link. */
+  hasPasscode: boolean;
   viewCount: number;
   lastViewedAt?: string;
   createdAt?: string;
@@ -421,6 +423,11 @@ export interface CreateShareInput {
   includeHighlights?: boolean;
   includeAnalytics?: boolean;
   expiresInDays?: number;
+  /**
+   * If set, viewers must supply this passcode. Omit to inherit the workspace's
+   * require-passcode default; pass an empty string for an unprotected link.
+   */
+  passcode?: string;
 }
 
 export interface PublicHighlight {
@@ -565,6 +572,32 @@ export interface NlpSettings {
   summaryLanguage: string;
 }
 
+/* ---- Sharing defaults (share-link expiry + passcode) ---- */
+
+export interface ShareSettings {
+  defaultExpiryHours: number;
+  requirePasscode: boolean;
+  defaultPasscode: string;
+}
+
+/* ---- Notification quiet hours (per-user do-not-notify window) ---- */
+
+export interface QuietHours {
+  enabled: boolean;
+  startHour: number;
+  endHour: number;
+}
+
+/* ---- Auto-join preferences (calendar capture) ---- */
+
+export interface CapturePrefs {
+  autoJoinEnabled: boolean;
+  joinLeadMinutes: number;
+  joinZoom: boolean;
+  joinMeet: boolean;
+  joinTeams: boolean;
+}
+
 /* ---- Outbound integrations ---- */
 
 export type IntegrationKind = "slack" | "email" | "notion" | "hubspot" | "salesforce";
@@ -599,6 +632,88 @@ export interface TrackerHit {
 export interface TrackerHitListResponse {
   items: TrackerHit[];
   total: number;
+}
+
+/* ---- Meeting tags ---- */
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
+
+/* ---- Personal meeting notes ---- */
+
+export interface MeetingNote {
+  body: string;
+  updatedAt: string | null;
+}
+
+/* ---- Auto-tag rules ---- */
+
+export type AutoTagMatchType = "title_contains" | "title_regex";
+
+export interface AutoTagRule {
+  id: string;
+  pattern: string;
+  matchType: AutoTagMatchType;
+  tagId: string;
+  enabled: boolean;
+}
+
+/* ---- Custom redaction rules ---- */
+
+export type RedactionRuleKind = "builtin" | "regex" | "keyword";
+
+export interface RedactionRule {
+  id: string;
+  name: string;
+  kind: RedactionRuleKind;
+  pattern: string;
+  replacement: string;
+  enabled: boolean;
+}
+
+export interface RedactionPreviewResponse {
+  redacted: string;
+  totalRedactions: number;
+  perRule: Record<string, number>;
+}
+
+/* ---- Capture exclusions (do-not-record rules) ---- */
+
+export type CaptureExclusionMatchType =
+  | "title_contains"
+  | "url_contains"
+  | "title_regex";
+
+export interface CaptureExclusion {
+  id: string;
+  pattern: string;
+  matchType: CaptureExclusionMatchType;
+  note: string | null;
+  enabled: boolean;
+}
+
+/* ---- Prompt library ---- */
+
+export interface SavedPrompt {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/* ---- Saved views ---- */
+
+export interface SavedView {
+  id: string;
+  name: string;
+  query: string;
+  filters: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /* ---- Coaching ---- */

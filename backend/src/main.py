@@ -63,7 +63,20 @@ from .api.product.routes_notifications import router as product_notifications_ro
 from .api.product.routes_digest_prefs import router as product_digest_prefs_router
 from .api.product.routes_speakers import router as product_speakers_router
 from .api.product.routes_trackers import router as product_trackers_router
+from .api.product.routes_tags import router as product_tags_router
+from .api.product.routes_meeting_notes import router as product_meeting_notes_router
+from .api.product.routes_auto_tag import router as product_auto_tag_router
 from .api.product.routes_nlp import router as product_nlp_router
+from .api.product.routes_share import router as product_share_router
+from .api.product.routes_capture_prefs import router as product_capture_prefs_router
+from .api.product.routes_quiet_hours import router as product_quiet_hours_router
+from .api.product.routes_prompts import router as product_prompts_router
+from .api.product.routes_saved_views import router as product_saved_views_router
+from .api.product.routes_redaction import router as product_redaction_router
+from .api.product.routes_config_export import (
+    router as product_config_export_router,
+)
+from .api.product.routes_exclusions import router as product_exclusions_router
 from .api.product.routes_audit import router as product_audit_router
 from .api.product.routes_sso import router as product_sso_router
 from .api.product.routes_compliance import router as product_compliance_router
@@ -598,7 +611,18 @@ app = FastAPI(
         {"name": "digests", "description": "Scheduled digest delivery preferences (email/Slack) and on-demand test sends."},
         {"name": "speakers", "description": "Named speaker identity profiles mapped from diarized aliases."},
         {"name": "trackers", "description": "Keyword/topic trackers and their recorded hits across meetings."},
+        {"name": "tags", "description": "Meeting tags and per-meeting tag assignment."},
+        {"name": "meeting-notes", "description": "Private per-user notes on a meeting."},
+        {"name": "auto-tag-rules", "description": "Rules that auto-apply meeting tags by title match."},
+        {"name": "redaction", "description": "Custom user-defined redaction rules and a local redaction preview."},
+        {"name": "capture-exclusions", "description": "Do-not-record rules that keep matching meetings from being auto-joined."},
+        {"name": "prompts", "description": "Reusable saved Ask prompts."},
+        {"name": "saved-views", "description": "Reusable saved searches."},
         {"name": "nlp", "description": "Per-workspace PII redaction and custom vocabulary settings."},
+        {"name": "share-settings", "description": "Defaults for shared meeting links (expiry, passcode)."},
+        {"name": "capture-prefs", "description": "Auto-join preferences for calendar capture."},
+        {"name": "quiet-hours", "description": "Per-user do-not-notify schedule."},
+        {"name": "config-export", "description": "Download the workspace Parlor configuration as JSON."},
         {"name": "audit", "description": "Workspace audit log of sensitive actions."},
         {"name": "sso", "description": "Generic OIDC single sign-on: status, authorize URL, and code exchange."},
         {"name": "compliance", "description": "Data retention settings, GDPR export, and soft-delete restore."},
@@ -735,7 +759,18 @@ app.include_router(product_notifications_router)
 app.include_router(product_digest_prefs_router)
 app.include_router(product_speakers_router)
 app.include_router(product_trackers_router)
+app.include_router(product_tags_router)
+app.include_router(product_meeting_notes_router)
+app.include_router(product_auto_tag_router)
 app.include_router(product_nlp_router)
+app.include_router(product_share_router)
+app.include_router(product_capture_prefs_router)
+app.include_router(product_quiet_hours_router)
+app.include_router(product_redaction_router)
+app.include_router(product_config_export_router)
+app.include_router(product_exclusions_router)
+app.include_router(product_prompts_router)
+app.include_router(product_saved_views_router)
 app.include_router(product_audit_router)
 app.include_router(product_sso_router)
 app.include_router(product_compliance_router)

@@ -15,6 +15,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends
 
+from ...share_settings import ShareSettingsRepo
 from ...sharing import SharesRepo, generate_share_token
 from ..database.connection import DatabaseConnection
 from .deps import AuthContext, get_current_context, get_db
@@ -29,10 +30,27 @@ async def _repo(db: DatabaseConnection = Depends(get_db)) -> SharesRepo:
     return SharesRepo(db)
 
 
+async def _settings_repo(
+    db: DatabaseConnection = Depends(get_db),
+) -> ShareSettingsRepo:
+    return ShareSettingsRepo(db)
+
+
 async def _meetings_repo(
     db: DatabaseConnection = Depends(get_db),
 ) -> ProductMeetingsRepo:
     return ProductMeetingsRepo(db)
+
+
+async def _load_share_settings(
+    settings: ShareSettingsRepo, workspace_id: str
+) -> dict:
+    """Workspace sharing defaults (expiry + require-passcode). Defensive: any
+    failure loading settings falls back to empty so sharing never breaks."""
+    try:
+        return dict(await settings.get(workspace_id))
+    except Exception:
+        return {}
 
 
 def _share_link(row: dict) -> ShareLink:
@@ -49,6 +67,7 @@ def _share_link(row: dict) -> ShareLink:
         include_analytics=bool(row["include_analytics"]),
         revoked=bool(row["revoked"]),
         expires_at=row.get("expires_at"),
+        has_passcode=bool(row.get("passcode")),
         view_count=int(row.get("view_count") or 0),
         last_viewed_at=row.get("last_viewed_at"),
         created_at=row.get("created_at"),
@@ -71,14 +90,32 @@ async def create_share(
     body: ShareCreateRequest,
     ctx: AuthContext = Depends(get_current_context),
     repo: SharesRepo = Depends(_repo),
+    settings: ShareSettingsRepo = Depends(_settings_repo),
     meetings: ProductMeetingsRepo = Depends(_meetings_repo),
 ) -> ShareLink:
     if await meetings.get_scoped(meeting_id, ctx.workspace.id) is None:
         raise ApiError(404, "not_found", "Meeting not found in this workspace")
 
+    ws_settings = await _load_share_settings(settings, ctx.workspace.id)
+
     expires_at: Optional[datetime] = None
     if body.expires_in_days is not None:
+        # Explicit caller-provided expiry always wins over the workspace default.
         expires_at = datetime.now(timezone.utc) + timedelta(days=body.expires_in_days)
+    else:
+        default_hours = int(ws_settings.get("default_expiry_hours") or 0)
+        if default_hours > 0:
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=default_hours)
+
+    # Explicit caller passcode always wins; otherwise the workspace may require
+    # one, in which case its configured default passcode is applied. An empty
+    # string (explicit or default) means "no passcode".
+    if body.passcode is not None:
+        passcode: Optional[str] = body.passcode or None
+    elif ws_settings.get("require_passcode"):
+        passcode = (ws_settings.get("default_passcode") or "") or None
+    else:
+        passcode = None
 
     row = await repo.upsert(
         meeting_id=meeting_id,
@@ -89,6 +126,7 @@ async def create_share(
         include_highlights=body.include_highlights,
         include_analytics=body.include_analytics,
         expires_at=expires_at,
+        passcode=passcode,
     )
     from ...audit import record_audit
 

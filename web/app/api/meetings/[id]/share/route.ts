@@ -56,6 +56,8 @@ export async function POST(
         typeof payload.expiresInDays === "number"
           ? payload.expiresInDays
           : undefined,
+      passcode:
+        typeof payload.passcode === "string" ? payload.passcode : undefined,
     });
     return NextResponse.json(created, { status: 201 });
   } catch (error: unknown) {

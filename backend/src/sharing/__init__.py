@@ -13,6 +13,11 @@ Public surface:
 from __future__ import annotations
 
 from .repo import SharesRepo
-from .tokens import generate_share_token, is_share_active
+from .tokens import check_passcode, generate_share_token, is_share_active
 
-__all__ = ["SharesRepo", "generate_share_token", "is_share_active"]
+__all__ = [
+    "SharesRepo",
+    "check_passcode",
+    "generate_share_token",
+    "is_share_active",
+]

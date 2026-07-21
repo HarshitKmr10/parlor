@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 _COLS = (
     "id, meeting_id, workspace_id, created_by, token, include_transcript, "
     "include_highlights, include_analytics, revoked, expires_at, view_count, "
-    "last_viewed_at, created_at, updated_at"
+    "last_viewed_at, passcode, created_at, updated_at"
 )
 
 
@@ -32,21 +32,26 @@ class SharesRepo:
         include_highlights: bool,
         include_analytics: bool,
         expires_at: Optional[Any],
+        passcode: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Create the meeting's share, or rotate the token + reset flags if one
-        already exists (re-sharing). Un-revokes a previously revoked link."""
+        already exists (re-sharing). Un-revokes a previously revoked link.
+
+        ``passcode`` is stored as-is; ``None`` means an unprotected link.
+        Re-sharing always rewrites it, so omitting it clears any prior code."""
         rows = await self._db.store.query_raw(
             f"""
             INSERT INTO meeting_shares
               (meeting_id, workspace_id, created_by, token, include_transcript,
-               include_highlights, include_analytics, expires_at)
-            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8)
+               include_highlights, include_analytics, expires_at, passcode)
+            VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9)
             ON CONFLICT (meeting_id) DO UPDATE SET
               token = EXCLUDED.token,
               include_transcript = EXCLUDED.include_transcript,
               include_highlights = EXCLUDED.include_highlights,
               include_analytics = EXCLUDED.include_analytics,
               expires_at = EXCLUDED.expires_at,
+              passcode = EXCLUDED.passcode,
               revoked = FALSE,
               updated_at = NOW()
             RETURNING {_COLS}
@@ -59,6 +64,7 @@ class SharesRepo:
             include_highlights,
             include_analytics,
             expires_at,
+            passcode,
         )
         return self._normalize(rows[0])
 

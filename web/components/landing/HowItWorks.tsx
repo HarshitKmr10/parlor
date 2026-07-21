@@ -9,18 +9,18 @@ type Step = {
 const STEPS: Step[] = [
   {
     numeral: "01",
-    title: "Connect your calendar",
-    description: "Link Google or Outlook in a click. Parlor sees what's scheduled and nothing else.",
+    title: "Run it yourself",
+    description: "Self-host Parlor in minutes. Start with zero API keys in mock mode, or plug in your own — nothing phones home.",
   },
   {
     numeral: "02",
     title: "Let it listen",
-    description: "It joins on time, transcribes live, and tracks who said what across Zoom, Meet, and Teams.",
+    description: "It transcribes your calls and tracks who said what — every transcript stays on your own machine.",
   },
   {
     numeral: "03",
     title: "Get the recap",
-    description: "Summary, action items, and a searchable record land in your inbox before you've left the room.",
+    description: "Summary, action items, and a searchable record, all processed locally and never sent to anyone else's cloud.",
   },
 ];
 
@@ -38,7 +38,7 @@ export function HowItWorks() {
           </Reveal>
           <Reveal delay={60}>
             <h2 id="how-heading" className="text-2xl text-ink">
-              Live in under two minutes
+              Self-hosted in under two minutes
             </h2>
           </Reveal>
         </div>

@@ -564,6 +564,7 @@ class ShareCreateRequest(CamelModel):
     include_highlights: bool = Field(True, description="Whether the public view includes highlight clips.")
     include_analytics: bool = Field(False, description="Whether the public view includes conversation analytics.")
     expires_in_days: Optional[int] = Field(None, ge=1, le=365, description="If set, the link stops working this many days from now; omit for no expiry.")
+    passcode: Optional[str] = Field(None, description="If set, viewers must supply this passcode to open the link. Omit to inherit the workspace's require-passcode default (if any); pass an empty string for an explicitly unprotected link.")
 
 
 class ShareLink(CamelModel):
@@ -578,6 +579,7 @@ class ShareLink(CamelModel):
     include_analytics: bool = False
     revoked: bool = False
     expires_at: Optional[datetime] = None
+    has_passcode: bool = Field(False, description="Whether viewers must supply a passcode to open the link.")
     view_count: int = 0
     last_viewed_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
@@ -832,6 +834,234 @@ class TrackerHitListResponse(CamelModel):
     total: int = 0
 
 
+# ── Meeting tags ─────────────────────────────────────────────────────────────
+
+
+class Tag(CamelModel):
+    id: str
+    name: str
+    color: str = "#6b7280"
+
+
+class TagCreate(CamelModel):
+    name: str = Field(..., min_length=1, max_length=60, description="Display name for the tag.")
+    color: str = Field("#6b7280", max_length=32, description="Hex color used to render the tag.")
+
+
+class MeetingTagsUpdate(CamelModel):
+    tag_ids: List[str] = Field(default_factory=list, description="Tag IDs to assign to the meeting; replaces any existing assignments.")
+
+
+# ── Personal meeting notes ─────────────────────────────────────────────────
+
+
+class MeetingNote(CamelModel):
+    body: str = ""
+    updated_at: Optional[datetime] = None
+
+
+class MeetingNoteUpdate(CamelModel):
+    body: str = Field("", max_length=20000, description="Private note body; only the author ever sees it. Empty clears the note.")
+
+
+# ── Custom redaction rules ───────────────────────────────────────────────────
+
+_REDACTION_KINDS = ("builtin", "regex", "keyword")
+
+
+class RedactionRule(CamelModel):
+    id: str
+    name: str
+    kind: str
+    pattern: str
+    replacement: str = "[REDACTED]"
+    enabled: bool = True
+
+
+class RedactionRuleCreate(CamelModel):
+    name: str = Field(..., min_length=1, max_length=200, description="Display name for the rule.")
+    kind: str = Field(
+        "keyword",
+        description="One of 'builtin' (pattern = detector key), 'regex', or 'keyword'.",
+    )
+    pattern: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Detector key, regex, or literal substring depending on kind.",
+    )
+    replacement: str = Field(
+        "[REDACTED]", max_length=200, description="Text substituted for each match."
+    )
+
+    @field_validator("kind")
+    @classmethod
+    def _valid_kind(cls, v: str) -> str:
+        if v not in _REDACTION_KINDS:
+            raise ValueError(f"kind must be one of {_REDACTION_KINDS}")
+        return v
+
+
+class RedactionRuleUpdate(CamelModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    kind: Optional[str] = Field(None)
+    pattern: Optional[str] = Field(None, min_length=1, max_length=500)
+    replacement: Optional[str] = Field(None, max_length=200)
+    enabled: Optional[bool] = Field(None)
+
+    @field_validator("kind")
+    @classmethod
+    def _valid_kind(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _REDACTION_KINDS:
+            raise ValueError(f"kind must be one of {_REDACTION_KINDS}")
+        return v
+
+
+# ── Auto-tag rules ───────────────────────────────────────────────────────────
+
+_AUTO_TAG_MATCH_TYPES = ("title_contains", "title_regex")
+
+
+class AutoTagRule(CamelModel):
+    id: str
+    pattern: str
+    match_type: str = "title_contains"
+    tag_id: str
+    enabled: bool = True
+
+
+class AutoTagRuleCreate(CamelModel):
+    pattern: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Literal substring or regex matched against a meeting's title.",
+    )
+    match_type: str = Field(
+        "title_contains",
+        description="One of 'title_contains' or 'title_regex'.",
+    )
+    tag_id: str = Field(..., description="ID of the tag to apply when a title matches.")
+
+    @field_validator("match_type")
+    @classmethod
+    def _valid_match_type(cls, v: str) -> str:
+        if v not in _AUTO_TAG_MATCH_TYPES:
+            raise ValueError(f"match_type must be one of {_AUTO_TAG_MATCH_TYPES}")
+        return v
+
+
+class AutoTagRuleUpdate(CamelModel):
+    pattern: Optional[str] = Field(None, min_length=1, max_length=500)
+    match_type: Optional[str] = Field(None)
+    tag_id: Optional[str] = Field(None)
+    enabled: Optional[bool] = Field(None)
+
+    @field_validator("match_type")
+    @classmethod
+    def _valid_match_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _AUTO_TAG_MATCH_TYPES:
+            raise ValueError(f"match_type must be one of {_AUTO_TAG_MATCH_TYPES}")
+        return v
+
+
+_EXCLUSION_MATCH_TYPES = ("title_contains", "url_contains", "title_regex")
+
+
+class CaptureExclusion(CamelModel):
+    id: str
+    pattern: str
+    match_type: str = "title_contains"
+    note: Optional[str] = None
+    enabled: bool = True
+
+
+class CaptureExclusionCreate(CamelModel):
+    pattern: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Literal substring or regex matched against a meeting's title/URL.",
+    )
+    match_type: str = Field(
+        "title_contains",
+        description="One of 'title_contains', 'url_contains', or 'title_regex'.",
+    )
+    note: Optional[str] = Field(
+        None, max_length=500, description="Optional human note describing the rule."
+    )
+
+    @field_validator("match_type")
+    @classmethod
+    def _valid_match_type(cls, v: str) -> str:
+        if v not in _EXCLUSION_MATCH_TYPES:
+            raise ValueError(f"match_type must be one of {_EXCLUSION_MATCH_TYPES}")
+        return v
+
+
+class CaptureExclusionUpdate(CamelModel):
+    pattern: Optional[str] = Field(None, min_length=1, max_length=500)
+    match_type: Optional[str] = Field(None)
+    note: Optional[str] = Field(None, max_length=500)
+    enabled: Optional[bool] = Field(None)
+
+    @field_validator("match_type")
+    @classmethod
+    def _valid_match_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _EXCLUSION_MATCH_TYPES:
+            raise ValueError(f"match_type must be one of {_EXCLUSION_MATCH_TYPES}")
+        return v
+
+
+class SavedPrompt(CamelModel):
+    id: str
+    title: str
+    body: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SavedPromptCreate(CamelModel):
+    title: str = Field(..., min_length=1, max_length=200, description="Display name for the prompt.")
+    body: str = Field(..., min_length=1, max_length=10_000, description="The reusable prompt text.")
+
+
+class SavedPromptUpdate(CamelModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    body: Optional[str] = Field(None, min_length=1, max_length=10_000)
+
+
+class SavedView(CamelModel):
+    id: str
+    name: str
+    query: str
+    filters: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+
+class SavedViewCreate(CamelModel):
+    name: str = Field(..., min_length=1, max_length=200, description="Display name for the saved view.")
+    query: str = Field("", max_length=10_000, description="The search query string to re-run.")
+    filters: dict[str, Any] = Field(default_factory=dict, description="Optional structured filters applied with the query.")
+
+
+class SavedViewUpdate(CamelModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    query: Optional[str] = Field(None, max_length=10_000)
+    filters: Optional[dict[str, Any]] = None
+
+
+class RedactionPreviewRequest(CamelModel):
+    text: str = Field(..., max_length=50_000, description="Sample text to redact.")
+
+
+class RedactionPreviewResponse(CamelModel):
+    redacted: str
+    total_redactions: int = 0
+    per_rule: dict[str, int] = Field(default_factory=dict)
+
+
 class NlpSettings(CamelModel):
     redaction_enabled: bool = False
     redact_emails: bool = True
@@ -848,6 +1078,47 @@ class NlpSettingsUpdate(CamelModel):
     redact_cards: bool = True
     custom_vocab: List[str] = Field(default_factory=list, description="Domain-specific terms (product names, jargon) the summarizer should recognize.")
     summary_language: str = Field("en", max_length=10, description="ISO language code the AI summary should be generated in.")
+
+
+class ShareSettings(CamelModel):
+    default_expiry_hours: int = Field(0, description="Default share-link lifetime in hours; 0 means the link never expires.")
+    require_passcode: bool = Field(False, description="When on, new share links require a passcode to view.")
+    default_passcode: str = Field("", description="Passcode seeded onto new share links when a passcode is required.")
+
+    @field_validator("default_expiry_hours")
+    @classmethod
+    def _expiry_in_range(cls, v: int) -> int:
+        if v < 0 or v > 8760:
+            raise ValueError("defaultExpiryHours must be between 0 and 8760 (one year).")
+        return v
+
+
+class QuietHours(CamelModel):
+    enabled: bool = Field(False, description="When on, notification/digest emails are suppressed during the window.")
+    start_hour: int = Field(20, description="Hour of day (0–23) the quiet window begins.")
+    end_hour: int = Field(8, description="Hour of day (0–23) the quiet window ends; may wrap past midnight.")
+
+    @field_validator("start_hour", "end_hour")
+    @classmethod
+    def _hour_in_range(cls, v: int) -> int:
+        if v < 0 or v > 23:
+            raise ValueError("hours must be between 0 and 23.")
+        return v
+
+
+class CapturePrefs(CamelModel):
+    auto_join_enabled: bool = Field(True, description="Master switch; when off, Parlor auto-joins nothing from connected calendars.")
+    join_lead_minutes: int = Field(2, description="How many minutes before a meeting starts Parlor joins it (0–30).")
+    join_zoom: bool = Field(True, description="Auto-join Zoom meetings.")
+    join_meet: bool = Field(True, description="Auto-join Google Meet meetings.")
+    join_teams: bool = Field(True, description="Auto-join Microsoft Teams meetings.")
+
+    @field_validator("join_lead_minutes")
+    @classmethod
+    def _lead_in_range(cls, v: int) -> int:
+        if v < 0 or v > 30:
+            raise ValueError("joinLeadMinutes must be between 0 and 30.")
+        return v
 
 
 class AuditEvent(CamelModel):

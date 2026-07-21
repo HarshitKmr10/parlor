@@ -30,10 +30,17 @@ export function revokeShare(meetingId: string): Promise<void> {
  * UNAUTHENTICATED — no cookies are attached — and is safe to call from the
  * public `/share/[token]` route for anonymous visitors.
  */
-export async function getPublicShare(token: string): Promise<PublicMeetingView> {
+export async function getPublicShare(
+  token: string,
+  passcode?: string,
+): Promise<PublicMeetingView> {
   let response: Response;
+  const suffix =
+    passcode != null && passcode !== ""
+      ? `?passcode=${encodeURIComponent(passcode)}`
+      : "";
   try {
-    response = await fetch(backendUrl(`/public/shares/${token}`), {
+    response = await fetch(backendUrl(`/public/shares/${token}${suffix}`), {
       headers: { Accept: "application/json" },
       cache: "no-store",
     });

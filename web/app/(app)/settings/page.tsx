@@ -112,6 +112,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Auto-join & capture"
+            description="Control what Parlor auto-joins from connected calendars — the master switch, join lead time, and per-platform toggles."
+          >
+            <Link
+              href="/settings/capture"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage auto-join & capture
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Summary templates"
             description="Tailor how Parlor summarizes each kind of meeting — sales calls, standups, interviews."
           >
@@ -138,6 +151,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Quiet hours"
+            description="Pause your digest and notification emails during a daily do-not-notify window."
+          >
+            <Link
+              href="/settings/quiet-hours"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage quiet hours
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Privacy & redaction"
             description="Redact PII from transcripts and add custom vocabulary for summaries."
           >
@@ -146,6 +172,97 @@ export default async function SettingsPage() {
               className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
             >
               Manage privacy & redaction
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Sharing defaults"
+            description="Control expiry and passcodes for shared meeting links."
+          >
+            <Link
+              href="/settings/sharing"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage sharing defaults
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Redaction rules"
+            description="Custom regex, keyword, and built-in detectors that scrub sensitive text from transcripts locally — with a live preview."
+          >
+            <Link
+              href="/settings/redaction"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage redaction rules
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Capture exclusions"
+            description="Keep sensitive meetings from ever being auto-joined or recorded."
+          >
+            <Link
+              href="/settings/exclusions"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage capture exclusions
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Prompt library"
+            description="Save reusable Ask prompts — recurring recaps, follow-up extractors — and drop them in instead of retyping."
+          >
+            <Link
+              href="/settings/prompts"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage prompt library
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Saved views"
+            description="Save reusable searches — open action items, recurring topic filters — and re-run them with one click instead of retyping."
+          >
+            <Link
+              href="/settings/views"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage saved views
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Meeting tags"
+            description="Workspace-defined tags (name + color) to organize meetings by team, customer, or topic."
+          >
+            <Link
+              href="/settings/tags"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage meeting tags
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Auto-tag rules"
+            description="Automatically apply a meeting tag when a meeting's title matches a pattern — composes with your meeting tags."
+          >
+            <Link
+              href="/settings/auto-tags"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage auto-tag rules
               <span aria-hidden="true">→</span>
             </Link>
           </SettingsSection>
@@ -172,6 +289,19 @@ export default async function SettingsPage() {
               className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
             >
               Manage retention & data
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
+            title="Export configuration"
+            description="Download your Parlor setup as JSON for backup or moving between instances."
+          >
+            <Link
+              href="/settings/export"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Export configuration
               <span aria-hidden="true">→</span>
             </Link>
           </SettingsSection>

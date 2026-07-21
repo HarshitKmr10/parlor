@@ -13,12 +13,14 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends
+from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, Query
 
 from ...analytics import compute_meeting_analytics
 from ...highlights import HighlightsRepo
 from ...services.meeting_service import MeetingService
-from ...sharing import SharesRepo, is_share_active
+from ...sharing import SharesRepo, check_passcode, is_share_active
 from ..database.connection import DatabaseConnection
 from .deps import get_db
 from .errors import ApiError
@@ -45,6 +47,12 @@ _NOT_FOUND = ApiError(404, "not_found", "This share link is invalid or has expir
 )
 async def get_public_share(
     token: str,
+    passcode: Optional[str] = Query(
+        None, description="Passcode for a passcode-protected share link."
+    ),
+    x_share_passcode: Optional[str] = Header(
+        None, description="Passcode for a passcode-protected share link."
+    ),
     db: DatabaseConnection = Depends(get_db),
 ) -> PublicMeetingView:
     shares = SharesRepo(db)
@@ -53,6 +61,17 @@ async def get_public_share(
         revoked=bool(share["revoked"]), expires_at=share.get("expires_at")
     ):
         raise _NOT_FOUND
+
+    # Passcode gate: an unprotected share (NULL passcode) behaves exactly as
+    # before. A protected one requires a matching passcode via ?passcode= or the
+    # X-Share-Passcode header, and reports 401/403 so the UI can prompt.
+    gate = check_passcode(share.get("passcode"), passcode or x_share_passcode)
+    if gate == "passcode_required":
+        raise ApiError(
+            401, "passcode_required", "This shared meeting is protected by a passcode."
+        )
+    if gate == "invalid_passcode":
+        raise ApiError(403, "invalid_passcode", "The passcode is incorrect.")
 
     meeting_id = share["meeting_id"]
     workspace_id = share["workspace_id"]
