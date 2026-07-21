@@ -14,7 +14,7 @@ export function Hero() {
         {/* Left: copy */}
         <div className="relative z-10 max-w-xl">
           <Reveal>
-            <p className="eyebrow mb-5">AI meeting assistant</p>
+            <p className="eyebrow mb-5">Private, self-hosted meeting notetaker</p>
           </Reveal>
 
           <Reveal delay={60}>
@@ -22,16 +22,18 @@ export function Hero() {
               id="hero-heading"
               className="text-balance text-hero font-medium leading-[1.02] tracking-[-0.025em] text-ink"
             >
-              Your meetings,{" "}
-              <span className="text-sage-600">remembered.</span>
+              Your meetings{" "}
+              <span className="text-sage-600">never leave your machine.</span>
             </h1>
           </Reveal>
 
           <Reveal delay={120}>
             <p className="mt-6 max-w-md text-lg leading-relaxed text-ink-soft">
-              Parlor joins every call, transcribes in real time, and turns the
-              conversation into summaries, action items, and answers you can
-              simply ask for.
+              Parlor transcribes your calls and turns them into summaries,
+              action items, and answers you can ask for &mdash; all running on
+              your own hardware. Self-hosted, open source, and usable with zero
+              API keys thanks to built-in mock mode. A real REST API and MCP
+              server are there when you want to build.
             </p>
           </Reveal>
 
