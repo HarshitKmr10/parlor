@@ -630,6 +630,17 @@ export interface SavedPrompt {
   updatedAt: string;
 }
 
+/* ---- Saved views ---- */
+
+export interface SavedView {
+  id: string;
+  name: string;
+  query: string;
+  filters: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /* ---- Coaching ---- */
 
 export interface CoachingSpeaker {

@@ -59,6 +59,7 @@ services:
       - ./backend/db/0025_llm_usage_events.sql:/docker-entrypoint-initdb.d/25_llm_usage_events.sql:ro
       - ./backend/db/0026_redaction_rules.sql:/docker-entrypoint-initdb.d/26_redaction_rules.sql:ro
       - ./backend/db/0027_prompt_library.sql:/docker-entrypoint-initdb.d/27_prompt_library.sql:ro
+      - ./backend/db/0028_saved_views.sql:/docker-entrypoint-initdb.d/28_saved_views.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meeting} -d ${POSTGRES_DB:-meeting}"]
       interval: 3s

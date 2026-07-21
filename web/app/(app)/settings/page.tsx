@@ -177,6 +177,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Saved views"
+            description="Save reusable searches — open action items, recurring topic filters — and re-run them with one click instead of retyping."
+          >
+            <Link
+              href="/settings/views"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage saved views
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Speaker identities"
             description="Map diarized speaker labels to named people for per-person analytics."
           >

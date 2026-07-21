@@ -903,6 +903,27 @@ class SavedPromptUpdate(CamelModel):
     body: Optional[str] = Field(None, min_length=1, max_length=10_000)
 
 
+class SavedView(CamelModel):
+    id: str
+    name: str
+    query: str
+    filters: dict[str, Any] = Field(default_factory=dict)
+    created_at: datetime
+    updated_at: datetime
+
+
+class SavedViewCreate(CamelModel):
+    name: str = Field(..., min_length=1, max_length=200, description="Display name for the saved view.")
+    query: str = Field("", max_length=10_000, description="The search query string to re-run.")
+    filters: dict[str, Any] = Field(default_factory=dict, description="Optional structured filters applied with the query.")
+
+
+class SavedViewUpdate(CamelModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    query: Optional[str] = Field(None, max_length=10_000)
+    filters: Optional[dict[str, Any]] = None
+
+
 class RedactionPreviewRequest(CamelModel):
     text: str = Field(..., max_length=50_000, description="Sample text to redact.")
 
