@@ -617,6 +617,13 @@ export interface Tag {
   color: string;
 }
 
+/* ---- Personal meeting notes ---- */
+
+export interface MeetingNote {
+  body: string;
+  updatedAt: string | null;
+}
+
 /* ---- Auto-tag rules ---- */
 
 export type AutoTagMatchType = "title_contains" | "title_regex";

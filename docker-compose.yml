@@ -64,6 +64,7 @@ services:
       - ./backend/db/0030_capture_exclusions.sql:/docker-entrypoint-initdb.d/30_capture_exclusions.sql:ro
       - ./backend/db/0031_meeting_tags.sql:/docker-entrypoint-initdb.d/31_meeting_tags.sql:ro
       - ./backend/db/0032_auto_tag_rules.sql:/docker-entrypoint-initdb.d/32_auto_tag_rules.sql:ro
+      - ./backend/db/0033_meeting_notes.sql:/docker-entrypoint-initdb.d/33_meeting_notes.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meeting} -d ${POSTGRES_DB:-meeting}"]
       interval: 3s

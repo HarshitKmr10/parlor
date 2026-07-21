@@ -64,6 +64,7 @@ from .api.product.routes_digest_prefs import router as product_digest_prefs_rout
 from .api.product.routes_speakers import router as product_speakers_router
 from .api.product.routes_trackers import router as product_trackers_router
 from .api.product.routes_tags import router as product_tags_router
+from .api.product.routes_meeting_notes import router as product_meeting_notes_router
 from .api.product.routes_auto_tag import router as product_auto_tag_router
 from .api.product.routes_nlp import router as product_nlp_router
 from .api.product.routes_share import router as product_share_router
@@ -606,6 +607,7 @@ app = FastAPI(
         {"name": "speakers", "description": "Named speaker identity profiles mapped from diarized aliases."},
         {"name": "trackers", "description": "Keyword/topic trackers and their recorded hits across meetings."},
         {"name": "tags", "description": "Meeting tags and per-meeting tag assignment."},
+        {"name": "meeting-notes", "description": "Private per-user notes on a meeting."},
         {"name": "auto-tag-rules", "description": "Rules that auto-apply meeting tags by title match."},
         {"name": "redaction", "description": "Custom user-defined redaction rules and a local redaction preview."},
         {"name": "capture-exclusions", "description": "Do-not-record rules that keep matching meetings from being auto-joined."},
@@ -750,6 +752,7 @@ app.include_router(product_digest_prefs_router)
 app.include_router(product_speakers_router)
 app.include_router(product_trackers_router)
 app.include_router(product_tags_router)
+app.include_router(product_meeting_notes_router)
 app.include_router(product_auto_tag_router)
 app.include_router(product_nlp_router)
 app.include_router(product_share_router)

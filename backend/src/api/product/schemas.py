@@ -850,6 +850,18 @@ class MeetingTagsUpdate(CamelModel):
     tag_ids: List[str] = Field(default_factory=list, description="Tag IDs to assign to the meeting; replaces any existing assignments.")
 
 
+# ── Personal meeting notes ─────────────────────────────────────────────────
+
+
+class MeetingNote(CamelModel):
+    body: str = ""
+    updated_at: Optional[datetime] = None
+
+
+class MeetingNoteUpdate(CamelModel):
+    body: str = Field("", max_length=20000, description="Private note body; only the author ever sees it. Empty clears the note.")
+
+
 # ── Custom redaction rules ───────────────────────────────────────────────────
 
 _REDACTION_KINDS = ("builtin", "regex", "keyword")

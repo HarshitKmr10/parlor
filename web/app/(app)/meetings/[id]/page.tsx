@@ -4,16 +4,19 @@ import { getMeeting, getTranscript } from "@/lib/api/meetings";
 import { getMeetingAnalytics } from "@/lib/api/analytics";
 import { getMeetingCoaching } from "@/lib/api/coaching";
 import { getMeetingTags, listTags } from "@/lib/api/tags";
+import { getMeetingNote } from "@/lib/api/meetingNotes";
 import { ApiError } from "@/lib/api/error";
 import { BACKEND_UNAVAILABLE_CODE } from "@/lib/api/client";
 import type {
   CoachingScorecard,
   MeetingAnalytics,
   MeetingDetail,
+  MeetingNote,
   Tag,
   TranscriptSegment,
 } from "@/lib/api/types";
 import { MeetingTagsPicker } from "@/components/meetings/MeetingTagsPicker";
+import { MeetingNotes } from "@/components/meetings/MeetingNotes";
 import { MeetingHeader } from "@/components/meetings/detail/MeetingHeader";
 import { MeetingTabs, type TabDef } from "@/components/meetings/detail/MeetingTabs";
 import { SummaryTab } from "@/components/meetings/detail/SummaryTab";
@@ -48,9 +51,10 @@ export default async function MeetingDetailPage({
   let coaching: CoachingScorecard | null = null;
   let meetingTags: Tag[] = [];
   let allTags: Tag[] = [];
+  let meetingNote: MeetingNote = { body: "", updatedAt: null };
 
   try {
-    // Fetch meeting + transcript + analytics + coaching + tags in parallel.
+    // Fetch meeting + transcript + analytics + coaching + tags + note in parallel.
     const [
       meetingResult,
       transcriptResult,
@@ -58,6 +62,7 @@ export default async function MeetingDetailPage({
       coachingResult,
       meetingTagsResult,
       allTagsResult,
+      meetingNoteResult,
     ] = await Promise.all([
       getMeeting(id),
       getTranscript(id).catch(() => ({ items: [], lastSegmentAt: null })),
@@ -65,6 +70,7 @@ export default async function MeetingDetailPage({
       getMeetingCoaching(id).catch(() => null),
       getMeetingTags(id).catch(() => [] as Tag[]),
       listTags().catch(() => [] as Tag[]),
+      getMeetingNote(id).catch(() => ({ body: "", updatedAt: null }) as MeetingNote),
     ]);
     meeting = meetingResult;
     segments = transcriptResult.items;
@@ -72,6 +78,7 @@ export default async function MeetingDetailPage({
     coaching = coachingResult;
     meetingTags = meetingTagsResult;
     allTags = allTagsResult;
+    meetingNote = meetingNoteResult;
   } catch (error: unknown) {
     if (ApiError.isApiError(error)) {
       if (error.code === BACKEND_UNAVAILABLE_CODE) {
@@ -161,6 +168,12 @@ export default async function MeetingDetailPage({
           initialTags={meetingTags}
           allTags={allTags}
         />
+      </section>
+      <section aria-labelledby="meeting-notes-heading" className="mt-6">
+        <h2 id="meeting-notes-heading" className="eyebrow mb-2">
+          Your notes
+        </h2>
+        <MeetingNotes meetingId={meeting.id} initialNote={meetingNote} />
       </section>
       <div className="mt-8">
         <MeetingTabs tabs={tabs} />
