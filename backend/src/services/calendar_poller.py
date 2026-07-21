@@ -122,6 +122,7 @@ class CalendarPoller:
 
         events = await self._fetch_upcoming_events(provider, access_token)
         exclusions = await self._load_exclusions(db, workspace_id)
+        prefs = await self._load_capture_prefs(db, workspace_id)
         count = 0
         for event in events:
             url = _extract_meeting_url(event)
@@ -130,6 +131,8 @@ class CalendarPoller:
                 continue
             platform = PlatformDetector.detect_platform(url)
             if platform == "unknown" or not PlatformDetector.is_supported(platform):
+                continue
+            if self._is_pref_skipped(prefs, platform):
                 continue
             if self._is_excluded(exclusions, event, url):
                 continue
@@ -224,6 +227,35 @@ class CalendarPoller:
             return excluded
         except Exception as exc:  # noqa: BLE001
             logger.warning("calendar_poller.exclusion_check_failed", error=str(exc))
+            return False
+
+    async def _load_capture_prefs(self, db, workspace_id: str) -> dict:
+        """Load a workspace's auto-join preferences (best effort).
+
+        On any failure returns an empty dict, which ``_is_pref_skipped`` treats
+        as fail-open (auto-join everything) so the poller never breaks.
+        """
+        try:
+            from ..capture_prefs import CapturePrefsRepo  # noqa: PLC0415
+
+            return await CapturePrefsRepo(db).get(workspace_id)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("calendar_poller.capture_prefs_load_failed", error=str(exc))
+            return {}
+
+    def _is_pref_skipped(self, prefs: dict, platform: str) -> bool:
+        """Skip auto-join when the workspace disabled it, or muted this platform."""
+        if not prefs:
+            return False
+        try:
+            from ..capture_prefs import should_skip_platform  # noqa: PLC0415
+
+            skip = should_skip_platform(prefs, platform)
+            if skip:
+                logger.info("calendar_poller.pref_skipped", platform=platform)
+            return skip
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("calendar_poller.capture_prefs_check_failed", error=str(exc))
             return False
 
     async def _already_booked(self, db, event_id: str) -> bool:

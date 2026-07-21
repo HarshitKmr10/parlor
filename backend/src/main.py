@@ -68,6 +68,7 @@ from .api.product.routes_meeting_notes import router as product_meeting_notes_ro
 from .api.product.routes_auto_tag import router as product_auto_tag_router
 from .api.product.routes_nlp import router as product_nlp_router
 from .api.product.routes_share import router as product_share_router
+from .api.product.routes_capture_prefs import router as product_capture_prefs_router
 from .api.product.routes_prompts import router as product_prompts_router
 from .api.product.routes_saved_views import router as product_saved_views_router
 from .api.product.routes_redaction import router as product_redaction_router
@@ -615,6 +616,7 @@ app = FastAPI(
         {"name": "saved-views", "description": "Reusable saved searches."},
         {"name": "nlp", "description": "Per-workspace PII redaction and custom vocabulary settings."},
         {"name": "share-settings", "description": "Defaults for shared meeting links (expiry, passcode)."},
+        {"name": "capture-prefs", "description": "Auto-join preferences for calendar capture."},
         {"name": "audit", "description": "Workspace audit log of sensitive actions."},
         {"name": "sso", "description": "Generic OIDC single sign-on: status, authorize URL, and code exchange."},
         {"name": "compliance", "description": "Data retention settings, GDPR export, and soft-delete restore."},
@@ -756,6 +758,7 @@ app.include_router(product_meeting_notes_router)
 app.include_router(product_auto_tag_router)
 app.include_router(product_nlp_router)
 app.include_router(product_share_router)
+app.include_router(product_capture_prefs_router)
 app.include_router(product_redaction_router)
 app.include_router(product_exclusions_router)
 app.include_router(product_prompts_router)

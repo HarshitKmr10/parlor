@@ -1091,6 +1091,21 @@ class ShareSettings(CamelModel):
         return v
 
 
+class CapturePrefs(CamelModel):
+    auto_join_enabled: bool = Field(True, description="Master switch; when off, Parlor auto-joins nothing from connected calendars.")
+    join_lead_minutes: int = Field(2, description="How many minutes before a meeting starts Parlor joins it (0–30).")
+    join_zoom: bool = Field(True, description="Auto-join Zoom meetings.")
+    join_meet: bool = Field(True, description="Auto-join Google Meet meetings.")
+    join_teams: bool = Field(True, description="Auto-join Microsoft Teams meetings.")
+
+    @field_validator("join_lead_minutes")
+    @classmethod
+    def _lead_in_range(cls, v: int) -> int:
+        if v < 0 or v > 30:
+            raise ValueError("joinLeadMinutes must be between 0 and 30.")
+        return v
+
+
 class AuditEvent(CamelModel):
     id: str
     actor_id: Optional[str] = None

@@ -573,6 +573,16 @@ export interface ShareSettings {
   defaultPasscode: string;
 }
 
+/* ---- Auto-join preferences (calendar capture) ---- */
+
+export interface CapturePrefs {
+  autoJoinEnabled: boolean;
+  joinLeadMinutes: number;
+  joinZoom: boolean;
+  joinMeet: boolean;
+  joinTeams: boolean;
+}
+
 /* ---- Outbound integrations ---- */
 
 export type IntegrationKind = "slack" | "email" | "notion" | "hubspot" | "salesforce";

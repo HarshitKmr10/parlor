@@ -112,6 +112,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Auto-join & capture"
+            description="Control what Parlor auto-joins from connected calendars — the master switch, join lead time, and per-platform toggles."
+          >
+            <Link
+              href="/settings/capture"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage auto-join & capture
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Summary templates"
             description="Tailor how Parlor summarizes each kind of meeting — sales calls, standups, interviews."
           >
