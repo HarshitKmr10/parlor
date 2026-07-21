@@ -573,6 +573,14 @@ export interface ShareSettings {
   defaultPasscode: string;
 }
 
+/* ---- Notification quiet hours (per-user do-not-notify window) ---- */
+
+export interface QuietHours {
+  enabled: boolean;
+  startHour: number;
+  endHour: number;
+}
+
 /* ---- Auto-join preferences (calendar capture) ---- */
 
 export interface CapturePrefs {

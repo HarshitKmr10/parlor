@@ -151,6 +151,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Quiet hours"
+            description="Pause your digest and notification emails during a daily do-not-notify window."
+          >
+            <Link
+              href="/settings/quiet-hours"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage quiet hours
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Privacy & redaction"
             description="Redact PII from transcripts and add custom vocabulary for summaries."
           >

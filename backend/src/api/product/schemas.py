@@ -1091,6 +1091,19 @@ class ShareSettings(CamelModel):
         return v
 
 
+class QuietHours(CamelModel):
+    enabled: bool = Field(False, description="When on, notification/digest emails are suppressed during the window.")
+    start_hour: int = Field(20, description="Hour of day (0–23) the quiet window begins.")
+    end_hour: int = Field(8, description="Hour of day (0–23) the quiet window ends; may wrap past midnight.")
+
+    @field_validator("start_hour", "end_hour")
+    @classmethod
+    def _hour_in_range(cls, v: int) -> int:
+        if v < 0 or v > 23:
+            raise ValueError("hours must be between 0 and 23.")
+        return v
+
+
 class CapturePrefs(CamelModel):
     auto_join_enabled: bool = Field(True, description="Master switch; when off, Parlor auto-joins nothing from connected calendars.")
     join_lead_minutes: int = Field(2, description="How many minutes before a meeting starts Parlor joins it (0–30).")
