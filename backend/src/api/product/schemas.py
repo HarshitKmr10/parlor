@@ -832,6 +832,24 @@ class TrackerHitListResponse(CamelModel):
     total: int = 0
 
 
+# ── Meeting tags ─────────────────────────────────────────────────────────────
+
+
+class Tag(CamelModel):
+    id: str
+    name: str
+    color: str = "#6b7280"
+
+
+class TagCreate(CamelModel):
+    name: str = Field(..., min_length=1, max_length=60, description="Display name for the tag.")
+    color: str = Field("#6b7280", max_length=32, description="Hex color used to render the tag.")
+
+
+class MeetingTagsUpdate(CamelModel):
+    tag_ids: List[str] = Field(default_factory=list, description="Tag IDs to assign to the meeting; replaces any existing assignments.")
+
+
 # ── Custom redaction rules ───────────────────────────────────────────────────
 
 _REDACTION_KINDS = ("builtin", "regex", "keyword")

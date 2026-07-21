@@ -609,6 +609,14 @@ export interface TrackerHitListResponse {
   total: number;
 }
 
+/* ---- Meeting tags ---- */
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
+
 /* ---- Custom redaction rules ---- */
 
 export type RedactionRuleKind = "builtin" | "regex" | "keyword";

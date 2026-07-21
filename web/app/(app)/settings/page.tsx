@@ -216,6 +216,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Meeting tags"
+            description="Workspace-defined tags (name + color) to organize meetings by team, customer, or topic."
+          >
+            <Link
+              href="/settings/tags"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage meeting tags
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Speaker identities"
             description="Map diarized speaker labels to named people for per-person analytics."
           >

@@ -62,6 +62,7 @@ services:
       - ./backend/db/0028_saved_views.sql:/docker-entrypoint-initdb.d/28_saved_views.sql:ro
       - ./backend/db/0029_share_settings.sql:/docker-entrypoint-initdb.d/29_share_settings.sql:ro
       - ./backend/db/0030_capture_exclusions.sql:/docker-entrypoint-initdb.d/30_capture_exclusions.sql:ro
+      - ./backend/db/0031_meeting_tags.sql:/docker-entrypoint-initdb.d/31_meeting_tags.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-meeting} -d ${POSTGRES_DB:-meeting}"]
       interval: 3s
