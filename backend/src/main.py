@@ -64,6 +64,7 @@ from .api.product.routes_digest_prefs import router as product_digest_prefs_rout
 from .api.product.routes_speakers import router as product_speakers_router
 from .api.product.routes_trackers import router as product_trackers_router
 from .api.product.routes_nlp import router as product_nlp_router
+from .api.product.routes_redaction import router as product_redaction_router
 from .api.product.routes_audit import router as product_audit_router
 from .api.product.routes_sso import router as product_sso_router
 from .api.product.routes_compliance import router as product_compliance_router
@@ -598,6 +599,7 @@ app = FastAPI(
         {"name": "digests", "description": "Scheduled digest delivery preferences (email/Slack) and on-demand test sends."},
         {"name": "speakers", "description": "Named speaker identity profiles mapped from diarized aliases."},
         {"name": "trackers", "description": "Keyword/topic trackers and their recorded hits across meetings."},
+        {"name": "redaction", "description": "Custom user-defined redaction rules and a local redaction preview."},
         {"name": "nlp", "description": "Per-workspace PII redaction and custom vocabulary settings."},
         {"name": "audit", "description": "Workspace audit log of sensitive actions."},
         {"name": "sso", "description": "Generic OIDC single sign-on: status, authorize URL, and code exchange."},
@@ -736,6 +738,7 @@ app.include_router(product_digest_prefs_router)
 app.include_router(product_speakers_router)
 app.include_router(product_trackers_router)
 app.include_router(product_nlp_router)
+app.include_router(product_redaction_router)
 app.include_router(product_audit_router)
 app.include_router(product_sso_router)
 app.include_router(product_compliance_router)

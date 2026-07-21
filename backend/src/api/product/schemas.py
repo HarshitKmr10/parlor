@@ -832,6 +832,69 @@ class TrackerHitListResponse(CamelModel):
     total: int = 0
 
 
+# ── Custom redaction rules ───────────────────────────────────────────────────
+
+_REDACTION_KINDS = ("builtin", "regex", "keyword")
+
+
+class RedactionRule(CamelModel):
+    id: str
+    name: str
+    kind: str
+    pattern: str
+    replacement: str = "[REDACTED]"
+    enabled: bool = True
+
+
+class RedactionRuleCreate(CamelModel):
+    name: str = Field(..., min_length=1, max_length=200, description="Display name for the rule.")
+    kind: str = Field(
+        "keyword",
+        description="One of 'builtin' (pattern = detector key), 'regex', or 'keyword'.",
+    )
+    pattern: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Detector key, regex, or literal substring depending on kind.",
+    )
+    replacement: str = Field(
+        "[REDACTED]", max_length=200, description="Text substituted for each match."
+    )
+
+    @field_validator("kind")
+    @classmethod
+    def _valid_kind(cls, v: str) -> str:
+        if v not in _REDACTION_KINDS:
+            raise ValueError(f"kind must be one of {_REDACTION_KINDS}")
+        return v
+
+
+class RedactionRuleUpdate(CamelModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=200)
+    kind: Optional[str] = Field(None)
+    pattern: Optional[str] = Field(None, min_length=1, max_length=500)
+    replacement: Optional[str] = Field(None, max_length=200)
+    enabled: Optional[bool] = Field(None)
+
+    @field_validator("kind")
+    @classmethod
+    def _valid_kind(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _REDACTION_KINDS:
+            raise ValueError(f"kind must be one of {_REDACTION_KINDS}")
+        return v
+
+
+class RedactionPreviewRequest(CamelModel):
+    text: str = Field(..., max_length=50_000, description="Sample text to redact.")
+
+
+class RedactionPreviewResponse(CamelModel):
+    redacted: str
+    total_redactions: int = 0
+    per_rule: dict[str, int] = Field(default_factory=dict)
+
+
 class NlpSettings(CamelModel):
     redaction_enabled: bool = False
     redact_emails: bool = True

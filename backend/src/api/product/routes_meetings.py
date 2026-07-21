@@ -829,6 +829,21 @@ async def summarize_meeting(
     except Exception as exc:  # noqa: BLE001
         logger.warning("redaction skipped for %s: %s", meeting_id, exc)
 
+    # Custom user-defined redaction rules apply independently of the fixed
+    # email/phone/card policy toggle above — any enabled rule scrubs its
+    # pattern from every segment before the transcript reaches the AI service.
+    try:
+        from ...redaction import RedactionRulesRepo, redact, rules_from_rows
+
+        rule_rows = await RedactionRulesRepo(db).list_enabled(workspace.id)
+        if rule_rows:
+            rules = rules_from_rows(rule_rows)
+            for seg in segments:
+                if isinstance(seg, dict) and seg.get("text"):
+                    seg["text"] = redact(str(seg["text"]), rules).text
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("custom redaction rules skipped for %s: %s", meeting_id, exc)
+
     meta = {
         "title": scoped.get("title") or "",
         "participants": [

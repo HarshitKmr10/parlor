@@ -601,6 +601,25 @@ export interface TrackerHitListResponse {
   total: number;
 }
 
+/* ---- Custom redaction rules ---- */
+
+export type RedactionRuleKind = "builtin" | "regex" | "keyword";
+
+export interface RedactionRule {
+  id: string;
+  name: string;
+  kind: RedactionRuleKind;
+  pattern: string;
+  replacement: string;
+  enabled: boolean;
+}
+
+export interface RedactionPreviewResponse {
+  redacted: string;
+  totalRedactions: number;
+  perRule: Record<string, number>;
+}
+
 /* ---- Coaching ---- */
 
 export interface CoachingSpeaker {
