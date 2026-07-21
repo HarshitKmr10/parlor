@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter, Geist_Mono } from "next/font/google";
 import { RegisterServiceWorker } from "@/components/pwa/RegisterServiceWorker";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -23,10 +24,17 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+const DESCRIPTION =
+  "Parlor joins your meetings, transcribes in real time, and turns every conversation into summaries, action items, and answers you can ask for.";
+
 export const metadata: Metadata = {
-  title: "Parlor — your meetings, remembered",
-  description:
-    "Parlor joins your meetings, transcribes in real time, and turns every conversation into summaries, action items, and answers you can ask for.",
+  metadataBase: new URL(siteUrl()),
+  title: {
+    default: "Parlor — your meetings, remembered",
+    template: "%s · Parlor",
+  },
+  description: DESCRIPTION,
+  applicationName: "Parlor",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
@@ -34,6 +42,18 @@ export const metadata: Metadata = {
   },
   icons: {
     apple: "/apple-touch-icon.png",
+  },
+  openGraph: {
+    type: "website",
+    siteName: "Parlor",
+    title: "Parlor — your meetings, remembered",
+    description: DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Parlor — your meetings, remembered",
+    description: DESCRIPTION,
   },
 };
 
