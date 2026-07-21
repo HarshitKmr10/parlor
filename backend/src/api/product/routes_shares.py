@@ -15,6 +15,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends
 
+from ...share_settings import ShareSettingsRepo
 from ...sharing import SharesRepo, generate_share_token
 from ..database.connection import DatabaseConnection
 from .deps import AuthContext, get_current_context, get_db
@@ -29,10 +30,28 @@ async def _repo(db: DatabaseConnection = Depends(get_db)) -> SharesRepo:
     return SharesRepo(db)
 
 
+async def _settings_repo(
+    db: DatabaseConnection = Depends(get_db),
+) -> ShareSettingsRepo:
+    return ShareSettingsRepo(db)
+
+
 async def _meetings_repo(
     db: DatabaseConnection = Depends(get_db),
 ) -> ProductMeetingsRepo:
     return ProductMeetingsRepo(db)
+
+
+async def _default_expiry_hours(
+    settings: ShareSettingsRepo, workspace_id: str
+) -> int:
+    """Workspace default link-expiry in hours (0 = never). Defensive: any
+    failure loading settings falls back to no default so sharing never breaks."""
+    try:
+        row = await settings.get(workspace_id)
+        return int(row.get("default_expiry_hours") or 0)
+    except Exception:
+        return 0
 
 
 def _share_link(row: dict) -> ShareLink:
@@ -71,6 +90,7 @@ async def create_share(
     body: ShareCreateRequest,
     ctx: AuthContext = Depends(get_current_context),
     repo: SharesRepo = Depends(_repo),
+    settings: ShareSettingsRepo = Depends(_settings_repo),
     meetings: ProductMeetingsRepo = Depends(_meetings_repo),
 ) -> ShareLink:
     if await meetings.get_scoped(meeting_id, ctx.workspace.id) is None:
@@ -78,7 +98,12 @@ async def create_share(
 
     expires_at: Optional[datetime] = None
     if body.expires_in_days is not None:
+        # Explicit caller-provided expiry always wins over the workspace default.
         expires_at = datetime.now(timezone.utc) + timedelta(days=body.expires_in_days)
+    else:
+        default_hours = await _default_expiry_hours(settings, ctx.workspace.id)
+        if default_hours > 0:
+            expires_at = datetime.now(timezone.utc) + timedelta(hours=default_hours)
 
     row = await repo.upsert(
         meeting_id=meeting_id,
