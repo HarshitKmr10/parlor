@@ -907,6 +907,24 @@ async def summarize_meeting(
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("tracker scan failed for %s: %s", meeting_id, exc)
+
+    # Auto-apply meeting tags whose pattern matches the title (best-effort).
+    # Additive: matched tags are added alongside any manual tags, never
+    # clobbering them. Fail-open — a failure here never blocks summarization.
+    try:
+        from ...auto_tag import AutoTagRulesRepo, matching_tag_ids, rules_from_rows
+        from ...tags.repo import TagsRepo
+
+        auto_tag_rows = await AutoTagRulesRepo(db).list_enabled(workspace.id)
+        if auto_tag_rows:
+            tag_ids = matching_tag_ids(
+                str(scoped.get("title") or ""), rules_from_rows(auto_tag_rows)
+            )
+            if tag_ids:
+                await TagsRepo(db).add_for_meeting(meeting_id, workspace.id, tag_ids)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("auto-tag rules skipped for %s: %s", meeting_id, exc)
+
     return insights
 
 

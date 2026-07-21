@@ -89,3 +89,29 @@ class TagsRepo:
                 unique_ids,
             )
         return await self.list_for_meeting(meeting_id, workspace_id)
+
+    async def add_for_meeting(
+        self, meeting_id: str, workspace_id: str, tag_ids: Sequence[str]
+    ) -> List[Dict[str, Any]]:
+        """Additively assign tag_ids to a meeting WITHOUT removing existing ones.
+
+        Inserts only the given tag_ids that belong to the workspace, leaving any
+        manually-assigned tags in place (ON CONFLICT DO NOTHING). Used by the
+        auto-tag pipeline. Returns the resulting tag rows.
+        """
+        unique_ids = list(dict.fromkeys(str(t) for t in tag_ids if str(t).strip()))
+        if unique_ids:
+            await self._db.store.query_raw(
+                """
+                INSERT INTO meeting_tags (meeting_id, tag_id, workspace_id)
+                SELECT $1::uuid, t.id, $2::uuid
+                FROM tags t
+                WHERE t.workspace_id = $2::uuid
+                  AND t.id = ANY($3::uuid[])
+                ON CONFLICT (meeting_id, tag_id) DO NOTHING
+                """,
+                meeting_id,
+                workspace_id,
+                unique_ids,
+            )
+        return await self.list_for_meeting(meeting_id, workspace_id)

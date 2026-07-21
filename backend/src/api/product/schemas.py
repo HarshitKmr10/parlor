@@ -903,6 +903,54 @@ class RedactionRuleUpdate(CamelModel):
         return v
 
 
+# ── Auto-tag rules ───────────────────────────────────────────────────────────
+
+_AUTO_TAG_MATCH_TYPES = ("title_contains", "title_regex")
+
+
+class AutoTagRule(CamelModel):
+    id: str
+    pattern: str
+    match_type: str = "title_contains"
+    tag_id: str
+    enabled: bool = True
+
+
+class AutoTagRuleCreate(CamelModel):
+    pattern: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Literal substring or regex matched against a meeting's title.",
+    )
+    match_type: str = Field(
+        "title_contains",
+        description="One of 'title_contains' or 'title_regex'.",
+    )
+    tag_id: str = Field(..., description="ID of the tag to apply when a title matches.")
+
+    @field_validator("match_type")
+    @classmethod
+    def _valid_match_type(cls, v: str) -> str:
+        if v not in _AUTO_TAG_MATCH_TYPES:
+            raise ValueError(f"match_type must be one of {_AUTO_TAG_MATCH_TYPES}")
+        return v
+
+
+class AutoTagRuleUpdate(CamelModel):
+    pattern: Optional[str] = Field(None, min_length=1, max_length=500)
+    match_type: Optional[str] = Field(None)
+    tag_id: Optional[str] = Field(None)
+    enabled: Optional[bool] = Field(None)
+
+    @field_validator("match_type")
+    @classmethod
+    def _valid_match_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _AUTO_TAG_MATCH_TYPES:
+            raise ValueError(f"match_type must be one of {_AUTO_TAG_MATCH_TYPES}")
+        return v
+
+
 _EXCLUSION_MATCH_TYPES = ("title_contains", "url_contains", "title_regex")
 
 

@@ -617,6 +617,18 @@ export interface Tag {
   color: string;
 }
 
+/* ---- Auto-tag rules ---- */
+
+export type AutoTagMatchType = "title_contains" | "title_regex";
+
+export interface AutoTagRule {
+  id: string;
+  pattern: string;
+  matchType: AutoTagMatchType;
+  tagId: string;
+  enabled: boolean;
+}
+
 /* ---- Custom redaction rules ---- */
 
 export type RedactionRuleKind = "builtin" | "regex" | "keyword";
