@@ -3,9 +3,9 @@
        single speech bubble — Parlor's whole premise is capturing a
        conversation between people, not a monologue. -->
   <path d="M18 28 h42 a8 8 0 0 1 8 8 v22 a8 8 0 0 1 -8 8 h-24 l-10 10 v-10 h-8 a8 8 0 0 1 -8 -8 v-22 a8 8 0 0 1 8 -8 Z"
-        fill="#eef1e6" stroke="#5c6b4a" stroke-width="3" />
+        fill="#eef0fb" stroke="#3f4ea3" stroke-width="3" />
   <path d="M40 20 h34 a8 8 0 0 1 8 8 v18 a8 8 0 0 1 -8 8 h-6 v9 l-9 -9 h-19 a8 8 0 0 1 -8 -8 v-18 a8 8 0 0 1 8 -8 Z"
-        fill="#5c6b4a" />
-  <!-- The gold accent point: the summary distilled from the conversation. -->
-  <circle cx="58" cy="38" r="4.5" fill="#b8893b" />
+        fill="#3f4ea3" />
+  <!-- The teal accent point: the summary distilled from the conversation. -->
+  <circle cx="58" cy="38" r="4.5" fill="#1a8c98" />
 </svg>

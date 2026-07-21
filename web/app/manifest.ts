@@ -8,8 +8,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Parlor joins your meetings, transcribes in real time, and turns every conversation into summaries, action items, and answers you can ask for.",
     start_url: "/",
     display: "standalone",
-    background_color: "#fcfbf7",
-    theme_color: "#5c6b4a",
+    background_color: "#fbfcfe",
+    theme_color: "#3f4ea3",
     icons: [
       {
         src: "/icon-192.png",
