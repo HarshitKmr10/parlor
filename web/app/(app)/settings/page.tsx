@@ -177,6 +177,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Capture exclusions"
+            description="Keep sensitive meetings from ever being auto-joined or recorded."
+          >
+            <Link
+              href="/settings/exclusions"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Manage capture exclusions
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Prompt library"
             description="Save reusable Ask prompts — recurring recaps, follow-up extractors — and drop them in instead of retyping."
           >

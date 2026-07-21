@@ -885,6 +885,54 @@ class RedactionRuleUpdate(CamelModel):
         return v
 
 
+_EXCLUSION_MATCH_TYPES = ("title_contains", "url_contains", "title_regex")
+
+
+class CaptureExclusion(CamelModel):
+    id: str
+    pattern: str
+    match_type: str = "title_contains"
+    note: Optional[str] = None
+    enabled: bool = True
+
+
+class CaptureExclusionCreate(CamelModel):
+    pattern: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="Literal substring or regex matched against a meeting's title/URL.",
+    )
+    match_type: str = Field(
+        "title_contains",
+        description="One of 'title_contains', 'url_contains', or 'title_regex'.",
+    )
+    note: Optional[str] = Field(
+        None, max_length=500, description="Optional human note describing the rule."
+    )
+
+    @field_validator("match_type")
+    @classmethod
+    def _valid_match_type(cls, v: str) -> str:
+        if v not in _EXCLUSION_MATCH_TYPES:
+            raise ValueError(f"match_type must be one of {_EXCLUSION_MATCH_TYPES}")
+        return v
+
+
+class CaptureExclusionUpdate(CamelModel):
+    pattern: Optional[str] = Field(None, min_length=1, max_length=500)
+    match_type: Optional[str] = Field(None)
+    note: Optional[str] = Field(None, max_length=500)
+    enabled: Optional[bool] = Field(None)
+
+    @field_validator("match_type")
+    @classmethod
+    def _valid_match_type(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in _EXCLUSION_MATCH_TYPES:
+            raise ValueError(f"match_type must be one of {_EXCLUSION_MATCH_TYPES}")
+        return v
+
+
 class SavedPrompt(CamelModel):
     id: str
     title: str

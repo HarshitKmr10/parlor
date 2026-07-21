@@ -68,6 +68,7 @@ from .api.product.routes_share import router as product_share_router
 from .api.product.routes_prompts import router as product_prompts_router
 from .api.product.routes_saved_views import router as product_saved_views_router
 from .api.product.routes_redaction import router as product_redaction_router
+from .api.product.routes_exclusions import router as product_exclusions_router
 from .api.product.routes_audit import router as product_audit_router
 from .api.product.routes_sso import router as product_sso_router
 from .api.product.routes_compliance import router as product_compliance_router
@@ -603,6 +604,7 @@ app = FastAPI(
         {"name": "speakers", "description": "Named speaker identity profiles mapped from diarized aliases."},
         {"name": "trackers", "description": "Keyword/topic trackers and their recorded hits across meetings."},
         {"name": "redaction", "description": "Custom user-defined redaction rules and a local redaction preview."},
+        {"name": "capture-exclusions", "description": "Do-not-record rules that keep matching meetings from being auto-joined."},
         {"name": "prompts", "description": "Reusable saved Ask prompts."},
         {"name": "saved-views", "description": "Reusable saved searches."},
         {"name": "nlp", "description": "Per-workspace PII redaction and custom vocabulary settings."},
@@ -746,6 +748,7 @@ app.include_router(product_trackers_router)
 app.include_router(product_nlp_router)
 app.include_router(product_share_router)
 app.include_router(product_redaction_router)
+app.include_router(product_exclusions_router)
 app.include_router(product_prompts_router)
 app.include_router(product_saved_views_router)
 app.include_router(product_audit_router)

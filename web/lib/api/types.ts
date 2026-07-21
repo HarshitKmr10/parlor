@@ -628,6 +628,21 @@ export interface RedactionPreviewResponse {
   perRule: Record<string, number>;
 }
 
+/* ---- Capture exclusions (do-not-record rules) ---- */
+
+export type CaptureExclusionMatchType =
+  | "title_contains"
+  | "url_contains"
+  | "title_regex";
+
+export interface CaptureExclusion {
+  id: string;
+  pattern: string;
+  matchType: CaptureExclusionMatchType;
+  note: string | null;
+  enabled: boolean;
+}
+
 /* ---- Prompt library ---- */
 
 export interface SavedPrompt {

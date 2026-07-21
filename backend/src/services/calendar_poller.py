@@ -121,6 +121,7 @@ class CalendarPoller:
         workspace_id = str(account.get("workspace_id"))
 
         events = await self._fetch_upcoming_events(provider, access_token)
+        exclusions = await self._load_exclusions(db, workspace_id)
         count = 0
         for event in events:
             url = _extract_meeting_url(event)
@@ -129,6 +130,8 @@ class CalendarPoller:
                 continue
             platform = PlatformDetector.detect_platform(url)
             if platform == "unknown" or not PlatformDetector.is_supported(platform):
+                continue
+            if self._is_excluded(exclusions, event, url):
                 continue
             if await self._already_booked(db, event_id):
                 continue
@@ -190,6 +193,38 @@ class CalendarPoller:
             )
         resp.raise_for_status()
         return list(resp.json().get("value") or [])
+
+    async def _load_exclusions(self, db, workspace_id: str) -> list:
+        """Load enabled capture exclusions for a workspace (best effort)."""
+        try:
+            from ..capture_exclusions import (  # noqa: PLC0415
+                CaptureExclusionsRepo,
+                rules_from_rows,
+            )
+
+            rows = await CaptureExclusionsRepo(db).list_enabled(workspace_id)
+            return rules_from_rows(rows)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("calendar_poller.exclusions_load_failed", error=str(exc))
+            return []
+
+    def _is_excluded(self, exclusions: list, event: Dict[str, Any], url: str) -> bool:
+        """Skip auto-join when a do-not-record rule matches the meeting."""
+        if not exclusions:
+            return False
+        try:
+            from ..capture_exclusions import is_excluded  # noqa: PLC0415
+
+            title = str(event.get("summary") or event.get("subject") or "")
+            excluded, rule_id = is_excluded(title, url, exclusions)
+            if excluded:
+                logger.info(
+                    "calendar_poller.excluded", rule_id=rule_id, title=title
+                )
+            return excluded
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("calendar_poller.exclusion_check_failed", error=str(exc))
+            return False
 
     async def _already_booked(self, db, event_id: str) -> bool:
         table = _table(db, "meeting_joiner")
