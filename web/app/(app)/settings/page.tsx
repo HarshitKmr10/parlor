@@ -281,6 +281,19 @@ export default async function SettingsPage() {
           </SettingsSection>
 
           <SettingsSection
+            title="Export configuration"
+            description="Download your Parlor setup as JSON for backup or moving between instances."
+          >
+            <Link
+              href="/settings/export"
+              className="inline-flex items-center gap-2 rounded-md border border-border-default bg-surface-0 px-4 py-2.5 text-sm font-medium text-ink shadow-soft-sm transition-colors hover:border-border-strong hover:bg-surface-1"
+            >
+              Export configuration
+              <span aria-hidden="true">→</span>
+            </Link>
+          </SettingsSection>
+
+          <SettingsSection
             title="Usage"
             description="Admin-only workspace activity: meetings, minutes captured."
           >
