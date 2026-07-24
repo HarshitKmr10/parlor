@@ -13,8 +13,8 @@ python = "^3.11"
 # fastapi>=0.133 is the earliest release that drops its upper bound on
 # starlette, which is required to move starlette to the 1.x line below
 # (GHSA fixes for CVE-2026-48710 and later starlette CVEs need >=1.3.1).
-fastapi = "^0.133.0"
-uvicorn = {extras = ["standard"], version = "^0.30.0"}
+fastapi = ">=0.133,<0.140"
+uvicorn = {extras = ["standard"], version = ">=0.30,<0.52"}
 pydantic = "^2.5.0"
 pydantic-settings = "^2.1.0"
 
@@ -31,7 +31,7 @@ azure-identity = "^1.15.0"
 # Utilities
 python-multipart = ">=0.0.32,<0.1.0"
 python-dotenv = "^1.2.2"
-httpx = "^0.27.2"
+httpx = ">=0.27.2,<0.29.0"
 aiofiles = "^23.2.1"
 psutil = "^5.9.0"
 
@@ -68,7 +68,7 @@ google-api-python-client = "^2.100"
 google-auth = "^2.30"
 
 # Prometheus client for sidecar /metrics endpoint
-prometheus-client = "^0.20.0"
+prometheus-client = ">=0.20,<0.26"
 
 # Security: Explicit version constraints for vulnerability fixes
 aiohttp = "^3.13.4"
