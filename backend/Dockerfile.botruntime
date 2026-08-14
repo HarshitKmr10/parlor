@@ -47,7 +47,7 @@ FROM node:18-bookworm-slim AS node_source
 
 # Debian-based python image (glibc) so Playwright's Chromium + system deps and
 # the @xenova/transformers (onnxruntime) prebuilt binaries work out of the box.
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
